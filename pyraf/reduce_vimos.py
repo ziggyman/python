@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import logging
 import numpy as np
 import os
@@ -6,10 +6,12 @@ import re
 import shlex
 import shutil
 import subprocess
+#import sys
 import traceback
 #from pyraf import iraf
 #import pyfits
 from astropy.io import fits as pyfits
+from pyraf import iraf
 
 pathIn = "/Volumes/obiwan/azuri/spectra/099_B-0215_A.bak"
 pathOutGen = '/Volumes/obiwan/azuri/spectra/099_B-0215_A/%s/%s/%s/%s'#(date, filter, quadrant, TargetName)
@@ -29,6 +31,11 @@ def runCommand(command, outFileName=None):
     if p.returncode != 0:
         raise Exception('runCommand: ERROR: running command <'+command+'> returned ',p.returncode)
 
+def dateTimeDiffInSeconds(dateTimeA, dateTimeB):
+    dTime = dateTimeB - dateTimeB
+    secs = dTime.total_seconds()
+    return dateTimeA + timedelta(0,int(secs / 2))
+
 def findClosest(day, days, filter, quadrant, imType, fName):
     """find closest master imType by date"""
     for key, value in sorted(days.iteritems(), key=lambda (k,v): (v,k)):
@@ -39,21 +46,36 @@ def findClosest(day, days, filter, quadrant, imType, fName):
             return masterImType
     return None
 
+def getDateTimeFromFileName(fName):
+    m = re.search(r".*VIMOS\.(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2}).*fits", fName)
+    strs = m.groups()
+    nums = [int(str) for str in strs]
+    return datetime(nums[0], nums[1], nums[2], nums[3], nums[4], nums[5])
+
 def findClosestInTime(obsTime, dates, filter, quadrant, imType, fName):
+    standards = []
+    print 'dates = ',dates
     for key, value in sorted(dates.iteritems(), key=lambda (k,v): (v,k)):
-#        print "%s: %s" % (key, value)
+        print "findClosestInTime: key=%s: value=%s" % (key, value)
         path = pathOutGen % (key, filter, quadrant, imType)
-        with open(os.path.join(path,'std.list')) as f:
-            lines = list(f)
-        for line in lines:
-            m = re.search('.*[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]-[0-9][0-9]-[0-9][0-9]\..*.fits$', line)
-            print 'm = ',m
-            STOP
-#            year = line[]
-#            stdTime = datetime()
-        masterImType = os.path.join(path,fName)
-        if os.path.exists(masterImType):
-            return masterImType
+        stdList = os.path.join(path,'std.list')
+        if os.path.exists(stdList):
+            with open(stdList) as f:
+                lines = list(f)
+            for line in lines:
+                standards.append(os.path.join(path,line.strip('\n')))
+    print 'findClosestInTime: standards = ',standards
+    dTimes = {}
+    for standard in standards:
+        dTimes[standard] = dateTimeDiffInSeconds(obsTime, getDateTimeFromFileName(standard))
+    print 'findClosestInTime: dTimes = ',dTimes
+    dTimesSorted = sorted(dTimes.iteritems(), key=lambda (k,v): (v,k))
+    print 'findClosestInTime: dTimesSorted = ',dTimesSorted
+    for key, value in dTimesSorted:
+        if os.path.exists(key):
+            return key
+        else:
+            print 'findClosestInTime: ERROR: <',key,'> not found'
     return None
 
 def sortAndMove():
@@ -357,7 +379,7 @@ def reduce(day, days, filter, quadrant, science=False):
                             sof.write(masterFlat+' IMG_MASTER_SKY_FLAT\n')
                             sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/phstd_stetson.tfits PHOTOMETRIC_CATALOG\n')
                             sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/badpixel.'+quadrant+'.tfits CCD_TABLE\n')
-                            sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_'+filter+'.'+quadrant+'.tfits PHOTOMETRIC_TABLE')
+                            sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_'+filter+'.'+quadrant+'.tfits PHOTOMETRIC_TABLE\n')
 
                         """reduce standard field"""
                         if not os.path.exists(outDir):
@@ -369,7 +391,7 @@ def reduce(day, days, filter, quadrant, science=False):
                         photSOF = os.path.join(path,'phot.sof')
                         with open(photSOF,'w') as sof:
                             sof.write(os.path.join(outDir,'img_star_match_table.fits')+' IMG_STAR_MATCH_TABLE\n')
-                            sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_'+filter+'.'+quadrant+'.tfits PHOTOMETRIC_TABLE')
+                            sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_'+filter+'.'+quadrant+'.tfits PHOTOMETRIC_TABLE\n')
                         command = 'esorex --output-dir='+outDir+' vmimcalphot '+photSOF
                         runCommand(command)
                         stdPath = path
@@ -401,22 +423,23 @@ def reduce(day, days, filter, quadrant, science=False):
                 raise Exception('reducing science frames: ERROR: no master Flat found')
             print 'closest master Flat = <'+masterFlat+'>'
 
-            photometricTable = findClosestInTime(obsTime, dates, filter, quadrant, 'STD', 'photometric_table.fits')
-            if not photometricTable:
-                raise Exception('reducing science frames: ERROR: no photometric table found')
-            print 'closest photometricTable = <'+photometricTable+'>'
-
             with open(scienceList) as f:
                 ff = list(f)
 
             """add tag to each image"""
             scienceFrames = []
+            dTimes = []
+            timeMean = None
             for line in ff:
                 line = line.strip('\n')
+                dTimes.append(getDateTimeFromFileName(line))
+                print 'dTimes[',len(dTimes)-1,'] = ',dTimes[len(dTimes)-1]
                 scienceFrames.append(line + ' IMG_SCIENCE\n')
+            timeMean = dateTimeDiffInSeconds(dTimes[0], dTimes[len(dTimes)-1])
+            print 'timeMean = ',timeMean
 
             if len(scienceFrames) > 0:
-
+                """reduce science frames with calibration"""
                 scienceSOF = os.path.join(path,'science_calibrated.sof')
                 with open(scienceSOF, 'w') as sof:
                     for frame in scienceFrames:
@@ -424,17 +447,26 @@ def reduce(day, days, filter, quadrant, science=False):
                     sof.write(masterBias+' MASTER_BIAS\n')
                     sof.write(masterFlat+' IMG_MASTER_SKY_FLAT\n')
                     sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/badpixel.'+quadrant+'.tfits CCD_TABLE\n')
-                    sof.write(photometricTable+' PHOTOMETRIC_TABLE\n')
+#                    obsTime = datetime.datetime()
+                    stdObs = findClosestInTime(timeMean, dates, filter, quadrant, 'STD', 'photometric_table.fits')
+                    print 'stdObs = ',stdObs
+                    if not stdObs:
+                        raise Exception('reducing science frames: ERROR: no photometric table found')
+                    photometricTable = os.path.join(stdObs[:stdObs.find('.fits')],'photometric_table.fits')
+                    print 'photometricTable = ',photometricTable
+                    print 'closest photometricTable = <'+photometricTable+'>'
+                    sof.write(photometricTable+' PHOT_COEFF_TABLE\n')
                     #sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_R.1.tfits PHOTOMETRIC_TABLE')
 
                 outDir = os.path.join(path,'calibrated')
                 if not os.path.exists(outDir):
                     os.makedirs(outDir)
 
-                """reduce science frames with standard calibration"""
                 command = 'esorex --output-dir='+outDir+' vmimobsjitter --CleanBadPixel=TRUE '+scienceSOF
                 runCommand(command)
+                reducedImgCal = os.path.join(outDir,'img_science_reduced.fits')
 
+                """reduce science frames with standard calibration"""
                 scienceSOF = os.path.join(path,'science_uncalibrated.sof')
                 with open(scienceSOF, 'w') as sof:
                     for frame in scienceFrames:
@@ -443,7 +475,7 @@ def reduce(day, days, filter, quadrant, science=False):
                     sof.write(masterFlat+' IMG_MASTER_SKY_FLAT\n')
                     sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/badpixel.'+quadrant+'.tfits CCD_TABLE\n')
                     #sof.write(os.path.join(stdPath,'photometric_table.fits PHOTOMETRIC_TABLE\n'))
-                    sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_R.1.tfits PHOTOMETRIC_TABLE')
+                    sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_R.1.tfits PHOTOMETRIC_TABLE\n')
 
                 outDir = os.path.join(path,'uncalibrated')
                 if not os.path.exists(outDir):
@@ -452,10 +484,17 @@ def reduce(day, days, filter, quadrant, science=False):
                 """reduce science frames"""
                 command = 'esorex --output-dir='+outDir+' vmimobsjitter --CleanBadPixel=TRUE '+scienceSOF
                 runCommand(command)
+                reducedImg = os.path.join(outDir,'img_science_reduced.fits')
+                print 'reduced image = ',reducedImg
+                iraf.imstat(reducedImg)
+                print 'calibrated reduced image = ',reducedImgCal
+                iraf.imstat(reducedImgCal)
             else:
                 print 'No Science frames found for day '+day+', filter '+filter+', quadrant '+quadrant
         else:
             print 'No Science frames found for day '+day+', filter '+filter+', quadrant '+quadrant
+
+#sys.stdout = open("/Volumes/obiwan/azuri/spectra/099_B-0215_A/logfile_reduction.log", "w")
 
 sortAndMove()
 days = ['2017-08-14', '2017-08-15', '2017-08-16', '2017-08-19']
@@ -467,10 +506,10 @@ for day in days:
     for quadrant in quadrants:
         reduce(day, days, 'Free', quadrant, False)
         for filter in filters:
-            reduce(day, days, 'B', quadrant, False)
+            reduce(day, days, filter, quadrant, False)
 
 """reduce Science frames"""
 for day in days:
     for quadrant in quadrants:
         for filter in filters:
-            reduce(day, days, 'B', quadrant, True)
+            reduce(day, days, filter, quadrant, True)
