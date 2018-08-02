@@ -32,9 +32,18 @@ def runCommand(command, outFileName=None):
         raise Exception('runCommand: ERROR: running command <'+command+'> returned ',p.returncode)
 
 def dateTimeDiffInSeconds(dateTimeA, dateTimeB):
-    dTime = dateTimeB - dateTimeB
+    dTime = dateTimeB - dateTimeA
     secs = dTime.total_seconds()
-    return dateTimeA + timedelta(0,int(secs / 2))
+#    diff = dateTimeA + timedelta(0,int(secs / 2))
+    print 'dateTimeA = ',dateTimeA,', dateTimeB = ',dateTimeB,': secs = ',secs
+    return secs
+
+#def getTimeMean(dateTimeA, dateTimeB):
+#    dTime = dateTimeB - dateTimeB
+#    secs = dTime.total_seconds()
+#    diff = dateTimeA + timedelta(0,int(secs / 2))
+#    print 'dateTimeA = ',dateTimeA,', dateTimeB = ',dateTimeB,': secs = ',secs
+#    return diff
 
 def findClosest(day, days, filter, quadrant, imType, fName):
     """find closest master imType by date"""
@@ -47,15 +56,26 @@ def findClosest(day, days, filter, quadrant, imType, fName):
     return None
 
 def getDateTimeFromFileName(fName):
-    m = re.search(r".*VIMOS\.(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2}).*fits", fName)
+    m = re.search(r".*VIMOS\.(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2}).*", fName)
     strs = m.groups()
     nums = [int(str) for str in strs]
     return datetime(nums[0], nums[1], nums[2], nums[3], nums[4], nums[5])
 
+def checkStarMatchTable(starMatchTable):
+    if os.path.exists(starMatchTable):
+        hdulist = pyfits.open(starMatchTable)
+        tab = hdulist[1]
+        if tab.size == 0:
+            print 'WARNING: no stars found in <'+starMatchTable+'>'
+            return False
+        return True
+    print 'WARNING: starMatchTable <'+starMatchTable+'> not found'
+    return False
+
 def findClosestInTime(obsTime, dates, filter, quadrant, imType, fName):
     standards = []
     print 'dates = ',dates
-    for key, value in sorted(dates.iteritems(), key=lambda (k,v): (v,k)):
+    for key, value in sorted(dates.iteritems(), key=lambda (k,v): (abs(v),k)):
         print "findClosestInTime: key=%s: value=%s" % (key, value)
         path = pathOutGen % (key, filter, quadrant, imType)
         stdList = os.path.join(path,'std.list')
@@ -63,13 +83,14 @@ def findClosestInTime(obsTime, dates, filter, quadrant, imType, fName):
             with open(stdList) as f:
                 lines = list(f)
             for line in lines:
-                standards.append(os.path.join(path,line.strip('\n')))
+                if checkStarMatchTable(os.path.join(os.path.join(path,line.strip('.fits\n')),'img_star_match_table.fits')):
+                    standards.append(os.path.join(path,line.strip('\n')))
     print 'findClosestInTime: standards = ',standards
     dTimes = {}
     for standard in standards:
         dTimes[standard] = dateTimeDiffInSeconds(obsTime, getDateTimeFromFileName(standard))
     print 'findClosestInTime: dTimes = ',dTimes
-    dTimesSorted = sorted(dTimes.iteritems(), key=lambda (k,v): (v,k))
+    dTimesSorted = sorted(dTimes.iteritems(), key=lambda (k,v): (abs(v),k))
     print 'findClosestInTime: dTimesSorted = ',dTimesSorted
     for key, value in dTimesSorted:
         if os.path.exists(key):
@@ -80,6 +101,11 @@ def findClosestInTime(obsTime, dates, filter, quadrant, imType, fName):
 
 def sortAndMove():
     fitslist = os.path.join(pathIn,"allCompressedFits.list")
+#    if os.path.exists(fitslist):
+#        command = 'rm '+fitslist
+#        runCommand(command)
+#    command = 'ls '+os.path.join(pathIn,"*.fits.Z*")+' > '+fitslist
+#    runCommand(command)
     moveFiles = True
 
     fitsFiles = []
@@ -119,21 +145,6 @@ def sortAndMove():
         fNameCopy = os.path.join(path,'temp',fileName)
 #        print 'fNameCopy = <'+fNameCopy+'>'
 
-        isOne = False
-        fitsPos = fNameCopy.find('.fits')
-#        print 'fNameCopy[len(fNameCopy)-2:]  = ',fNameCopy[len(fNameCopy)-2:]
-        if fNameCopy[len(fNameCopy)-2:] == '.1':
-            isOne = True
-
-        isTwo = False
-        if fNameCopy[len(fNameCopy)-2:] == '.2':
-            isTwo = True
-        if isOne or isTwo:
-            fNameCopy = fNameCopy[:fitsPos]+fNameCopy[fitsPos:len(fNameCopy)-2]
-#        print 'fNameCopy = <'+fNameCopy+'>'
-#        print 'isOne = ',isOne
-#        print 'isTwo = ',isTwo
-
         if os.path.exists(fNameCopy):
             os.remove(fNameCopy)
         shutil.copy(fFile, fNameCopy)
@@ -160,10 +171,6 @@ def sortAndMove():
             if header['OBJECT'] not in types:
                 types.append(header['OBJECT'])
             pathOut = os.path.join(pathOut,day)
-            if isOne:
-                dotOnes.append(header['OBJECT'])
-            if isTwo:
-                dotTwos.append(header['OBJECT'])
 
 #            if 'EXPTIME' in header:
 #                print 'header[EXPTIME] = ',header['EXPTIME']
@@ -216,10 +223,6 @@ def sortAndMove():
                 fNameOut = os.path.join(pathOut, fNameCopy[fNameCopy.rfind('/')+1:])
                 if 'HIERARCH ESO OBS TARG NAME' in header:
                     fNameOut = fNameOut[:fNameOut.rfind('.')]+'_'+header['HIERARCH ESO OBS TARG NAME']+fNameOut[fNameOut.rfind('.'):]
-                if isOne:
-                    fNameOut = fNameOut[:fNameOut.rfind('.')]+'_1'+fNameOut[fNameOut.rfind('.'):]
-                if isTwo:
-                    fNameOut = fNameOut[:fNameOut.rfind('.')]+'_2'+fNameOut[fNameOut.rfind('.'):]
                 fNameOut = fNameOut.replace(' ','_')
                 fNameOut = fNameOut.replace(':','-')
                 print 'fNameOut = <'+fNameOut+'>'
@@ -389,11 +392,17 @@ def reduce(day, days, filter, quadrant, science=False):
 
                         """create phot_coeff_table.fits"""
                         photSOF = os.path.join(path,'phot.sof')
-                        with open(photSOF,'w') as sof:
-                            sof.write(os.path.join(outDir,'img_star_match_table.fits')+' IMG_STAR_MATCH_TABLE\n')
-                            sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_'+filter+'.'+quadrant+'.tfits PHOTOMETRIC_TABLE\n')
-                        command = 'esorex --output-dir='+outDir+' vmimcalphot '+photSOF
-                        runCommand(command)
+                        starMatchTable = os.path.join(outDir,'img_star_match_table.fits')
+                        if checkStarMatchTable(starMatchTable):
+                            with open(photSOF,'w') as sof:
+                                sof.write(starMatchTable+' IMG_STAR_MATCH_TABLE\n')
+                                sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_'+filter+'.'+quadrant+'.tfits PHOTOMETRIC_TABLE\n')
+                            command = 'esorex --output-dir='+outDir+' vmimcalphot '+photSOF
+                            try:
+                                runCommand(command)
+                            except Exception as e:
+                                print 'failed to calculate zeropoint '
+                                logging.error(traceback.format_exc())
                         stdPath = path
                 else:
                     print 'no standard stars found for day '+day+', filter '+filter+', quadrant '+quadrant
@@ -435,7 +444,8 @@ def reduce(day, days, filter, quadrant, science=False):
                 dTimes.append(getDateTimeFromFileName(line))
                 print 'dTimes[',len(dTimes)-1,'] = ',dTimes[len(dTimes)-1]
                 scienceFrames.append(line + ' IMG_SCIENCE\n')
-            timeMean = dateTimeDiffInSeconds(dTimes[0], dTimes[len(dTimes)-1])
+            print 'dTimes[0] = ',dTimes[0],', dTimes[len(dTimes)-1] = ',dTimes[len(dTimes)-1],', dateTimeDiffInSeconds(',dTimes[0],', ',dTimes[len(dTimes)-1],') = ',dateTimeDiffInSeconds(dTimes[0], dTimes[len(dTimes)-1])
+            timeMean = dTimes[0] + timedelta(0, dateTimeDiffInSeconds(dTimes[0], dTimes[len(dTimes)-1]))
             print 'timeMean = ',timeMean
 
             if len(scienceFrames) > 0:
@@ -454,7 +464,9 @@ def reduce(day, days, filter, quadrant, science=False):
                         raise Exception('reducing science frames: ERROR: no photometric table found')
                     photometricTable = os.path.join(stdObs[:stdObs.find('.fits')],'photometric_table.fits')
                     print 'photometricTable = ',photometricTable
-                    print 'closest photometricTable = <'+photometricTable+'>'
+                    print 'getDateTimeFromFileName('+photometricTable+') = ',getDateTimeFromFileName(photometricTable)
+                    print 'dateTimeDiffInSeconds(',timeMean,', getDateTimeFromFileName(',photometricTable,')) = ',dateTimeDiffInSeconds(timeMean, getDateTimeFromFileName(photometricTable))
+                    print 'closest photometricTable = <'+photometricTable+'>: ',dateTimeDiffInSeconds(timeMean, getDateTimeFromFileName(photometricTable)),' seconds difference'
                     sof.write(photometricTable+' PHOT_COEFF_TABLE\n')
                     #sof.write('/Users/azuri/eso-pipelines/vimos/calib/vimos-3.2.3/cal/ipc_R.1.tfits PHOTOMETRIC_TABLE')
 
