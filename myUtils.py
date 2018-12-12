@@ -1,6 +1,8 @@
 from __future__ import print_function, division
 
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
+import astropy.units as u
 from datetime import date, timedelta, datetime
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,6 +13,7 @@ import pyfits
 import pymodelfit
 import pyraf
 from pyraf import iraf
+import re
 import subprocess
 
 def multikeysort(items, columns):
@@ -145,7 +148,7 @@ def sigmaRej(values, sigLow, sigHigh, adjustSigLevels):
 
 # --- in case of 1D image data replace the area [skyLeftArea[1]:skyRightArea[0]] with the interpolated 'sky'
 # --- otherwise subtract the 2D sky image from the 2D image data
-def subtractSky(imageData,skyLeftArea,skyRightArea,sigLow,sigHigh):
+def subtractSky(imageData,skyLeftArea,skyRightArea,sigLow=3.0,sigHigh=3.0):
     dtype = None
     axis = None
     oneD = False
@@ -314,8 +317,11 @@ def findClosestInTime(time, times):
     return [timeOut, timeIdx, diffMin]
 
 def getRaDecXY(string):
-    strs = string.rstrip().split(' ')
-    return [strs[0], strs[1]]
+    strs = re.sub( '\s+', ' ', string ).strip()
+    print('getRaDecXY: strs = ',strs)
+    strs = strs.rstrip().split(' ')
+    print('getRaDecXY: strs = ',strs)
+    return [strs[0], strs[1], float(strs[len(strs)-2]), float(strs[len(strs)-1])]
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -335,8 +341,8 @@ def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
     result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
     print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
     print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
-    raHMS1, decHMS1 = getRaDecXY(result1)
-    raHMS2, decHMS2 = getRaDecXY(result2)
+    raHMS1, decHMS1, x1, y1 = getRaDecXY(result1)
+    raHMS2, decHMS2, x2, y2 = getRaDecXY(result2)
     print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
     print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
     ra1 = hmsToDeg(raHMS1)
@@ -346,3 +352,16 @@ def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
     print('ra1 = ',ra1,', dec1 = ',dec1)
     print('ra2 = ',ra2,', dec2 = ',dec2)
     return angularDistance(ra1, dec1, ra2, dec2)
+
+def getArcsecDistance(fitsName, x1, y1, x2, y2):
+    result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
+    result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
+    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
+    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
+    raHMS1, decHMS1, x1, y1 = getRaDecXY(result1)
+    raHMS2, decHMS2, x2, y2 = getRaDecXY(result2)
+    print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
+    print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
+    mm1 = SkyCoord(ra=raHMS1, dec=decHMS1, unit=(u.hourangle, u.deg))
+    mm2 = SkyCoord(ra=raHMS2, dec=decHMS2, unit=(u.hourangle, u.deg))
+    return mm1.separation(mm2).arcsecond

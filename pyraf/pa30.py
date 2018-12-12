@@ -11,19 +11,36 @@ execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClos
 #]
 
 #tab=[{'FName': 'IPHAS_GTC_DATA/DATA4_2016A/GTC4-16AMEX/OB0043/gtc_object_av_wl_flt_cal.fits', 'ylim' : [-1000,100000], 'OName': '', 'SkyLeft':[612,0], 'SkyRight':[0,0], 'ObjectAreas':[[0,0],[0,0]]}]
-tab=[{'FName': 'Laurence/GTC4-16AMEX/OB0065-1/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1415,1444], 'SkyRight':[1509,1529], 'ObjectAreas':[[1443,1488]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-1a/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1415,1433], 'SkyRight':[1509,1529], 'ObjectAreas':[[1434,1490]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-1b/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1283,1308], 'SkyRight':[1416,1436], 'ObjectAreas':[[1323,1342]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-1c/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1283,1308], 'SkyRight':[1416,1436], 'ObjectAreas':[[1386,1402]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-1d/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1260,1277], 'SkyRight':[1563,1586], 'ObjectAreas':[[1478,1562]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-1e/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1563,1586], 'SkyRight':[1744,1774], 'ObjectAreas':[[1650,1710]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-2/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1501,1539], 'ObjectAreas':[[1406,1421]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-2a/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1501,1539], 'ObjectAreas':[[1372,1461]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-2b/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1200,1264], 'SkyRight':[1369,1382], 'ObjectAreas':[[1278,1296]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-2c/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1369,1382], 'ObjectAreas':[[1337,1355]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-2d/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1300,1320], 'SkyRight':[1568,1600], 'ObjectAreas':[[1433,1537]]},
-     {'FName': 'Laurence/GTC4-16AMEX/OB0065-2e/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1568,1600], 'SkyRight':[1666,1686], 'ObjectAreas':[[1604,1663]]},
-    ]
+tab = None
+calibrated = True#False
+if not calibrated:
+    tab=[{'FName': 'Laurence/GTC4-16AMEX/OB0065-1/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1415,1444], 'SkyRight':[1509,1529], 'ObjectAreas':[[1443,1488]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1a/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1415,1433], 'SkyRight':[1509,1529], 'ObjectAreas':[[1434,1490]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1b/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1283,1308], 'SkyRight':[1416,1436], 'ObjectAreas':[[1323,1342]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1c/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1283,1308], 'SkyRight':[1416,1436], 'ObjectAreas':[[1386,1402]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1d/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1260,1277], 'SkyRight':[1563,1586], 'ObjectAreas':[[1478,1562]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1e/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1563,1586], 'SkyRight':[1744,1774], 'ObjectAreas':[[1650,1710]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1501,1539], 'ObjectAreas':[[1406,1421]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2a/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1501,1539], 'ObjectAreas':[[1372,1461]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2b/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1200,1264], 'SkyRight':[1369,1382], 'ObjectAreas':[[1278,1296]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2c/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1369,1382], 'ObjectAreas':[[1337,1355]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2d/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1300,1320], 'SkyRight':[1568,1600], 'ObjectAreas':[[1433,1537]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2e/gtc_object_av_x_wl_flt.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1568,1600], 'SkyRight':[1666,1686], 'ObjectAreas':[[1604,1663]]},
+        ]
+else:
+    tab=[{'FName': 'Laurence/GTC4-16AMEX/OB0065-1/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1415,1444], 'SkyRight':[1509,1529], 'ObjectAreas':[[1443,1488]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1a/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1415,1433], 'SkyRight':[1509,1529], 'ObjectAreas':[[1434,1490]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1b/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1283,1308], 'SkyRight':[1416,1436], 'ObjectAreas':[[1323,1342]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1c/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1283,1308], 'SkyRight':[1416,1436], 'ObjectAreas':[[1386,1402]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1d/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1260,1277], 'SkyRight':[1563,1586], 'ObjectAreas':[[1478,1562]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-1e/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1563,1586], 'SkyRight':[1744,1774], 'ObjectAreas':[[1650,1710]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1501,1539], 'ObjectAreas':[[1406,1421]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2a/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1501,1539], 'ObjectAreas':[[1372,1461]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2b/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1200,1264], 'SkyRight':[1369,1382], 'ObjectAreas':[[1278,1296]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2c/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1264,1320], 'SkyRight':[1369,1382], 'ObjectAreas':[[1337,1355]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2d/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1300,1320], 'SkyRight':[1568,1600], 'ObjectAreas':[[1433,1537]]},
+         {'FName': 'Laurence/GTC4-16AMEX/OB0065-2e/gtc_object_av_x_wl_flt_cal.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[1568,1600], 'SkyRight':[1666,1686], 'ObjectAreas':[[1604,1663]]},
+        ]
 
 iSpec = 0
 spectra = []
@@ -129,7 +146,7 @@ for obs in tab:
     hdulist.writeto(image_file[0:image_file.rfind('.')]+'_mSky_obs_smoothed.fits', clobber=True)
 
     # --- cut off blue end
-    idx = findFirstIdxWithValGT(wavelength, 3740.)
+    idx = findFirstIdxWithValGT(wavelength, 3700.)
     wavelength = wavelength[idx:]
     spectrum = spectrum[idx:]
 #        print 'wavelength.shape = ',wavelength.shape
@@ -209,7 +226,10 @@ for obs in tab:
     obsdate = getDateTime(header['DATE-OBS'])
     datestr = obsdate.strftime('%d%m%y')
     print 'datestr = <'+datestr+'>'
-    specOutName = os.path.join('/Volumes/obiwan/azuri/spectra/IPHAS_GTC/'+obs['FName'][0:obs['FName'].rfind('/')],obs['OName']+'_GT'+datestr+'.fits')
+    specOutName = os.path.join('/Volumes/obiwan/azuri/spectra/IPHAS_GTC/'+obs['FName'][0:obs['FName'].rfind('/')],obs['OName']+'_GT'+datestr)
+    if calibrated:
+        specOutName += '_cal'
+    specOutName += '.fits'
     print 'specOutName = <'+specOutName+'>'
 
     hdulist.writeto(specOutName, clobber=True)
@@ -256,7 +276,10 @@ for obs in tab:
         plt.show()
 
         hdulist[0].data = specNew
-        specOutName = os.path.join('/Volumes/obiwan/azuri/spectra/IPHAS_GTC/'+obs['FName'][0:obs['FName'].rfind('/')],obs['OName']+'_GT'+datestr+'_min.fits')
+        specOutName = os.path.join('/Volumes/obiwan/azuri/spectra/IPHAS_GTC/'+obs['FName'][0:obs['FName'].rfind('/')],obs['OName']+'_GT'+datestr)
+        if calibrated:
+            specOutName += "_cal"
+        specOutName += '_min.fits'
         print 'specOutName = <'+specOutName+'>'
 
         hdulist.writeto(specOutName, clobber=True)
@@ -276,10 +299,10 @@ for obs in tab:
         plt.show()
 
         # --- continuum normalize spectrum
-        fitsNameOut = specOutName[0:specOutName.rfind('.')]+'c.fits'
-        if os.path.exists(fitsNameOut):
-            os.remove(fitsNameOut)
         if False:
+            fitsNameOut = specOutName[0:specOutName.rfind('.')]+'c.fits'
+            if os.path.exists(fitsNameOut):
+                os.remove(fitsNameOut)
             iraf.continuum(specOutName,
                            fitsNameOut,
                            ask="yes",
