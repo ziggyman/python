@@ -5,9 +5,9 @@ speedOfLight = 299792.458# km/s
 tab = [
 {'column': 1323, 'centerDistance' : -37.31, 'SII6716a': 0.0, 'SII6731a' : 0.0, 'SII6716b' : 6736.7, 'SII6731b' : 0.0, 'unidentified1' : 6999.17, 'ArIII7136' : 7120.80, 'unidentified2' : 7160.06},
 {'column': 1324, 'centerDistance' : -37.06, 'SII6716a': 6697.93, 'SII6731a' : 6712.08, 'SII6716b' : 6738.15, 'SII6731b' : 0.0, 'unidentified1' : 7001.46, 'ArIII7136' : 7115.85, 'unidentified2' : 7160.63},
-{'column': , 'centerDistance' : , 'SII6716a': , 'SII6731a' : , 'SII6716b' : , 'SII6731b' : , 'unidentified1' : , 'ArIII7136' : , 'unidentified2' : },
-{'column': , 'centerDistance' : , 'SII6716a': , 'SII6731a' : , 'SII6716b' : , 'SII6731b' : , 'unidentified1' : , 'ArIII7136' : , 'unidentified2' : },
-{'column': , 'centerDistance' : , 'SII6716a': , 'SII6731a' : , 'SII6716b' : , 'SII6731b' : , 'unidentified1' : , 'ArIII7136' : , 'unidentified2' : },
+{'column': 1325, 'centerDistance' : -36.79, 'SII6716a': 6698.82, 'SII6731a' : 6711.64, 'SII6716b' : 6736.49, 'SII6731b' : 0.0, 'unidentified1' : 6999.32, 'ArIII7136' : 7115.25, 'unidentified2' : 7160.82},
+{'column': 1326, 'centerDistance' : -36.54, 'SII6716a': 6699.99, 'SII6731a' : 6713.83, 'SII6716b' : 6736.79, 'SII6731b' : 6753.37, 'unidentified1' : 7000.49, 'ArIII7136' : 0.0, 'unidentified2' : 7158.87},
+{'column': 1327, 'centerDistance' : -36.28, 'SII6716a': 6702.50, 'SII6731a' : , 'SII6716b' : , 'SII6731b' : , 'unidentified1' : , 'ArIII7136' : , 'unidentified2' : },
 {'column': , 'centerDistance' : , 'SII6716a': , 'SII6731a' : , 'SII6716b' : , 'SII6731b' : , 'unidentified1' : , 'ArIII7136' : , 'unidentified2' : },
 {'column': , 'centerDistance' : , 'SII6716a': , 'SII6731a' : , 'SII6716b' : , 'SII6731b' : , 'unidentified1' : , 'ArIII7136' : , 'unidentified2' : },
 {'column': , 'centerDistance' : , 'SII6716a': , 'SII6731a' : , 'SII6716b' : , 'SII6731b' : , 'unidentified1' : , 'ArIII7136' : , 'unidentified2' : },

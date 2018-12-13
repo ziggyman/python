@@ -4,6 +4,7 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits
 import astropy.units as u
 from datetime import date, timedelta, datetime
+import itertools
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -365,3 +366,129 @@ def getArcsecDistance(fitsName, x1, y1, x2, y2):
     mm1 = SkyCoord(ra=raHMS1, dec=decHMS1, unit=(u.hourangle, u.deg))
     mm2 = SkyCoord(ra=raHMS2, dec=decHMS2, unit=(u.hourangle, u.deg))
     return mm1.separation(mm2).arcsecond
+
+# offset < 0: fitsName2 shifted left relative to fitsName1
+# offset > 0: fitsName2 shifted right relative to fitsName1
+# gap: tuple: [x0,x1]
+def imMinCombine(fitsName1, fitsName2, offset, gap=None, outFileName=None, scale=None):
+    hdulist1 = None
+    hdulist2 = None
+    data1 = None
+    data2 = None
+    if offset > 0:
+        hdulist1 = pyfits.open(fitsName1)
+        hdulist2 = pyfits.open(fitsName2)
+    else:
+        hdulist2 = pyfits.open(fitsName1)
+        hdulist1 = pyfits.open(fitsName2)
+        offset = 0 - offset
+        print('changed offset to ',offset)
+    data1 = hdulist1[0].data
+    data2 = hdulist2[0].data
+    data1 = np.nan_to_num(data1)
+    data2 = np.nan_to_num(data2)
+    print('data1.shape = ',data1.shape,', data2.shape = ',data2.shape)
+#    if scale:
+#        data1median = np.median(data1)
+#        data2median = np.median(data2)
+#        print('data1median = ',data1median)
+#        print('data2median = ',data2median)
+#        print('data1median / data2median = ',data1median / data2median,', data2median / data1median = ',data2median / data1median)
+#        if data1median < data2median:
+#            data1 = data1 * data2median / data1median
+#        else:
+#            data2 = data2 * data1median / data2median
+
+    outArr = np.ndarray(data1.shape, dtype=type(data1[0][0]))
+    print(outArr)
+    print(outArr.shape)
+    print('outArr.shape = ',outArr.shape)
+
+    nCols = data1.shape[1]
+    nRows = data1.shape[0]
+
+    if scale:
+        medians1 = np.ndarray(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nCols/2)]))
+        medians2 = np.ndarray(shape=(data1[:,0].shape), dtype=type(data1[int(nCols/2),int(nCols/2)]))
+        for row in range(nRows):
+            medians1[row] = np.median(data1[row, :])
+            medians2[row] = np.median(data2[row, :])
+        print('medians1 = ',medians1)
+        print('medians2 = ',medians2)
+        medianRatio = None
+        medians1mean = np.mean(medians1)
+        medians2mean = np.mean(medians2)
+        print('medians1mean = ',medians1mean,', medians2mean = ',medians2mean)
+        if medians1mean < medians2mean:
+            medianRatio = medians2 / medians1
+        else:
+            medianRatio = medians1 / medians2
+        medianRatio = np.nan_to_num(medianRatio)
+        print('medianRatio = ',medianRatio)
+        x = np.arange(medianRatio.shape[0])
+        print('x = ',x)
+        medianRatioFitCoeffs = np.polyfit(x, medianRatio, 9)
+        print('medianRatioFitCoeffs = ',medianRatioFitCoeffs)
+        medianRatioFit = np.polyval(medianRatioFitCoeffs, x)
+        print('medianRatioFit = ',medianRatioFit)
+        for row in range(nRows):
+            if medians1mean < medians2mean:
+                data1[row, :] = data1[row, :] * medianRatioFit[row]
+            else:
+                data2[row, :] = data2[row, :] * medianRatioFit[row]
+
+    print('nCols = ',nCols,', nRows = ',nRows)
+    for col in range(nCols):
+        if col < offset:
+            outArr[:,col] = data1[:,col]
+            print('col(=',col,') < offset(=',offset,')')
+#        elif col > (nCols - offset):
+#            print('outArr[:,',col,'].shape = ',outArr[:,col].shape,', data2[:,',col,'] = ',data2[:,col].shape)
+#            outArr[:,col] = data2[:,col]
+#            print('col(=',col,') > (nCols(=',nCols,') - offset(=',offset,')) = ',nCols-offset)
+        elif (gap is not None) and (col >= gap[0]) and (col <= gap[1]):
+            outArr[:,col] = data2[:,col-offset]
+            print('col(=',col,') >= gap[0](=',gap[0],') and col <= gap[1](=',gap[1],')')
+        elif (gap is not None) and (col >= (gap[0]+offset)) and (col <= (gap[1]+offset)):
+            outArr[:,col] = data1[:,col]
+            print('col(=',col,') >= gap[0]+offset(=',gap[0]+offset,') and col <= gap[1]+offset(=',gap[1]+offset,')')
+        else:
+            print('col = ',col,': taking minimum of each pixel')
+            outArr[:,col] = data1[:,col]
+            for row in range(nRows):
+                if data2[row,col-offset] < outArr[row,col]:
+                    outArr[row,col] = data2[row,col-offset]
+    hdulist1[0].data = outArr
+    if outFileName:
+        hdulist1.writeto(outFileName, clobber=True)
+    return hdulist1
+
+def polyfit2d(x, y, z, order=3):
+    ncols = (order + 1)**2
+    G = np.zeros((x.size, ncols))
+    ij = itertools.product(range(order+1), range(order+1))
+    for k, (i,j) in enumerate(ij):
+        G[:,k] = x**i * y**j
+    m, _, _, _ = np.linalg.lstsq(G, z)
+    return m
+
+def nppolyfit2d(x, y, f, deg):
+    from numpy.polynomial import polynomial
+    import numpy as np
+    x = np.asarray(x)
+    y = np.asarray(y)
+    f = np.asarray(f)
+    deg = np.asarray(deg)
+    vander = polynomial.polyvander2d(x, y, deg)
+    vander = vander.reshape((-1,vander.shape[-1]))
+    f = f.reshape((vander.shape[0],))
+    c = np.linalg.lstsq(vander, f)[0]
+    return c.reshape(deg+1)
+
+def polyval2d(x, y, m):
+    order = int(np.sqrt(len(m))) - 1
+    ij = itertools.product(range(order+1), range(order+1))
+    z = np.zeros_like(x)
+    for a, (i,j) in zip(m, ij):
+        z += a * x**i * y**j
+    return z

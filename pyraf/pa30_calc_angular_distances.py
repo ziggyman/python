@@ -5,10 +5,10 @@ import subprocess
 
 execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
 
-fitsFiles = ['/Users/azuri/temp/gtc_object_wcsIm_sky_0000956338.fits',
-             '/Users/azuri/temp/gtc_object_wcsIm_slit_0000956339.fits',
-             '/Users/azuri/temp/gtc_object_wcsIm_sky_0000956342.fits',
-             '/Users/azuri/temp/gtc_object_wcsIm_slit_0000956343.fits']
+fitsFiles = ['/Users/azuri/daten/uni/HKU/Pa30/gtc_object_wcsIm_sky_0000956338.fits',
+             '/Users/azuri/daten/uni/HKU/Pa30/gtc_object_wcsIm_slit_0000956339.fits',
+             '/Users/azuri/daten/uni/HKU/Pa30/gtc_object_wcsIm_sky_0000956342.fits',
+             '/Users/azuri/daten/uni/HKU/Pa30/gtc_object_wcsIm_slit_0000956343.fits']
 
 #centralStarXY = [1460, 994]
 centralStarRaDec = ['00:53:11.20', '+67:30:02.40']
