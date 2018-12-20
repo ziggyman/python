@@ -6,5 +6,7 @@ imOut = '/Users/azuri/daten/uni/HKU/Pa30/Pa30_av_x_wl_flt_cal_minComb.fits'
 
 offset = 49
 gap = [1038,1088]
+ignoreFirst = 159
+ignoreLast = 81
 
-imMinCombine(im1, im2, offset, gap, imOut, True)
+imMinCombine(im1, im2, offset, gap, imOut, True, ignoreFirst, ignoreLast)

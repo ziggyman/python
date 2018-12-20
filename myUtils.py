@@ -5,6 +5,7 @@ from astropy.io import fits
 import astropy.units as u
 from datetime import date, timedelta, datetime
 import itertools
+import math
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -368,9 +369,31 @@ def getArcsecDistance(fitsName, x1, y1, x2, y2):
     return mm1.separation(mm2).arcsecond
 
 # offset < 0: fitsName2 shifted left relative to fitsName1
-# offset > 0: fitsName2 shifted right relative to fitsName1
+# offset > 0: fitsName2 shifted right relative to fitsName1 (spectrum appears further left)
 # gap: tuple: [x0,x1]
-def imMinCombine(fitsName1, fitsName2, offset, gap=None, outFileName=None, scale=None):
+def imMinCombine(fitsName1,
+                 fitsName2,
+                 offset,
+                 gap=None,
+                 outFileName=None,
+                 scale=None,
+                 ignoreFirst=None,
+                 ignoreLast=None,
+                ):
+    def setRowNaNs(row):
+#        print('setRowNaNs: row = ',row)
+        row[:offset] = 'nan'
+        row[nColsOut-offset:] = 'nan'
+        if gap is not None:
+            row[gap[0]:gap[1]] = 'nan'
+            row[gap[0]+offset:gap[1]+offset] = 'nan'
+        if ignoreFirst is not None:
+            row[0:ignoreFirst+offset] = 'nan'
+        if ignoreLast is not None:
+            row[nColsOut-ignoreLast-offset:] = 'nan'
+#        print('setRowNaNs: row with nans = ',row)
+        return row
+
     hdulist1 = None
     hdulist2 = None
     data1 = None
@@ -399,46 +422,83 @@ def imMinCombine(fitsName1, fitsName2, offset, gap=None, outFileName=None, scale
 #        else:
 #            data2 = data2 * data1median / data2median
 
-    outArr = np.ndarray(data1.shape, dtype=type(data1[0][0]))
-    print(outArr)
-    print(outArr.shape)
-    print('outArr.shape = ',outArr.shape)
-
-    nCols = data1.shape[1]
+    nColsIn = data1.shape[1]
     nRows = data1.shape[0]
+    print('nColsIn = ',nColsIn,', nRows = ',nRows)
+
+    outArr = np.ndarray(shape=(nRows, nColsIn+offset), dtype=type(data1[0][0]))
+    print('outArr.shape = ',outArr.shape)
+    nColsOut = outArr.shape[1]
+    print('nColsOut = ',nColsOut)
 
     if scale:
-        medians1 = np.ndarray(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nCols/2)]))
-        medians2 = np.ndarray(shape=(data1[:,0].shape), dtype=type(data1[int(nCols/2),int(nCols/2)]))
+        medians1 = np.zeros(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+        medians2 = np.zeros(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+        dataToMedian1 = np.zeros(shape=outArr.shape, dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+        dataToMedian2 = np.zeros(shape=outArr.shape, dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+        print('dataToMedian1.shape = ',dataToMedian1.shape)
         for row in range(nRows):
-            medians1[row] = np.median(data1[row, :])
-            medians2[row] = np.median(data2[row, :])
+            dataToMedian1[row,:nColsOut-offset] = data1[row, :].copy()
+            dataToMedian1[row,:] = setRowNaNs(dataToMedian1[row,:])
+            if row == 0:
+                print('row =',row,': after setRowNaNs: nNaNs = ',countNaNs(dataToMedian1[row,:]))
+            medians1[row] = np.nanmedian(dataToMedian1[row,:])
+
+            dataToMedian2[row,offset:] = data2[row,:].copy()
+            dataToMedian2[row,:] = setRowNaNs(dataToMedian2[row,:])
+            medians2[row] = np.nanmedian(dataToMedian2[row,:])
+
+        nNaNs = countNaNs(dataToMedian1[0,:])
+        x = np.ndarray(shape=(dataToMedian2[0,:].shape[0] - nNaNs), dtype=type(data1[500,500]))
+        iX = 0
+        for i in range(dataToMedian1[0,:].shape[0]):
+#            print('dataToMedian1[0,',i,'] = ',dataToMedian1[0,i])
+            if not math.isnan(dataToMedian1[0,i]):
+                x[iX] = i
+                iX += 1
+#                print('iX = ',iX)
+        y = np.arange(nRows)
         print('medians1 = ',medians1)
         print('medians2 = ',medians2)
-        medianRatio = None
+        ratio = None
         medians1mean = np.mean(medians1)
         medians2mean = np.mean(medians2)
         print('medians1mean = ',medians1mean,', medians2mean = ',medians2mean)
         if medians1mean < medians2mean:
-            medianRatio = medians2 / medians1
+            ratio = dataToMedian2 / dataToMedian1
         else:
-            medianRatio = medians1 / medians2
-        medianRatio = np.nan_to_num(medianRatio)
-        print('medianRatio = ',medianRatio)
-        x = np.arange(medianRatio.shape[0])
-        print('x = ',x)
-        medianRatioFitCoeffs = np.polyfit(x, medianRatio, 9)
-        print('medianRatioFitCoeffs = ',medianRatioFitCoeffs)
-        medianRatioFit = np.polyval(medianRatioFitCoeffs, x)
-        print('medianRatioFit = ',medianRatioFit)
+            ratio = dataToMedian1 / dataToMedian2
+        z = np.ndarray(shape=(len(y), x.shape[0]), dtype=type(x[0]))
+        print('z.shape = ',z.shape)
+        iCol = 0
+        for col in x:
+#            print('type(col) = ',type(col),', type(iCol) = ',type(iCol))
+#            print('z.shape = ',z.shape,', ratio.shape = ',ratio.shape)
+            z[:,iCol] = ratio[:,int(col)]
+            iCol += 1
+        print('x.shape = ',x.shape,', y.shape = ',np.asarray(y).shape,', z.shape = ',z.shape)
+        deg = [1,1]
+        z = np.nan_to_num(z)
+        hdulist1[0].data = z
+        hdulist1.writeto('/Users/azuri/daten/uni/HKU/Pa30/polyFitIn.fits', clobber=True)
+        coeffs = nppolyfit2d(y, x, z, deg)
+        print('coeffs = ',coeffs)
+        xFit = np.arange(nColsOut)
+        zFit = nppolyval2d(xFit, y, coeffs, deg)
+        hdulist1[0].data = zFit
+        hdulist1.writeto('/Users/azuri/daten/uni/HKU/Pa30/ratioFit.fits', clobber=True)
+        print('data1.shape = ',data1.shape)
+        print('data1.shape = ',data1.shape)
+        print('zFit.shape = ',zFit.shape)
         for row in range(nRows):
-            if medians1mean < medians2mean:
-                data1[row, :] = data1[row, :] * medianRatioFit[row]
-            else:
-                data2[row, :] = data2[row, :] * medianRatioFit[row]
+            for col in range(nColsIn):
+#                print('row = ',row,', col = ',col)
+                if medians1mean < medians2mean:
+                    data1[row, col] = data1[row, col] * zFit[row, col]
+                else:
+                    data2[row, col] = data2[row, col] * zFit[row, col+offset]
 
-    print('nCols = ',nCols,', nRows = ',nRows)
-    for col in range(nCols):
+    for col in range(nColsOut):
         if col < offset:
             outArr[:,col] = data1[:,col]
             print('col(=',col,') < offset(=',offset,')')
@@ -452,6 +512,8 @@ def imMinCombine(fitsName1, fitsName2, offset, gap=None, outFileName=None, scale
         elif (gap is not None) and (col >= (gap[0]+offset)) and (col <= (gap[1]+offset)):
             outArr[:,col] = data1[:,col]
             print('col(=',col,') >= gap[0]+offset(=',gap[0]+offset,') and col <= gap[1]+offset(=',gap[1]+offset,')')
+        elif col > nColsIn:
+            outArr[:,col] = data2[:,col-offset]
         else:
             print('col = ',col,': taking minimum of each pixel')
             outArr[:,col] = data1[:,col]
@@ -475,15 +537,24 @@ def polyfit2d(x, y, z, order=3):
 def nppolyfit2d(x, y, f, deg):
     from numpy.polynomial import polynomial
     import numpy as np
-    x = np.asarray(x)
-    y = np.asarray(y)
-    f = np.asarray(f)
-    deg = np.asarray(deg)
-    vander = polynomial.polyvander2d(x, y, deg)
+    X = np.array(np.meshgrid(x,y))
+    xx = np.asarray(X[0])
+    yy = np.asarray(X[1])
+    ff = np.asarray(f)
+    degdeg = np.asarray(deg)
+    vander = polynomial.polyvander2d(xx, yy, degdeg)
     vander = vander.reshape((-1,vander.shape[-1]))
-    f = f.reshape((vander.shape[0],))
-    c = np.linalg.lstsq(vander, f)[0]
-    return c.reshape(deg+1)
+    ff = ff.reshape((vander.shape[0],))
+    c = np.linalg.lstsq(vander, ff)[0]
+    return c.reshape(degdeg+1)
+
+def nppolyval2d(x, y, c, deg):
+    from numpy.polynomial import polynomial
+    import numpy as np
+    X = np.array(np.meshgrid(x,y))
+    f = polynomial.polyval2d(X[0], X[1], c)
+    #c1 = nppolyfit2d(X[0], X[1], f, deg)
+    return f
 
 def polyval2d(x, y, m):
     order = int(np.sqrt(len(m))) - 1
@@ -492,3 +563,10 @@ def polyval2d(x, y, m):
     for a, (i,j) in zip(m, ij):
         z += a * x**i * y**j
     return z
+
+def countNaNs(x):
+    nNaNs = 0
+    for i in range(len(x)):
+        if math.isnan(x[i]):
+            nNaNs += 1
+    return nNaNs
