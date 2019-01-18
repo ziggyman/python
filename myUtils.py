@@ -476,17 +476,47 @@ def imMinCombine(fitsName1,
 #            print('z.shape = ',z.shape,', ratio.shape = ',ratio.shape)
             z[:,iCol] = ratio[:,int(col)]
             iCol += 1
-        print('x.shape = ',x.shape,', y.shape = ',np.asarray(y).shape,', z.shape = ',z.shape)
-        deg = [1,1]
+        print('x.shape = ',x.shape,', y.shape = ',np.asarray(y).shape,', z.shape = ',z.shape,', ratio.shape = ',ratio.shape)
+        #deg = [1,1]
+        pathOut = fitsName1[:fitsName1.rfind('/')]
+        if outFileName is not None:
+            pathOut = outFileName[:outFileName.rfind('/')]
+        polyFitIn = os.path.join(pathOut,'polyFitIn.fits')
+        polyFitOut = os.path.join(pathOut,'polyFitOut.fits')
         z = np.nan_to_num(z)
-        hdulist1[0].data = z
-        hdulist1.writeto('/Users/azuri/daten/uni/HKU/Pa30/polyFitIn.fits', clobber=True)
-        coeffs = nppolyfit2d(y, x, z, deg)
-        print('coeffs = ',coeffs)
-        xFit = np.arange(nColsOut)
-        zFit = nppolyval2d(xFit, y, coeffs, deg)
-        hdulist1[0].data = zFit
-        hdulist1.writeto('/Users/azuri/daten/uni/HKU/Pa30/ratioFit.fits', clobber=True)
+        hdulist1[0].data = ratio
+        hdulist1.writeto(polyFitIn, clobber=True)
+#        coeffs = nppolyfit2d(y, x, z, deg)
+#        print('coeffs = ',coeffs)
+#        xFit = np.arange(nColsOut)
+#        zFit = nppolyval2d(xFit, y, coeffs, deg)
+#        hdulist1[0].data = zFit
+#        hdulist1.writeto('/Users/azuri/daten/uni/HKU/Pa30/ratioFit.fits', clobber=True)
+        if os.path.exists(polyFitOut):
+            os.remove(polyFitOut)
+        iraf.imfit.imsurfit(polyFitIn,
+                            polyFitOut,
+                            3,
+                            5,
+                            type_ou='fit',
+                            function='leg',
+                            cross_t='yes',
+                            xmedian=10,
+                            ymedian=10,
+                            median_=50.,
+                            lower=2.0,
+                            upper=2.0,
+                            ngrow=1,
+                            niter=3,
+                            regions='all',
+                            rows='[132:2051]',
+                            columns='[209:1038,1138:2029]',
+                            border=50,
+                            section='',
+                            circle='',
+                            div_min='INDEF')
+        hdulistPolyFitOut = pyfits.open(polyFitOut)
+        zFit = hdulistPolyFitOut[0].data
         print('data1.shape = ',data1.shape)
         print('data1.shape = ',data1.shape)
         print('zFit.shape = ',zFit.shape)
@@ -508,11 +538,11 @@ def imMinCombine(fitsName1,
 #            print('col(=',col,') > (nCols(=',nCols,') - offset(=',offset,')) = ',nCols-offset)
         elif (gap is not None) and (col >= gap[0]) and (col <= gap[1]):
             outArr[:,col] = data2[:,col-offset]
-            print('col(=',col,') >= gap[0](=',gap[0],') and col <= gap[1](=',gap[1],')')
+            print('col(=',col,') >= gap[0](=',gap[0],') and col <= gap[1](=',gap[1],'), setting outArr[:,',col,'] to data2[:,',col-offset,']')
         elif (gap is not None) and (col >= (gap[0]+offset)) and (col <= (gap[1]+offset)):
             outArr[:,col] = data1[:,col]
-            print('col(=',col,') >= gap[0]+offset(=',gap[0]+offset,') and col <= gap[1]+offset(=',gap[1]+offset,')')
-        elif col > nColsIn:
+            print('col(=',col,') >= gap[0]+offset(=',gap[0]+offset,') and col <= gap[1]+offset(=',gap[1]+offset,'), setting outArr[:,',col,'] to data1[:,',col,']')
+        elif col >= nColsIn:
             outArr[:,col] = data2[:,col-offset]
         else:
             print('col = ',col,': taking minimum of each pixel')

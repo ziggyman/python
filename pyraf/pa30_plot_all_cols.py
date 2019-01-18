@@ -29,7 +29,8 @@ wcsFitsName = '/Users/azuri/daten/uni/HKU/Pa30/gtc_object_wcs.fits'
 center = [1469.676, 994.]
 plotCols = np.arange(1323,1709)#1401)
 
-tab=[{'FName': '/Users/azuri/daten/uni/HKU/Pa30/Pa30_combined.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[0,0], 'SkyRight':[0,0], 'ObjectAreas':[[1323,1341],[1387,1401],[1434,1490],[1479,1561],[1650,1709]]},
+#tab=[{'FName': '/Users/azuri/daten/uni/HKU/Pa30/Pa30_combined.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[0,0], 'SkyRight':[0,0], 'ObjectAreas':[[1123,1866]]},#1323,1341],[1387,1401],[1434,1490],[1479,1561],[1650,1709]]},
+tab=[{'FName': '/Users/azuri/daten/uni/HKU/Pa30/Pa30_av_x_wl_flt_cal_mSky_obs_not_smoothed_minComb.fits', 'ylim' : [0,0], 'OName': 'Pa30', 'SkyLeft':[0,0], 'SkyRight':[0,0], 'ObjectAreas':[[1123,1866]]},#1323,1341],[1387,1401],[1434,1490],[1479,1561],[1650,1709]]},
     ]
 obs = tab[0]
 directory = obs['FName'][0:obs['FName'].rfind('/')]
@@ -68,7 +69,7 @@ for area in tab[0]['ObjectAreas']:
         if column < center[0]:
             yShift = 0. - yShift
         print('column = ',column,': yShift = ',yShift)
-        specOutName = image_file[0:image_file.rfind('/')+1]+'Pa30_col'+str(column)+'_yShift'+str(yShift)+'.fits'
+        specOutName = image_file[0:image_file.rfind('.')]+'_col'+str(column)+'_yShift'+str(yShift)+'.fits'
         print('specOutName = <'+specOutName+'>')
         hdulist[0].data = spectrum
 #        hdulist[0].header['NAXIS1'] = header['NAXIS2']
