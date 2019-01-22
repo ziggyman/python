@@ -75,7 +75,7 @@ tab = [
 {'column': 1881, 'centerDistance' : 104.5, 'SII6716a': 6714.19, 'SII6731a' : 6729.03, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 1736.07, 'unidentified2' : 0.0},
 ]
 
-plt.plot([0.0, 0.0], [0.0, 9000], 'g')
+#plt.plot([0.0, 0.0], [0.0, 9000], 'g')
 dist = [a['centerDistance'] for a in tab]
 print('dist = ',dist)
 SII6716a = [a['SII6716a'] for a in tab]
@@ -96,13 +96,16 @@ vradSII6731b = (np.array(SII6731b) - lambda0SII6731) * speedOfLight / lambda0SII
 lambda0ArIII7136 = 7136.0
 vradArIII7136 = (np.array(ArIII7136) - lambda0ArIII7136) * speedOfLight / lambda0ArIII7136
 
-plt.plot(dist, vradSII6716a, 'b*')
-plt.plot(dist, vradSII6716b, 'bx')
-plt.plot(dist, vradSII6731a, 'r*')
-plt.plot(dist, vradSII6731b, 'rx')
-plt.plot(dist, vradArIII7136, 'g*')
+plt.plot(dist, vradSII6716a, 'b*', label='[SII] 6716')
+plt.plot(dist, vradSII6716b, 'b*')
+plt.plot(dist, vradSII6731a, 'r*', label='[SII] 6731')
+plt.plot(dist, vradSII6731b, 'r*')
+plt.plot(dist, vradArIII7136, 'g*', label='[ArIII] 7136')
 
-plt.ylim(-1100., 1100.)
-plt.xlabel('center distance in arc sec')
-plt.ylabel('radial velocity')
+plt.ylim(-1300., 1300.)
+plt.xlim(-130., 130.)
+#plt.xlim(-50., -15.)
+plt.xlabel('center distance [arc sec]')
+plt.ylabel('radial velocity [km/s]')
+plt.legend()
 plt.show()
