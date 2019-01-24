@@ -600,3 +600,21 @@ def countNaNs(x):
         if math.isnan(x[i]):
             nNaNs += 1
     return nNaNs
+
+def rebin(wavelength, flux, wavelengthRange, dlambda):
+    if wavelengthRange[0] < wavelength[0]:
+        raise('rebin: range error: wavelengthRange[0](=',wavelengthRange[0],') < wavelength[0](=',wavelength[0],')')
+    if wavelengthRange[1] < wavelength[len(wavelength)-1]:
+        raise('rebin: range error: wavelengthRange[1](=',wavelengthRange[1],') < wavelength[',len(wavelength)-1,'](=',wavelength[len(wavelength)-1],')')
+    wavelengthNew = np.arange(wavelengthRange[0], wavelengthRange[1], dlambda)
+    wavelengthNewIndex = 0
+    fluxNew = np.zeros(len(wavelengthNew))
+    for i in range(len(wavelength)-1):
+        print('rebin: wavelength[',i,'] = ',wavelength[i])
+        if (wavelength[i] <= wavelengthNew[wavelengthNewIndex]) and (wavelength[i+1] <= wavelengthNew[wavelengthNewIndex]):
+            fluxNew[wavelengthNewIndex] = flux[i] + ((wavelengthNew[wavelengthNewIndex] - wavelength[i]) * (flux[i+1] - flux[i]) / (wavelength[i+1] - wavelength[i]))
+            print('rebin: wavelengthNew[',wavelengthNewIndex,'] = ',wavelengthNew[wavelengthNewIndex],': fluxNew[',wavelengthNewIndex,'] set to ',fluxNew[wavelengthNewIndex])
+            wavelengthNewIndex += 1
+    if wavelengthNewIndex < len(wavelengthNew):
+        raise('rebin: error: wavelengthNewIndex(=',wavelengthNewIndex,') < len(wavelengthNew)(=',len(wavelengthNew),')')
+    return [wavelengthNew, fluxNew]
