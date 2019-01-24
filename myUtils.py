@@ -237,11 +237,11 @@ def subtractSky(imageData,skyLeftArea,skyRightArea,sigLow=3.0,sigHigh=3.0):
 #    STOP
 #    return newObsData
 
-def getWavelength(header):
-    nPix = int(header['NAXIS2'])
-    crPix = int(header['CRPIX2'])
-    crVal = float(header['CRVAL2'])
-    cDelt = float(header['CDELT2'])
+def getWavelength(header, axis=2):
+    nPix = int(header['NAXIS'+str(axis)])
+    crPix = int(header['CRPIX'+str(axis)])
+    crVal = float(header['CRVAL'+str(axis)])
+    cDelt = float(header['CDELT'+str(axis)])
     lam = np.arange(crVal, crVal + (nPix*cDelt), cDelt, dtype=np.float32)
 #    print 'getWavelength: lam = ',len(lam),': ',lam
     return lam
