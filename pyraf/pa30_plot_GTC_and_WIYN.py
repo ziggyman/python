@@ -1,9 +1,10 @@
 execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
 
-calibrated = True
+calibrated = False
 
 gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/Pa30_GT080716_sum_n.fits"
 wiyn_file = "/Users/azuri/daten/uni/HKU/Pa30/Pa30_WN151014_sum_n.fits"
+wiyn_file = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15T08-22-49_botzfxsEcBld_rebinned_52_n.fits'
 if calibrated:
     gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/Pa30_GT080716_cal_sum.fits"
     wiyn_file = "/Users/azuri/daten/uni/HKU/Pa30/Pa30_WN151014_cal_sum.fits"

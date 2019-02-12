@@ -71,8 +71,8 @@ tab = [
 {'column': 1841, 'centerDistance' : 94.45, 'SII6716a': 6713.51, 'SII6731a' : 6729.03, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 7134.07, 'unidentified2' : 0.0},
 {'column': 1851, 'centerDistance' : 97.00, 'SII6716a': 6714.53, 'SII6731a' : 6726.91, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 0.0, 'unidentified2' : 0.0},
 {'column': 1861, 'centerDistance' : 99.53, 'SII6716a': 0.0, 'SII6731a' : 6726.91, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 7136.07, 'unidentified2' : 0.0},
-{'column': 1871, 'centerDistance' : 102.0, 'SII6716a': 0.0, 'SII6731a' : 6732.85, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 1736.26, 'unidentified2' : 0.0},
-{'column': 1881, 'centerDistance' : 104.5, 'SII6716a': 6714.19, 'SII6731a' : 6729.03, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 1736.07, 'unidentified2' : 0.0},
+{'column': 1871, 'centerDistance' : 102.0, 'SII6716a': 0.0, 'SII6731a' : 6732.85, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 7136.26, 'unidentified2' : 0.0},
+{'column': 1881, 'centerDistance' : 104.5, 'SII6716a': 6714.19, 'SII6731a' : 6729.03, 'SII6716b' : 0.0, 'SII6731b' : 0.0, 'unidentified1' : 0.0, 'ArIII7136' : 7136.07, 'unidentified2' : 0.0},
 ]
 
 #plt.plot([0.0, 0.0], [0.0, 9000], 'g')

@@ -602,19 +602,140 @@ def countNaNs(x):
     return nNaNs
 
 def rebin(wavelength, flux, wavelengthRange, dlambda):
-    if wavelengthRange[0] < wavelength[0]:
-        raise('rebin: range error: wavelengthRange[0](=',wavelengthRange[0],') < wavelength[0](=',wavelength[0],')')
-    if wavelengthRange[1] < wavelength[len(wavelength)-1]:
-        raise('rebin: range error: wavelengthRange[1](=',wavelengthRange[1],') < wavelength[',len(wavelength)-1,'](=',wavelength[len(wavelength)-1],')')
+    print('rebin: wavelength = ',wavelength)
+    print('rebin: flux = ',flux)
+    print('rebin: wavelengthRange = ',wavelengthRange,', dlambda = ',dlambda)
+
+    """create new wavelength array and empty flux array"""
     wavelengthNew = np.arange(wavelengthRange[0], wavelengthRange[1], dlambda)
-    wavelengthNewIndex = 0
+    print('wavelengthNew = ',wavelengthNew)
+    print('type(wavelengthNew) = ',type(wavelengthNew))
+    print('len(wavelengthNew) = ',len(wavelengthNew))
     fluxNew = np.zeros(len(wavelengthNew))
-    for i in range(len(wavelength)-1):
-        print('rebin: wavelength[',i,'] = ',wavelength[i])
-        if (wavelength[i] <= wavelengthNew[wavelengthNewIndex]) and (wavelength[i+1] <= wavelengthNew[wavelengthNewIndex]):
-            fluxNew[wavelengthNewIndex] = flux[i] + ((wavelengthNew[wavelengthNewIndex] - wavelength[i]) * (flux[i+1] - flux[i]) / (wavelength[i+1] - wavelength[i]))
-            print('rebin: wavelengthNew[',wavelengthNewIndex,'] = ',wavelengthNew[wavelengthNewIndex],': fluxNew[',wavelengthNewIndex,'] set to ',fluxNew[wavelengthNewIndex])
-            wavelengthNewIndex += 1
-    if wavelengthNewIndex < len(wavelengthNew):
-        raise('rebin: error: wavelengthNewIndex(=',wavelengthNewIndex,') < len(wavelengthNew)(=',len(wavelengthNew),')')
+
+    for wavelengthNewIndex in range(len(wavelengthNew)):
+        if wavelengthNew[wavelengthNewIndex] < wavelengthRange[0]:
+            fluxNew[wavelengthNewIndex] = 0.0
+        elif wavelengthNew[wavelengthNewIndex] > wavelengthRange[1]:
+            fluxNew[wavelengthNewIndex] = 0.0
+        else:
+            for i in range(len(wavelength)-1):
+    #            print('rebin: wavelength[',i,'] = ',wavelength[i])
+                if (wavelength[i] <= wavelengthNew[wavelengthNewIndex]) and (wavelength[i+1] > wavelengthNew[wavelengthNewIndex]):
+                    fluxNew[wavelengthNewIndex] = flux[i] + ((wavelengthNew[wavelengthNewIndex] - wavelength[i]) * (flux[i+1] - flux[i]) / (wavelength[i+1] - wavelength[i]))
+#                    print('rebin: wavelengthNew[',wavelengthNewIndex,'] = ',wavelengthNew[wavelengthNewIndex],': fluxNew[',wavelengthNewIndex,'] set to ',fluxNew[wavelengthNewIndex])
+#    print('rebin: wavelengthNew = ',wavelengthNew)
     return [wavelengthNew, fluxNew]
+
+# --- iSpec=[0...nSpec-1]
+def getWavelengthMultiSpec(header, iSpec, axis=1):
+    dispStr = header['WAT2_001']
+    iWat = 2
+    while(True):
+        try:
+            watStr = 'WAT2_%03i' % (iWat)
+#            print('getWavelengthMultiSpec: watStr = <'+watStr+'>')
+            dispStr += header[watStr]
+            iWat += 1
+        except:
+            break
+#    print('getWavelengthMultiSpec: dispStr = <'+dispStr+'>')
+#    a='82 1 0 4275.4858499095 2.1134804589752 1333 0. 49.83 56.22'
+#    b='2 0 0 4275.4858499095 2.1134804589752 1333 0. 603.94 610.34'
+    startStr = 'spec2'
+    endStr = '"'
+    specDispStr = dispStr[dispStr.find(startStr):]
+#    print('getWavelengthMultiSpec: specDispStr = <'+specDispStr+'>')
+    specDispStr = specDispStr[specDispStr.find(endStr)+1:]
+#    print('getWavelengthMultiSpec: specDispStr = <'+specDispStr+'>')
+    specDispStr = specDispStr[:specDispStr.find(endStr)]
+#    print('getWavelengthMultiSpec: specDispStr = <'+specDispStr+'>')
+    specDisp = specDispStr.split(' ')
+#    print('getWavelengthMultiSpec: specDisp = ',specDisp)
+    nDigitsBehindDot = []
+    for dispVal in specDisp:
+#        print(dispVal+'.find(".") = ',dispVal.find('.'))
+        if dispVal.find('.') >= 0:
+#            print('getWavelengthMultiSpec: dispVal = <'+dispVal+'>: found .')
+            nDigitsBehindDot.append(len(dispVal) - dispVal.find('.') - 1)
+        else:
+#            print('getWavelengthMultiSpec: dispVal = <'+dispVal+'>: did not find .')
+            if len(nDigitsBehindDot) == 0:
+                nDigitsBehindDot.append(-2)
+            else:
+                nDigitsBehindDot.append(0-len(dispVal))
+#    print('getWavelengthMultiSpec: nDigitsBehindDot = ',nDigitsBehindDot)
+
+    startStr = 'spec'+str(iSpec+1)
+    endStr = '"'
+    specDispStr = dispStr[dispStr.find(startStr):]
+#    print('getWavelengthMultiSpec: specDispStr = <'+specDispStr+'>')
+    specDispStr = specDispStr[specDispStr.find(endStr)+1:]
+#    print('getWavelengthMultiSpec: specDispStr = <'+specDispStr+'>')
+    specDispStr = specDispStr[:specDispStr.find(endStr)]
+#    print('getWavelengthMultiSpec: specDispStr = <'+specDispStr+'>')
+    specDisp = specDispStr.split(' ')
+#    print('getWavelengthMultiSpec: specDisp = ',specDisp)
+    if len(specDisp) != len(nDigitsBehindDot):
+        specDispNew = []
+        iNDig = 0
+        for iDispVal in range(len(specDisp)):
+            dispVal = specDisp[iDispVal]
+#            print('getWavelengthMultiSpec: iNDig = ',iNDig)
+#            print('dispVal.find(".") = ',dispVal.find('.'))
+#            print('nDigitsBehindDot[',iNDig,'] < 0 = ',nDigitsBehindDot[iNDig] < 0)
+            if (dispVal.find('.') < 0) or ((dispVal.find('.') > 0) and (nDigitsBehindDot[iNDig] < 0)):
+                if len(dispVal) > (0-nDigitsBehindDot[iNDig]):
+                    specDispNew.append(dispVal[0:0-nDigitsBehindDot[iNDig]])
+#                    print('getWavelengthMultiSpec: appended specDispNew[',len(specDispNew)-1,'] = ',specDispNew[len(specDispNew)-1])
+                    specDispNew.append(dispVal[0-nDigitsBehindDot[iNDig]:])
+#                    print('getWavelengthMultiSpec: appended specDispNew[',len(specDispNew)-1,'] = ',specDispNew[len(specDispNew)-1])
+                    iNDig += 1
+#                    print('getWavelengthMultiSpec: iNDig = ',iNDig)
+                else:
+                    specDispNew.append(dispVal)
+#                    print('getWavelengthMultiSpec: appended specDispNew[',len(specDispNew)-1,'] = ',specDispNew[len(specDispNew)-1])
+            else:
+#                print('getWavelengthMultiSpec: nDigitsBehindDot[',iNDig,'] = ',nDigitsBehindDot[iNDig])
+                if nDigitsBehindDot[iNDig] < (len(dispVal) - dispVal.find('.') - 1):
+#                    print('getWavelengthMultiSpec: wrong length: nDigitsBehindDot[iNDig] = ',nDigitsBehindDot[iNDig],', (len(dispVal)(=',len(dispVal),') - dispVal.find(".")(=',dispVal.find('.'),' - 1) = ',len(dispVal) - dispVal.find('.') - 1)
+                    specDispNew.append(dispVal[0:dispVal.find('.')+1+nDigitsBehindDot[iNDig]])
+#                    print('getWavelengthMultiSpec: appended specDispNew[',len(specDispNew)-1,'] = ',specDispNew[len(specDispNew)-1])
+                    specDispNew.append(dispVal[dispVal.find('.')+1+nDigitsBehindDot[iNDig]:])
+#                    print('getWavelengthMultiSpec: appended specDispNew[',len(specDispNew)-1,'] = ',specDispNew[len(specDispNew)-1])
+                    iNDig += 1
+#                    print('getWavelengthMultiSpec: iNDig = ',iNDig)
+                else:
+                    specDispNew.append(dispVal)
+#                    print('getWavelengthMultiSpec: appended specDispNew[',len(specDispNew)-1,'] = ',specDispNew[len(specDispNew)-1])
+            iNDig += 1
+        specDisp = specDispNew
+#    print('getWavelengthMultiSpec: specDisp = ',specDisp)
+    nPix = int(header['NAXIS'+str(axis)])
+    crVal = float(specDisp[3])
+    cDelt = float(specDisp[4])
+    lam = np.arange(crVal, crVal + (nPix*cDelt), cDelt, dtype=np.float32)
+    if lam.shape[0] > nPix:
+        lam = lam[0:nPix]
+#    print 'getWavelength: lam = ',len(lam),': ',lam
+    return lam
+
+def getMaximumWavelengthRange(header, dispAxis=1):
+    if dispAxis == 1:
+        nSpec = header['NAXIS2']
+    else:
+        nSpec = header['NAXIS1']
+#    print('getMaximumWavelengthRange: nSpec = ',nSpec)
+    specRangeMax = [0.,100000.]
+#    print('getMaximumWavelengthRange: specRangeMax = ',specRangeMax)
+    for iSpec in range(nSpec):
+        wavelength = getWavelengthMultiSpec(header, iSpec, axis=dispAxis)
+        if wavelength[0] > specRangeMax[0]:
+            specRangeMax[0] = wavelength[0]
+#            print('getMaximumWavelengthRange: wavelength[0] = ',wavelength[0],' => specRangeMax[0] = ',specRangeMax[0])
+        if wavelength[wavelength.shape[0]-1] < specRangeMax[1]:
+            specRangeMax[1] = wavelength[wavelength.shape[0]-1]
+#            print('getMaximumWavelengthRange: wavelength[',wavelength.shape[0]-1,'] = ',wavelength[wavelength.shape[0]-1],' => specRangeMax[1] = ',specRangeMax[1])
+    print('getMaximumWavelengthRange: specRangeMax = ',specRangeMax)
+    return specRangeMax
+

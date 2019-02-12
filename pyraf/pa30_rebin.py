@@ -1,7 +1,7 @@
 execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
 
 calibrated = True
-wavelengthRange = [7280.0,7092.0]
+wavelengthRange = [4280.0,7092.0]
 dlambda = 1.0
 
 inFiles = ["/Users/azuri/daten/uni/HKU/Pa30/Pa30_GT080716_sum_n.fits",
