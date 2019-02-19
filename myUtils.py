@@ -132,8 +132,64 @@ def boxCarMedianSmooth(imageData, axis, width):
             newDataArray[iCol] = np.median(imageData[iColStart:iColEnd])
     return newDataArray
 
-def sigmaRej(values, sigLow, sigHigh, adjustSigLevels):
-    ySkyMedian = np.median(values)
+def boxCarMeanSmooth(imageData, axis, width):
+    print('imageData.shape = ',imageData.shape)
+    print('len(imageData.shape) = ',len(imageData.shape))
+    print('imageData = ',imageData)
+    newDataArray = None
+    if len(imageData.shape) > 1:
+        newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0,0]))
+        if axis == 0:
+            for iRow in range(imageData.shape[0]):
+                for iCol in range(imageData.shape[1]):
+                    if iCol < int(width/2.0):
+                        iColStart = 0
+                        iColEnd = iCol+int(width/2.0)+1
+                    elif iCol > imageData.shape[1]-int(width/2.0)-1:
+                        iColStart = iCol - int(width/2.0)
+                        iColEnd = imageData.shape[1]
+                    else:
+                        iColStart = iCol - int(width/2.0)
+                        iColEnd = iCol + int(width/2.0) + 1
+                    newDataArray[iRow,iCol] = np.mean(imageData[iRow,iColStart:iColEnd])
+    #                print 'iRow = ',iRow,', iCol = ',iCol,': iColStart = ',iColStart,', iColEnd = ',iColEnd,': imageData[iRow,iColStart:iColEnd] = ',imageData[iRow,iColStart:iColEnd],': mean = ',newDataArray[iRow,iCol]
+        elif axis == 1:
+            for iCol in range(imageData.shape[1]):
+                for iRow in range(imageData.shape[0]):
+                    if iRow < int(width/2.0):
+                        iRowStart = 0
+                        iRowEnd = iRow+int(width/2.0)+1
+                    elif iRow > imageData.shape[0]-int(width/2.0)-1:
+                        iRowStart = iRow - int(width/2.0)
+                        iRowEnd = imageData.shape[1]
+                    else:
+                        iRowStart = iRow - int(width/2.0)
+                        iRowEnd = iRow + int(width/2.0) + 1
+                    newDataArray[iRow,iCol] = np.mean(imageData[iRowStart:iRowEnd,iCol])
+    #                print 'iCol = ',iCol,', iRow = ',iRow,': iRowStart = ',iRowStart,', iRowEnd = ',iRowEnd,': imageData[iRowStart:iRowEnd,iCol] = ',imageData[iRowStart:iRowEnd,iCol],': mean = ',newDataArray[iRow,iCol]
+        else:
+            print('ERROR: axis(=',axis,') out of bounds [0,1]')
+    else:
+        newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0]))
+        for iCol in range(imageData.shape[0]):
+            if iCol < int(width/2.0):
+                iColStart = 0
+                iColEnd = iCol+int(width/2.0)+1
+            elif iCol > imageData.shape[0]-int(width/2.0)-1:
+                iColStart = iCol - int(width/2.0)
+                iColEnd = imageData.shape[0]
+            else:
+                iColStart = iCol - int(width/2.0)
+                iColEnd = iCol + int(width/2.0) + 1
+            newDataArray[iCol] = np.mean(imageData[iColStart:iColEnd])
+    return newDataArray
+
+def sigmaRej(values, sigLow, sigHigh, adjustSigLevels, useMean=False):
+    ySkyMedian = None
+    if useMean:
+        ySkyMedian = np.mean(values)
+    else:
+        ySkyMedian = np.median(values)
     sigma = np.std(values)
     nRej = 0
     if adjustSigLevels:
@@ -242,7 +298,10 @@ def getWavelength(header, axis=2):
     crPix = int(header['CRPIX'+str(axis)])
     crVal = float(header['CRVAL'+str(axis)])
     cDelt = float(header['CDELT'+str(axis)])
-    lam = np.arange(crVal, crVal + (nPix*cDelt), cDelt, dtype=np.float32)
+#    lam = np.ndarray(nPix, dtype=np.float32)
+#    lam[0] =
+#    for i in np.arange(1,nPix):
+    lam = np.arange(crVal, crVal + ((nPix-0.5)*cDelt), cDelt, dtype=np.float32)
 #    print 'getWavelength: lam = ',len(lam),': ',lam
     return lam
 
@@ -610,8 +669,11 @@ def rebin(wavelength, flux, wavelengthRange, dlambda):
     wavelengthNew = np.arange(wavelengthRange[0], wavelengthRange[1], dlambda)
     print('wavelengthNew = ',wavelengthNew)
     print('type(wavelengthNew) = ',type(wavelengthNew))
-    print('len(wavelengthNew) = ',len(wavelengthNew))
+    print('len(flux) = ',len(flux))
+    print('len(wavelength) = ',len(wavelength))
     fluxNew = np.zeros(len(wavelengthNew))
+    print('len(fluxNew) = ',len(fluxNew))
+    print('len(wavelengthNew) = ',len(wavelengthNew))
 
     for wavelengthNewIndex in range(len(wavelengthNew)):
         if wavelengthNew[wavelengthNewIndex] < wavelengthRange[0]:

@@ -96,6 +96,9 @@ vradSII6731b = (np.array(SII6731b) - lambda0SII6731) * speedOfLight / lambda0SII
 lambda0ArIII7136 = 7136.0
 vradArIII7136 = (np.array(ArIII7136) - lambda0ArIII7136) * speedOfLight / lambda0ArIII7136
 
+print('minimum velocity = ',min([min(vradSII6716a), min(vradSII6716b), min(vradSII6731a), min(vradSII6731b), min(vradArIII7136)]))
+print('maximum velocity = ',max([max(vradSII6716a), max(vradSII6716b), max(vradSII6731a), max(vradSII6731b), max(vradArIII7136)]))
+
 plt.plot(dist, vradSII6716a, 'b*', label='[SII] 6716')
 plt.plot(dist, vradSII6716b, 'b*')
 plt.plot(dist, vradSII6731a, 'r*', label='[SII] 6731')
@@ -108,4 +111,5 @@ plt.xlim(-130., 130.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('radial velocity [km/s]')
 plt.legend()
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_GTC.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()

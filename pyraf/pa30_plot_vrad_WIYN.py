@@ -1,7 +1,7 @@
 execfile("/Users/azuri/entwicklung/python/pyraf/pa30_plot_vrad.py")# import getDate, findClosestDate,...
 
 speedOfLight = 299792.458# km/s
-rotatorAngleGTC = -81.8436672903833
+rotatorAngleGTC = -240.0#-81.8436672903833+185.0
 
 tabGTC = tab
 SII6716aGTC = SII6716a
@@ -98,7 +98,7 @@ tab = [
 ]
 
 #plt.plot([0.0, 0.0], [0.0, 9000], 'g')
-distX = [a['centerDistanceX'] for a in tab]
+distX = [0.0-a['centerDistanceX'] for a in tab]
 distY = [a['centerDistanceY'] for a in tab]
 SII6716a = [a['SII6716a'][0] for a in tab]
 SII6731a = [a['SII6731a'][0] for a in tab]
@@ -156,10 +156,10 @@ sc = plt.scatter(distX_SII6716a_plot,
                  c=vradSII6716a,
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII] 6716')
-plt.colorbar(sc)
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-80., 80.)
 plt.xlim(-80., 80.)
@@ -167,7 +167,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_SII6716a.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6716a.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SII6716b_plot,
@@ -175,10 +175,10 @@ sc = plt.scatter(distX_SII6716b_plot,
                  c=vradSII6716b,
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII] 6716')
-plt.colorbar(sc)
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-80., 80.)
 plt.xlim(-80., 80.)
@@ -186,7 +186,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_SII6716b.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6716b.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SII6731a_plot,
@@ -194,10 +194,10 @@ sc = plt.scatter(distX_SII6731a_plot,
                  c=vradSII6731a,
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII] 6731')
-plt.colorbar(sc)
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-80., 80.)
 plt.xlim(-80., 80.)
@@ -205,7 +205,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_SII6731a.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6731a.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SII6731b_plot,
@@ -213,10 +213,10 @@ sc = plt.scatter(distX_SII6731b_plot,
                  c=vradSII6731b,
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII] 6731')
-plt.colorbar(sc)
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-80., 80.)
 plt.xlim(-80., 80.)
@@ -224,7 +224,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_SII6731b.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6731b.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 
@@ -279,10 +279,10 @@ sc = plt.scatter(distX_SIIa_plot,
                  c=vradSIIa,
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII]')
-plt.colorbar(sc)
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-80., 80.)
 plt.xlim(-80., 80.)
@@ -290,7 +290,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_SIIa.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SIIa.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SIIb_plot,
@@ -298,10 +298,10 @@ sc = plt.scatter(distX_SIIb_plot,
                  c=vradSIIb,
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII]')
-plt.colorbar(sc)
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-80., 80.)
 plt.xlim(-80., 80.)
@@ -309,7 +309,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_SIIb.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SIIb.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 vradaGTC = []
@@ -387,7 +387,7 @@ sc = plt.scatter(distX_SIIa_plot,
                  c=np.array(vradSIIa),
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII] WIYN')
 sb = plt.scatter(np.array(distXaGTC),
@@ -397,8 +397,8 @@ sb = plt.scatter(np.array(distXaGTC),
                  vmax=maxval,
                  s=15,
                  cmap=cm,
-                 label='[SII] GTC')
-plt.colorbar(sc)
+                 label='[SII] & [ArIII] GTC')
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-110., 110.)
 plt.xlim(-110., 110.)
@@ -406,7 +406,7 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_WIYN_and_GTCa.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_WIYN_and_GTCa.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SIIb_plot,
@@ -414,7 +414,7 @@ sc = plt.scatter(distX_SIIb_plot,
                  c=np.array(vradSIIb),
                  vmin=minval,
                  vmax=maxval,
-                 s=35,
+                 s=40,
                  cmap=cm,
                  label='[SII] WIYN')
 sb = plt.scatter(np.array(distXbGTC),
@@ -424,8 +424,8 @@ sb = plt.scatter(np.array(distXbGTC),
                  vmax=maxval,
                  s=15,
                  cmap=cm,
-                 label='[SII]/ArIII GTC')
-plt.colorbar(sc)
+                 label='[SII] GTC')
+plt.colorbar(sc, label='radial velocity [km/s]')
 
 plt.ylim(-110., 110.)
 plt.xlim(-110., 110.)
@@ -433,11 +433,12 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_map_WIYN_and_GTCb.png')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_WIYN_and_GTCb.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 # sum up spectral range 6690 - 6760 and reproduce an image
-inFile = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMean.fits'
+wavelengthRange = [6690,6760]
+inFile = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMedian.fits'#_6684-6760n.fits'#-skyMean.fits'
 hdulist = pyfits.open(inFile)
   
 header = hdulist[0].header
@@ -447,3 +448,44 @@ wavelength = getWavelength(header,1)
 print('wavelength.shape = ',wavelength.shape)
 print('wavelength = ',wavelength)
 
+SIISum = np.zeros(spectrum.shape[0])
+for i in range(spectrum.shape[0]):
+    x0 = 0.0
+    x1 = 0.0
+    for l in range(wavelength.shape[0]):
+        if (wavelength[l] >= wavelengthRange[0]) and (wavelength[l] <= wavelengthRange[1]):
+            SIISum[i] += spectrum[i,l]
+            if x0 == 0:
+                x0 = l
+            x1 = l
+    print('SIISum[',i,'] = ',SIISum[i])
+    print('spectrum[',i,',',x0,':',x1,'] = ',spectrum[i,x0:x1])
+    print('np.median = ',np.median(spectrum[i,x0:x1]))
+    SIISum[i] = SIISum[i] - (np.median(spectrum[i,x0:x1]) * (x1-x0))
+    print('SIISum[',i,'] = ',SIISum[i])
+
+
+print('SIISum = ',SIISum)
+SIISumSorted = np.sort(SIISum)
+print('SIISumSorted = ',SIISumSorted)
+colourRange = [SIISumSorted[6], SIISumSorted[len(SIISumSorted)-6]]
+
+cm = plt.cm.get_cmap('gnuplot')#autumn')#plasma')#copper')
+sc = plt.scatter(distX,
+                 distY,
+                 c=SIISum,
+                 vmin=0.,#colourRange[0],
+                 vmax=colourRange[1],
+                 s=60,
+                 cmap=cm)
+plt.colorbar(sc, label='ADUs')
+plt.title('reconstructed image '+str(wavelengthRange[0])+'-'+str(wavelengthRange[1])+' Ang')
+
+plt.ylim(-80., 80.)
+plt.xlim(-80., 80.)
+#plt.xlim(-50., -15.)
+plt.xlabel('center distance [arc sec]')
+plt.ylabel('center distance [arc sec]')
+plt.legend()
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_reconstructed_image_WIYN.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.show()

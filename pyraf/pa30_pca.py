@@ -5,12 +5,22 @@ from pyraf import iraf
 from sklearn.decomposition import PCA
 execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate
 
+standardStar = True
 cubePlusSky = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum.fits'
 
 cubeMinusSkyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMean.fits'
 skyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum_sky.fits'
 
 componentsOutRoot = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum_PCA'
+if standardStar:
+    cubePlusSky = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined.fits'
+
+    cubeMinusSkyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined-skyMean.fits'
+    skyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined_sky.fits'
+
+    componentsOutRoot = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined_PCA'
+
+
 
 hdulistCubePlusSky = pyfits.open(cubePlusSky)
 wavelength = getWavelength(hdulistCubePlusSky[0].header, 1)
