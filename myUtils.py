@@ -801,3 +801,5 @@ def getMaximumWavelengthRange(header, dispAxis=1):
     print('getMaximumWavelengthRange: specRangeMax = ',specRangeMax)
     return specRangeMax
 
+def calibratedFluxToAbsoluteFlux(calibratedFlux, distanceIn_pc):
+    return calibratedFlux * distanceIn_pc * distanceIn_pc / 100.0
