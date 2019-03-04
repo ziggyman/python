@@ -52,7 +52,7 @@ somme_spectrum_smoothed = boxCarMeanSmooth(somme_spectrum, 0, 21)
 leDu_spectrum_absolute_smoothed = boxCarMeanSmooth(leDu_spectrum_absolute, 0, 21)
 somme_spectrum_absolute_smoothed = boxCarMeanSmooth(somme_spectrum_absolute, 0, 21)
 
-xLim = [3600,7500]
+xLim = [3675,7500]
 xLimStr = [str(x) for x in xLim]
 yLim = [0.,4.9e-15]
 yLimStr = [str(y) for y in yLim]
@@ -108,7 +108,7 @@ plt.plot(gtc_wavelength,gtc_spectrum_absolute,'r-', label='GTC scaled')
 plt.xlabel('wavelength [$\mathrm{\AA}$]')
 yLabel = 'counts [ADU]'
 if calibrated:
-    yLabel = 'calibrated absolute flux [$\mathrm{erg/cm^2/s/\AA}$]'
+    yLabel = 'absolute flux [$\mathrm{erg/cm^2/s/\AA}$]'
 plt.ylabel(yLabel)
 plt.xlim(xLim[0],xLim[1])
 plt.legend()
@@ -124,7 +124,7 @@ plt.plot(gtc_wavelength,np.log10(gtc_spectrum_absolute),'r-', label='GTC scaled'
 plt.xlabel('wavelength [$\mathrm{\AA}$]')
 yLabel = 'counts [ADU]'
 if calibrated:
-    yLabel = 'log(calibrated absolute flux [$\mathrm{erg/cm^2/s/\AA}$])'
+    yLabel = 'log(absolute flux [$\mathrm{erg/cm^2/s/\AA}$])'
 plt.ylabel(yLabel)
 plt.xlim(xLim[0],xLim[1])
 plt.legend()
@@ -139,7 +139,7 @@ plt.show()
 
 
 plt.plot(leDu_wavelength,leDu_spectrum_absolute_smoothed,'g-', label='LeDu scaled and smoothed')
-plt.plot(somme_wavelength,somme_spectrum_absolute_smoothed,'c-', label='Somme scaled and smoothed')
+#plt.plot(somme_wavelength,somme_spectrum_absolute_smoothed,'c-', label='Somme scaled and smoothed')
 plt.plot(wiyn_wavelength,wiyn_spectrum_absolute,'b-', label='WIYN')
 plt.plot(gtc_wavelength,gtc_spectrum_absolute,'r-', label='GTC scaled')
 plt.xlabel('wavelength [$\mathrm{\AA}$]')
@@ -147,7 +147,7 @@ yLabel = 'absolute flux [$\mathrm{erg/cm^2/s/\AA}$]'
 plt.ylabel(yLabel)
 plt.xlim(xLim[0],xLim[1])
 plt.legend()
-plotname = '/Users/azuri/daten/uni/HKU/Pa30/report/images/Pa30_GTC_WIYN_LeDu-Somme-smoothed_absoluteFlux_'
+plotname = '/Users/azuri/daten/uni/HKU/Pa30/report/images/Pa30_GTC_WIYN_LeDu-smoothed_absoluteFlux_'
 plotname = plotname + 'x'+xLimStr[0]+'-'+xLimStr[1]+'.pdf'
 print('writing plot to file <'+plotname+'>')
 plt.savefig(plotname, format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
@@ -156,7 +156,7 @@ plt.show()
 
 
 plt.plot(leDu_wavelength,np.log10(leDu_spectrum_absolute_smoothed),'g-', label='LeDu scaled and smoothed')
-plt.plot(somme_wavelength,np.log10(somme_spectrum_absolute_smoothed),'c-', label='Somme scaled and smoothed')
+#plt.plot(somme_wavelength,np.log10(somme_spectrum_absolute_smoothed),'c-', label='Somme scaled and smoothed')
 plt.plot(wiyn_wavelength,np.log10(wiyn_spectrum_absolute),'b-', label='WIYN')
 plt.plot(gtc_wavelength,np.log10(gtc_spectrum_absolute),'r-', label='GTC scaled')
 plt.xlabel('wavelength [$\mathrm{\AA}$]')
@@ -166,7 +166,7 @@ if calibrated:
 plt.ylabel(yLabel)
 plt.xlim(xLim[0],xLim[1])
 plt.legend()
-plotname = '/Users/azuri/daten/uni/HKU/Pa30/report/images/Pa30_GTC_WIYN_LeDu-Somme-smoothed_logAbsoluteFlux_'
+plotname = '/Users/azuri/daten/uni/HKU/Pa30/report/images/Pa30_GTC_WIYN_LeDu-smoothed_logAbsoluteFlux_'
 plotname = plotname + 'x'+xLimStr[0]+'-'+xLimStr[1]+'.pdf'
 print('writing plot to file <'+plotname+'>')
 plt.savefig(plotname, format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
@@ -180,7 +180,7 @@ plt.plot(somme_wavelength,somme_spectrum_absolute_smoothed,'c-', label='Somme sc
 plt.plot(wiyn_wavelength,wiyn_spectrum_absolute,'b-', label='WIYN')
 plt.plot(gtc_wavelength,gtc_spectrum_absolute,'r-', label='GTC scaled')
 plt.xlabel('wavelength [$\mathrm{\AA}$]')
-yLabel = 'calibrated absolute flux [$\mathrm{erg/cm^2/s/\AA}$]'
+yLabel = 'absolute flux [$\mathrm{erg/cm^2/s/\AA}$]'
 plt.ylabel(yLabel)
 plt.xlim(xLim[0],xLim[1])
 plt.legend()
@@ -199,7 +199,7 @@ plt.plot(gtc_wavelength,np.log10(gtc_spectrum_absolute),'r-', label='GTC scaled'
 plt.xlabel('wavelength [$\mathrm{\AA}$]')
 yLabel = 'counts [ADU]'
 if calibrated:
-    yLabel = 'log(calibrated absolute flux [$\mathrm{erg/cm^2/s/\AA}$])'
+    yLabel = 'log(absolute flux [$\mathrm{erg/cm^2/s/\AA}$])'
 plt.ylabel(yLabel)
 plt.xlim(xLim[0],xLim[1])
 plt.legend()
@@ -369,7 +369,7 @@ yLimStr[0] = yLimStr[0][0:yLimStr[0].find('.')]
 yLimStr[1] = yLimStr[1].replace('.','_')
 
 plt.xlabel('wavelength [$\mathrm{\AA}$]')
-yLabel = 'log(absolute calibrated flux / [$\mathrm{erg/cm^2/s/\AA}$])'
+yLabel = 'log(absolute flux / [$\mathrm{erg/cm^2/s/\AA}$])'
 plt.ylabel(yLabel)
 #plt.xlim(xLim[0],xLim[1])#4280.,7095.)
 #plt.xlim(3600.,4100.)#7900.)#4280.,7095.)

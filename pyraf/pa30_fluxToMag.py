@@ -1,7 +1,7 @@
 import pyphot
 execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
 
-gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/Pa30_GT080716_cal_sum_cleaned.fits"
+gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/Pa30_GT080716_cal_sum_cleaned_scaled.fits"
 wiyn_file = "/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMean_52_cal_cleaned.fits"
 
 gtc_hdulist = pyfits.open(gtc_file)
@@ -54,51 +54,92 @@ print('filter_SDSS_r[0].info() = ',filter_SDSS_r[0].info())
 f = filter_JB[0].getFlux(gtc_wavelength, gtc_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JB[0].Vega_zero_mag
-print('apparent GTC B mag = ',mag)
+print('apparent GTC B mag Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JB[0].AB_zero_mag
+print('apparent GTC B mag AB = ',mag)
 f = filter_JB[0].get_flux(gtc_wavelength, gtc_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JB[0].Vega_zero_mag
-print('apparent GTC B mag = ',mag)
+print('apparent GTC B mag Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JB[0].AB_zero_mag
+print('apparent GTC B mag AB = ',mag)
 
 f = filter_JB[0].getFlux(gtc_wavelength, gtc_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JB[0].Vega_zero_mag
-print('absolute GTC B mag = ',mag)
+print('absolute GTC B mag Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JB[0].AB_zero_mag
+print('absolute GTC B mag AB = ',mag)
 
 f = filter_JV[0].getFlux(gtc_wavelength, gtc_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JV[0].Vega_zero_mag
-print('apparent GTC mag V = ',mag)
+print('apparent GTC mag V Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JV[0].AB_zero_mag
+print('apparent GTC mag V AB = ',mag)
 
 f = filter_JV[0].getFlux(gtc_wavelength, gtc_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JV[0].Vega_zero_mag
-print('absolute GTC mag V = ',mag)
+print('absolute GTC mag V Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JV[0].AB_zero_mag
+print('absolute GTC mag V AB = ',mag)
 
 f = filter_GaiaG_BP[0].getFlux(gtc_wavelength/10., gtc_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].Vega_zero_mag
-print('apparent GTC mag G_BP = ',mag)
+print('apparent GTC mag G_BP Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].AB_zero_mag
+print('apparent GTC mag G_BP AB = ',mag)
 
 f = filter_GaiaG_BP[0].getFlux(gtc_wavelength/10., gtc_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].Vega_zero_mag
-print('absolute GTC mag G_BP = ',mag)
+print('absolute GTC mag G_BP Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].AB_zero_mag
+print('absolute GTC mag G_BP AB = ',mag)
+
+f = filter_SDSS_u[0].getFlux(gtc_wavelength, gtc_spectrum)
+print('f = ',f)
+mag = -2.5 * np.log10(f) - filter_SDSS_u[0].Vega_zero_mag
+print('apparent GTC mag SDSS_u Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_u[0].AB_zero_mag
+print('apparent GTC mag SDSS_u AB = ',mag)
 
 f = filter_SDSS_u[0].getFlux(gtc_wavelength, gtc_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_SDSS_u[0].Vega_zero_mag
-print('absolute GTC mag SDSS_u = ',mag)
+print('absolute GTC mag SDSS_u Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_u[0].AB_zero_mag
+print('absolute GTC mag SDSS_u AB = ',mag)
+
+f = filter_SDSS_g[0].getFlux(gtc_wavelength, gtc_spectrum)
+print('f = ',f)
+mag = -2.5 * np.log10(f) - filter_SDSS_g[0].Vega_zero_mag
+print('apparent GTC mag SDSS_g Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_g[0].AB_zero_mag
+print('apparent GTC mag SDSS_g AB = ',mag)
 
 f = filter_SDSS_g[0].getFlux(gtc_wavelength, gtc_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_SDSS_g[0].Vega_zero_mag
-print('absolute GTC mag SDSS_g = ',mag)
+print('absolute GTC mag SDSS_g Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_g[0].AB_zero_mag
+print('absolute GTC mag SDSS_g AB = ',mag)
+
+f = filter_SDSS_r[0].getFlux(gtc_wavelength, gtc_spectrum)
+print('f = ',f)
+mag = -2.5 * np.log10(f) - filter_SDSS_r[0].Vega_zero_mag
+print('apparent GTC mag SDSS_r Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_r[0].AB_zero_mag
+print('apparent GTC mag SDSS_r AB = ',mag)
 
 f = filter_SDSS_r[0].getFlux(gtc_wavelength, gtc_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_SDSS_r[0].Vega_zero_mag
-print('absolute GTC mag SDSS_r = ',mag)
+print('absolute GTC mag SDSS_r Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_r[0].AB_zero_mag
+print('absolute GTC mag SDSS_r AB = ',mag)
 #J_B = pyphot.helpers.extractPhotometry(gtc_wavelength, gtc_spectrum_absolute, filter_JB)#, absFlux=True, progress=True)
 #print('J_B = ',J_B)
 
@@ -107,52 +148,70 @@ print(' ')
 f = filter_JB[0].getFlux(wiyn_wavelength, wiyn_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JB[0].Vega_zero_mag
-print('apparent WIYN mag B = ',mag)
+print('apparent WIYN mag B Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JB[0].AB_zero_mag
+print('apparent WIYN mag B AB = ',mag)
 
 f = filter_JB[0].getFlux(wiyn_wavelength, wiyn_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JB[0].Vega_zero_mag
-print('absolute WIYN mag B = ',mag)
+print('absolute WIYN mag B Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JB[0].AB_zero_mag
+print('absolute WIYN mag B AB = ',mag)
 
 f = filter_JV[0].getFlux(wiyn_wavelength, wiyn_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JV[0].Vega_zero_mag
-print('apparent WIYN mag V = ',mag)
+print('apparent WIYN mag V Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JV[0].AB_zero_mag
+print('apparent WIYN mag V AB = ',mag)
 
 f = filter_JV[0].getFlux(wiyn_wavelength, wiyn_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_JV[0].Vega_zero_mag
-print('absolute WIYN mag V = ',mag)
+print('absolute WIYN mag V Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_JV[0].AB_zero_mag
+print('absolute WIYN mag V AB = ',mag)
 
 f = filter_GaiaG_BP[0].getFlux(wiyn_wavelength/10., wiyn_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].Vega_zero_mag
-print('apparent WIYN mag G_BP = ',mag)
+print('apparent WIYN mag G_BP Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].AB_zero_mag
+print('apparent WIYN mag G_BP AB = ',mag)
 
 f = filter_GaiaG_BP[0].getFlux(wiyn_wavelength/10., wiyn_spectrum_absolute)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].Vega_zero_mag
-print('absolute WIYN mag G_BP = ',mag)
+print('absolute WIYN mag G_BP Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_GaiaG_BP[0].AB_zero_mag
+print('absolute WIYN mag G_BP AB = ',mag)
 
-f = filter_SDSS_u[0].getFlux(wiyn_wavelength/10., wiyn_spectrum_absolute)
-print('f = ',f)
-mag = -2.5 * np.log10(f) - filter_SDSS_u[0].Vega_zero_mag
-print('absolute WIYN mag SDSS_u = ',mag)
-
-f = filter_SDSS_g[0].getFlux(wiyn_wavelength/10., wiyn_spectrum_absolute)
+f = filter_SDSS_g[0].getFlux(wiyn_wavelength, wiyn_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_SDSS_g[0].Vega_zero_mag
-print('absolute WIYN mag SDSS_g = ',mag)
+print('apparent WIYN mag SDSS_g Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_g[0].AB_zero_mag
+print('apparent WIYN mag SDSS_g AB = ',mag)
 
-f = filter_SDSS_r[0].getFlux(wiyn_wavelength/10., wiyn_spectrum_absolute)
+f = filter_SDSS_g[0].getFlux(wiyn_wavelength, wiyn_spectrum_absolute)
+print('f = ',f)
+mag = -2.5 * np.log10(f) - filter_SDSS_g[0].Vega_zero_mag
+print('absolute WIYN mag SDSS_g Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_g[0].AB_zero_mag
+print('absolute WIYN mag SDSS_g AB = ',mag)
+
+f = filter_SDSS_r[0].getFlux(wiyn_wavelength, wiyn_spectrum)
 print('f = ',f)
 mag = -2.5 * np.log10(f) - filter_SDSS_r[0].Vega_zero_mag
-print('absolute WIYN mag SDSS_r = ',mag)
+print('apparent WIYN mag SDSS_r Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_r[0].AB_zero_mag
+print('apparent WIYN mag SDSS_r AB = ',mag)
 
-
-f=1540.1
-mag = -2.5 * np.log10(f)# - filter_JB[0].Vega_zero_mag
-print('GAIA mag = ',mag)
-mag = -2.5 * np.log10(f) - filter_JB[0].Vega_zero_mag
-print('GAIA mag = ',mag)
+f = filter_SDSS_r[0].getFlux(wiyn_wavelength, wiyn_spectrum_absolute)
+print('f = ',f)
+mag = -2.5 * np.log10(f) - filter_SDSS_r[0].Vega_zero_mag
+print('absolute WIYN mag SDSS_r Vega = ',mag)
+mag = -2.5 * np.log10(f) - filter_SDSS_r[0].AB_zero_mag
+print('absolute WIYN mag SDSS_r AB = ',mag)
 
