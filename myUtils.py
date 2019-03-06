@@ -803,3 +803,70 @@ def getMaximumWavelengthRange(header, dispAxis=1):
 
 def calibratedFluxToAbsoluteFlux(calibratedFlux, distanceIn_pc):
     return calibratedFlux * distanceIn_pc * distanceIn_pc / 100.0
+
+def rgb2grey(rgb):
+
+    r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
+    gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+
+    return gray
+
+def trace(image, searchRadius=5):
+    axis = 0
+    print('image.shape = ', image.shape)
+
+    minPos = []#np.argmin(image,axis=1)
+    startFound = False
+    minIndex = 0
+    for row in range(image.shape[axis]):
+        addValue = True
+        if not startFound:
+            minIndex = np.argmin(image[row,:])
+            print('row = ',row,': minIndex = ',minIndex,': image[',row,',',minIndex,'] = ',image[row,minIndex])
+            if image[row,minIndex] < 10:
+                startFound = True
+                minPos.append(minIndex)
+        else:
+            searchStart = minPos[len(minPos)-1]-searchRadius
+            if searchStart < 0:
+                searchStart = 0
+
+            searchEnd = minPos[len(minPos)-1]+searchRadius
+            if searchEnd >= image.shape[axis]:
+                searchEnd = image.shape[axis]-1
+            print('row ',row,': searchStart = ',searchStart,', searchEnd = ',searchEnd,': ',image[row,searchStart:searchEnd])
+            minIndex = np.argmin(image[row,searchStart:searchEnd])
+            print('minIndex = ',minIndex)
+            searchRadiusTemp = searchRadius
+            iRun = 0
+            while (minIndex == 0) and (image[row,searchStart + minIndex] == image[row,searchStart + minIndex + int(searchRadius/2)]):
+                searchRadiusTemp = 2 * searchRadiusTemp
+                searchStart = minPos[len(minPos)-1]-searchRadiusTemp
+                if searchStart < 0:
+                    searchStart = 0
+
+                searchEnd = minPos[len(minPos)-1]+searchRadiusTemp
+                if searchEnd >= image.shape[axis]:
+                    searchEnd = image.shape[axis]-1
+                print('row ',row,': searchStart = ',searchStart,', searchEnd = ',searchEnd,': ',image[row,searchStart:searchEnd])
+                minIndex = np.argmin(image[row,searchStart:searchEnd])
+                print('minIndex = ',minIndex)
+                iRun += 1
+                if iRun > 10:
+                    addValue = False
+                    break
+            if addValue:
+                minPos.append(searchStart + minIndex)
+        if len(minPos) > 1:
+            print('minPos[',len(minPos)-1,'] = ',minPos[len(minPos)-1])
+
+    print('minPos = ',len(minPos),': ',minPos)
+    minPos = np.array(minPos)
+    minPos = image.shape[1] - np.flip(minPos,0)
+    print('minPos = ',minPos.shape,': ',minPos)
+    plt.plot(minPos)
+    plt.show()
+#    for row in range(image.shape[0]):
+#        minPos.append()
+#    print(image[:,100])
+    return minPos

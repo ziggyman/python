@@ -38,7 +38,7 @@ somme_spectrum_smoothed = boxCarMeanSmooth(somme_spectrum, 0, 21)
 leDu_spectrum_absolute_smoothed = boxCarMeanSmooth(leDu_spectrum_absolute, 0, 21)
 somme_spectrum_absolute_smoothed = boxCarMeanSmooth(somme_spectrum_absolute, 0, 21)
 
-ebv = 0.79
+ebv = 0.99
 R_V = 3.0
 
 gtc_spectrum_absolute_dereddened = pyasl.unred(gtc_wavelength, gtc_spectrum_absolute, ebv=ebv, R_V = R_V)
