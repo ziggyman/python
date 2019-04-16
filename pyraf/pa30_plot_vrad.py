@@ -1,4 +1,6 @@
-execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
+#from myUtils import getDate, findClosestDate,...
+import numpy as np
+import matplotlib.pyplot as plt
 
 speedOfLight = 299792.458# km/s
 
@@ -85,15 +87,15 @@ SII6731b = [a['SII6731b'] for a in tab]
 unidentified1 = [a['unidentified1'] for a in tab]
 ArIII7136 = [a['ArIII7136'] for a in tab]
 
-lambda0SII6716 = 6716.0
+lambda0SII6716 = 6716.44
 vradSII6716a = (np.array(SII6716a) - lambda0SII6716) * speedOfLight / lambda0SII6716
 vradSII6716b = (np.array(SII6716b) - lambda0SII6716) * speedOfLight / lambda0SII6716
 
-lambda0SII6731 = 6731.0
+lambda0SII6731 = 6730.815
 vradSII6731a = (np.array(SII6731a) - lambda0SII6731) * speedOfLight / lambda0SII6731
 vradSII6731b = (np.array(SII6731b) - lambda0SII6731) * speedOfLight / lambda0SII6731
 
-lambda0ArIII7136 = 7136.0
+lambda0ArIII7136 = 7135.8
 vradArIII7136 = (np.array(ArIII7136) - lambda0ArIII7136) * speedOfLight / lambda0ArIII7136
 
 print('minimum velocity = ',min([min(vradSII6716a), min(vradSII6716b), min(vradSII6731a), min(vradSII6731b), min(vradArIII7136)]))

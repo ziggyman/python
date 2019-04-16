@@ -1,19 +1,17 @@
 from __future__ import print_function, division
 
 from astropy.coordinates import SkyCoord
-from astropy.io import fits
 import astropy.units as u
-from datetime import date, timedelta, datetime
+from datetime import date, datetime
+import hammer
 import itertools
 import math
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 from PyAstronomy import pyasl
-import pyfits
-import pymodelfit
-import pyraf
+import astropy.io.fits as pyfits
+#import pymodelfit
 from pyraf import iraf
 import re
 import subprocess
@@ -379,10 +377,30 @@ def findClosestInTime(time, times):
 
 def getRaDecXY(string):
     strs = re.sub( '\s+', ' ', string ).strip()
-    print('getRaDecXY: strs = ',strs)
+#    print('getRaDecXY: strs = ',strs)
     strs = strs.rstrip().split(' ')
-    print('getRaDecXY: strs = ',strs)
+#    print('getRaDecXY: strs = ',strs)
     return [strs[0], strs[1], float(strs[len(strs)-2]), float(strs[len(strs)-1])]
+
+def raDecToLonLat(ra, dec):
+    c = SkyCoord(ra=ra*u.degree, dec=dec*u.degree, frame='icrs')
+#    print('c.galactic = ',type(c.galactic),': ',c.galactic)
+#    print('dir(c) = ',type(c),': ',dir(c))
+#    print('dir(c.galactic) = ',type(c.galactic),': ',dir(c.galactic))
+#    print('c.galactic.l = ',type(c.galactic.l),': ',dir(c.galactic.l))
+#    print('c.galactic.l.value = ',type(c.galactic.l.value),': ',dir(c.galactic.l.value))
+    return [float(c.galactic.l.value),float(c.galactic.b.value)]
+
+#def lonLatToRaDec(lon, lat):
+#    c = SkyCoord(frame="galactic", l="1h12m43.2s", b="+1d12m43s")
+#    return [float(c.ra.value),float(c.dec.value)]
+
+def getPixel(hammerX, hammerY):
+    ham = hammer.Hammer()
+    for pix in ham.getPixels():
+        if ham.isInside(pix, hammerX, hammerY):
+            return pix
+    return None
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -395,34 +413,35 @@ def dmsToDeg(string):
     return s / 3600. + m / 60. + d
 
 def angularDistance(ra1, dec1, ra2, dec2):
+#    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
     return pyasl.getAngDist(ra1, dec1, ra2, dec2)
 
 def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
     result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
-    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
-    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
+#    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
+#    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
     raHMS1, decHMS1, x1, y1 = getRaDecXY(result1)
     raHMS2, decHMS2, x2, y2 = getRaDecXY(result2)
-    print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
-    print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
+#    print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
+#    print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
     ra1 = hmsToDeg(raHMS1)
     dec1 = dmsToDeg(decHMS1)
     ra2 = hmsToDeg(raHMS2)
     dec2 = dmsToDeg(decHMS2)
-    print('ra1 = ',ra1,', dec1 = ',dec1)
-    print('ra2 = ',ra2,', dec2 = ',dec2)
+#    print('ra1 = ',ra1,', dec1 = ',dec1)
+#    print('ra2 = ',ra2,', dec2 = ',dec2)
     return angularDistance(ra1, dec1, ra2, dec2)
 
 def getArcsecDistance(fitsName, x1, y1, x2, y2):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
     result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
-    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
-    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
+    #print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
+    #print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
     raHMS1, decHMS1, x1, y1 = getRaDecXY(result1)
     raHMS2, decHMS2, x2, y2 = getRaDecXY(result2)
-    print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
-    print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
+    #print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
+    #print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
     mm1 = SkyCoord(ra=raHMS1, dec=decHMS1, unit=(u.hourangle, u.deg))
     mm2 = SkyCoord(ra=raHMS2, dec=decHMS2, unit=(u.hourangle, u.deg))
     return mm1.separation(mm2).arcsecond
@@ -870,3 +889,52 @@ def trace(image, searchRadius=5):
 #        minPos.append()
 #    print(image[:,100])
     return minPos
+
+# gaiaData.ra, gaiaData.dec, ra, and dec are in decimal degrees
+def getStarWithMinDist(gaiaData, ra, dec, iStar=0):
+    dist = None
+    index = None
+    print('gaiaData.header = ',gaiaData.header)
+    for i in range(gaiaData.size()):
+#        print('gaiaData.getData(',i,') = ',gaiaData.getData(i))
+#        print('gaiaData.getData(parallax,',i,') = ',gaiaData.getData('parallax',i))
+        failed = False
+        try:
+            if gaiaData.getData('parallax',i) != '':
+                parallax = float(gaiaData.getData('parallax',i))
+                if parallax < 0.:
+                    parallax = 0.1
+                distance = Distance(parallax=parallax * u.mas)
+    #            print('distance = ',distance)
+    #            print("gaiaData.getData('pmra',i) = ",gaiaData.getData('pmra',i))
+    #            print("gaiaData.getData('pmdec',i) = ",gaiaData.getData('pmdec',i))
+                time = Time(float(gaiaData.getData('ref_epoch',i)), format='decimalyear')
+    #            print('time = ',time)
+                c = SkyCoord(ra=float(gaiaData.getData('ra',i))*u.degree,
+                             dec=float(gaiaData.getData('dec',i))*u.degree,
+                             distance=distance,
+                             pm_ra_cosdec=float(gaiaData.getData('pmra',i)) * u.mas/u.yr,
+                             pm_dec=float(gaiaData.getData('pmdec',i)) * u.mas/u.yr,
+                             obstime=time)
+    #            print('c = ',c)
+                c_epoch2000 = c.apply_space_motion(Time('2000-01-01'))
+    #            print('c_epoch2000 = ',c_epoch2000)
+    #            print('c_epoch2000 = ',type(c_epoch2000),': ',dir(c_epoch2000),': ',c_epoch2000)
+    #            print('c_epoch2000.ra = ',type(c_epoch2000.ra),': ',dir(c_epoch2000.ra),': ',c_epoch2000.ra)
+    #            print('c_epoch2000.ra.deg = ',c_epoch2000.ra.deg)
+                thisDist = angularDistance(ra, dec, c_epoch2000.ra.deg, c_epoch2000.dec.deg) * 3600.
+        except:
+            failed= True
+        if failed:
+            thisDist = angularDistance(ra, dec, float(gaiaData.getData('ra',i)), float(gaiaData.getData('dec',i))) * 3600.
+        if (dist is None):
+            dist = thisDist
+            index = i
+        else:
+            if dist > thisDist:
+                dist = thisDist
+                index = i
+                print('star ',iStar,': closest star index: ',index,': distance = ',dist)
+        if (dist) < 1.:
+            return [index, dist]
+    return [index, dist]

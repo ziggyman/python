@@ -7,7 +7,7 @@ from pyraf import iraf
 #
 #infile = "/Users/Lea/Desktop/CS_centre_sum_spec.fits"
 
-infile = "/Volumes/obiwan/azuri/spectra/Kamila/CSTotal.fits"
+infile = "/Users/azuri/daten/uni/HKU/Kamila/spectrumB_inter1_cs.fits"#"/Volumes/obiwan/azuri/spectra/Kamila/CSTotal.fits"
 hdulist = pyfits.open( infile )
 
 # print column information
