@@ -1,6 +1,13 @@
 #from myUtils import getDate, findClosestDate,...
+from astropy.coordinates import SkyCoord
+import astropy.io.fits as pyfits
+import astropy.units as u
 import numpy as np
 import matplotlib.pyplot as plt
+import subprocess
+import re
+
+#from myUtils import getWavelength
 
 speedOfLight = 299792.458# km/s
 
@@ -113,5 +120,239 @@ plt.xlim(-130., 130.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('radial velocity [km/s]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_GTC.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_GTC.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.show()
+
+
+def getWavelength(header, axis=2):
+    nPix = int(header['NAXIS'+str(axis)])
+    print('getWavelength: nPix = ',nPix)
+    crPix = int(header['CRPIX'+str(axis)])
+    print('getWavelength: crPix = ',crPix)
+    crVal = float(header['CRVAL'+str(axis)])
+    print('getWavelength: crVal = ',crVal)
+    cDelt = float(header['CDELT'+str(axis)])
+    print('getWavelength: cDelt = ',cDelt)
+  #    lam = np.ndarray(nPix, dtype=np.float32)
+  #    lam[0] =
+  #    for i in np.arange(1,nPix):
+    lam = np.arange(crVal, crVal + ((nPix-0.5)*cDelt), cDelt, dtype=np.float32)
+    print('getWavelength: lam = ',len(lam),': ',lam)
+    return lam
+
+def lambdaToY(lam, lambdaArr):
+  return (lam-lambdaArr[0]) * len(lambdaArr) / (lambdaArr[len(lambdaArr)-1] - lambdaArr[0]) - 0.5
+
+def getRaDecXY(string):
+  strs = re.sub( '\s+', ' ', string ).strip()
+  #  print('getRaDecXY: strs = ',strs)
+  strs = strs.rstrip().split(' ')
+  #print('getRaDecXY: strs = ',strs)
+  return [strs[0], strs[1], float(strs[len(strs)-2]), float(strs[len(strs)-1])]
+
+def getArcsecDistance(fitsName, x1, y1, x2, y2):
+  result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
+  result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
+  #print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
+  #print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
+  raHMS1, decHMS1, x1, y1 = getRaDecXY(result1.decode('utf-8'))
+  raHMS2, decHMS2, x2, y2 = getRaDecXY(result2.decode('utf-8'))
+  #print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
+  #print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
+  mm1 = SkyCoord(ra=raHMS1, dec=decHMS1, unit=(u.hourangle, u.deg))
+  mm2 = SkyCoord(ra=raHMS2, dec=decHMS2, unit=(u.hourangle, u.deg))
+  return mm1.separation(mm2).arcsecond
+
+# find x in Rows from [xFrom, yFrom] for column yTo, do it the crude way...
+def findXForArcSecDistanceFrom(xFrom, yFrom, yTo, dist, xRange, fitsName):
+  #print('findXForArcSecDistanceFrom: xFrom = ',xFrom,', yFrom =',yFrom,', yTo = ',yTo,', dist = ',dist,', xRange = ',xRange,', fitsName = ',fitsName)
+  xRangeTemp = xRange
+  distTemp = dist
+  if dist < 0:
+    distTemp = 0. - dist
+    xRangeTemp = [xRange[0], xFrom]
+  else:
+    if xFrom > xRange[0]:
+      xRangeTemp = [xFrom, xRange[1]]
+
+#print('findXForArcSecDistanceFrom: dist = ',dist,', distTemp = ',distTemp)
+  hdulist = pyfits.open(fitsName)
+  nCols = hdulist[0].data.shape[1]
+#print('findXForArcSecDistanceFrom: nCols = ',nCols)
+  previousDist = 100000000.
+  for x in np.arange(xRangeTemp[0], xRangeTemp[1]):
+    #   print('findXForArcSecDistanceFrom: xFrom = ',xFrom,', yFrom =',yFrom,', yTo = ',yTo,', distTemp = ',distTemp,', xRange = ',xRange,', fitsName = ',fitsName)
+    tempDist = getArcsecDistance(fitsName, xFrom, yFrom, x, yTo)
+    #print('findXForArcSecDistanceFrom): distTemp = ',distTemp,': x = ',x,': tempDist = ',tempDist)
+    if (((dist > 0.) and ((previousDist < distTemp) and (tempDist >= distTemp)))
+        or ((dist < 0.) and ((previousDist > distTemp) and (tempDist <= distTemp)))
+        or ((distTemp == 0) and (tempDist == 0.))):
+      #print('findXForArcSecDistanceFrom: returning x = ',x)
+      return x
+
+    previousDist = tempDist
+  raise('findXForArcSecDistanceFrom: ERROR: could not determine x')
+
+def findYForWLen(wLenArr, wLen):
+  previousWLen = 10000000.
+  pos = 0
+  for w in wLenArr:
+    #    print('findYForWLen: previousWLen = ',previousWLen,', w = ',w,', wLen = ',wLen)
+    if (previousWLen < wLen) and (w >= wLen):
+      #  print('findYForWLen: returning pos = ',pos)
+      return pos
+    pos += 1
+    previousWLen = w
+  raise('findYForWLen: ERROR: wLen ',wLen,' not found')
+
+minRow = 1573
+maxRow = 1613
+minCol = 1000
+maxCol = 1920
+starCol = 1463
+xCenter = starCol - minCol
+yCenter = 994
+
+twoDSpecFile = '/Users/azuri/daten/uni/HKU/Pa30/Pa30_av_x_wl_flt_cal_mSky_obs_not_smoothed_minComb.fits'
+imFile = '/Users/azuri/daten/uni/HKU/Pa30/gtc_object_wcsIm_sky_0000956342.fits'
+hdulist = pyfits.open(twoDSpecFile)
+header = hdulist[0].header
+twoDSpec = hdulist[0].data[minRow:maxRow,minCol:maxCol]
+print('twoDSpec.shape = ',twoDSpec.shape)
+
+wavelength = getWavelength(header)[minRow:maxRow]
+print('wavelength = ',wavelength.shape,': ',wavelength)
+
+#remove background
+upper = hdulist[0].data[maxRow:maxRow+20,minCol:maxCol]
+lower = hdulist[0].data[minRow-20:minRow,minCol:maxCol]
+for col in range(twoDSpec.shape[1]):
+    twoDSpec[:,col] = twoDSpec[:,col] - np.mean([np.mean(upper[:,col]), np.mean(lower[:,col])])
+
+rows = range(twoDSpec.shape[0])
+cols = range(twoDSpec.shape[1])
+
+xlim = [-0.5,len(cols)-0.5]
+ylim = [-0.5,len(rows)-0.5]
+
+# show 2D spectrum and reverse y (because of how matrixes are stored / interpreted)
+twoDSpecPlot = np.ndarray(twoDSpec.shape)
+for row in range(twoDSpec.shape[0]):
+  twoDSpecPlot[row,:] = twoDSpec[twoDSpec.shape[0]-1-row,:]
+plt.imshow(twoDSpecPlot, cmap='Greys',vmin=0., vmax=2.0e-19, extent=(xlim[0],xlim[1],ylim[0],ylim[1]), aspect='auto')
+
+# mark CS with X
+plt.plot([len(cols)/2.],[len(rows)/2.],'rx',markersize=10)
+limits = plt.axis()
+
+# plot measured lines with vrad as color
+cm = plt.cm.get_cmap('rainbow')
+
+i = 0
+sc = None
+for lam in [SII6716a,SII6716b,SII6731a,SII6731b]:
+    plotVRadY = lambdaToY(lam, wavelength)
+    #    plotVRadY = len(wavelength) - lambdaToY(lam, wavelength)
+    print('plotVRadY = ',plotVRadY)
+    plotVRadX = np.array([a['column'] for a in tab]) - minCol
+    print('plotVRadX = ',plotVRadX)
+      #    if i < 2:
+      #  marker = 'r+'
+      #else:
+      #  marker = 'b+'
+          #    plt.plot(plotVRadX,
+          #   plotVRadY,
+          #   marker)
+    marker = None
+    label = None
+    if i == 0:
+        vrad = vradSII6716a
+        marker = 'o'
+        label = '[SII] 6716'
+    elif i == 1:
+        vrad = vradSII6716b
+        marker = 'o'
+    #        label = '[SII] 6716'
+    elif i == 2:
+        vrad = vradSII6731a
+        marker = '^'
+        label = '[SII] 6731'
+    elif i == 3:
+        vrad = vradSII6731b
+        marker = '^'
+#    label = '[SII] 6731'
+
+    sc = plt.scatter(plotVRadX,
+                     plotVRadY,
+                     c=vrad,
+                     vmin=-1200.,
+                     vmax=1200.,
+                     s=15,
+                     cmap=cm,
+                     marker = marker,
+                     label = label
+                    )
+    i += 1
+plt.xlim = xlim
+plt.ylim = ylim
+plt.axis(limits)
+plt.autoscale(False)
+plt.colorbar(sc,label='radial velocity [km/s]')
+plt.legend()
+
+# change x-Axis
+xTicksDist = [-100., -80., -60., -40., -20., 0., 20., 40., 60.,80.,100.]
+xTicksCols = []
+xRange = [minCol, maxCol]
+for xTick in xTicksDist:
+  if xTick != xTicksDist[0]:
+    xRange = [xTicksCols[len(xTicksCols)-1], xRange[1]]
+  xTicksCols.append(findXForArcSecDistanceFrom(xCenter+minCol, yCenter, yCenter, xTick, xRange, imFile))
+print('xTicksCols = ',xTicksCols)
+
+xTicks = []
+for x in xTicksCols:
+  xTicks.append(x - minCol)
+print('xTicks = ',xTicks)
+
+xTicksDistStr =()
+for x in xTicksDist:
+  xTicksDistStr = xTicksDistStr + ('%.0d' % (x),)
+print('findXForArcSecDistanceFrom: xTicksDistStr = ',xTicksDistStr)
+
+locks, labels = plt.xticks()
+print('findXForArcSecDistanceFrom: locks = ',locks,', labels[0] = ',labels[0])
+
+plt.xticks(xTicks,
+           xTicksDistStr)
+
+plt.xlabel('center distance [arcsec]')
+
+yTicksWLen = ('%.0d' % ((int(getWavelength(header)[minRow] / 10.) + 1.) * 10.),)
+yTicksRow = [findYForWLen(wavelength, int(yTicksWLen[len(yTicksWLen)-1]))]
+while True:
+  if int(yTicksWLen[len(yTicksWLen)-1]) + 10. > getWavelength(header)[maxRow]:
+    break
+  yTicksWLen = yTicksWLen + ('%.0d' % (int(yTicksWLen[len(yTicksWLen)-1]) + 10.),)
+  yTicksRow.append(findYForWLen(wavelength, int(yTicksWLen[len(yTicksWLen)-1])))
+print('findXForArcSecDistanceFrom: yTicksRow = ',yTicksRow)
+print('findXForArcSecDistanceFrom: yTicksWLen = ',yTicksWLen)
+plt.yticks(yTicksRow, yTicksWLen)
+plt.ylabel('wavelength [$\mathrm{\AA}$]')
+
+# insert magnification of most striking features
+a = plt.axes([.135, .67, .15, .18])
+magMinRow = 4
+magMaxRow = twoDSpecPlot.shape[0] - 4
+magMinCol = 300
+magMaxCol = 400
+plt.imshow(twoDSpecPlot[magMinRow:magMaxRow,magMinCol:magMaxCol], cmap='Greys',vmin=0., vmax=2.0e-19, extent=(xlim[0],xlim[1],ylim[0],ylim[1]), aspect='auto')
+#plt.plot([1.,2.], [1.,2.], 'b+')
+#plt.title('Probability')
+plt.xticks([])
+plt.yticks([])
+
+
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_on_2dspec.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
+
 plt.show()

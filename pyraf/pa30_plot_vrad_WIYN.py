@@ -220,7 +220,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6716a.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6716a.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SII6716b_plot,
@@ -239,7 +239,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6716b.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6716b.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SII6731a_plot,
@@ -258,7 +258,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6731a.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6731a.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SII6731b_plot,
@@ -277,7 +277,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6731b.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SII6731b.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 
@@ -298,7 +298,7 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_OIII5007a.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_OIII5007a.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_OIII5007b_plot,
@@ -317,7 +317,7 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_OIII5007b.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_OIII5007b.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 
@@ -338,7 +338,7 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_Halpha6563a.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_Halpha6563a.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_Halpha6563b_plot,
@@ -357,7 +357,7 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_Halpha6563b.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_Halpha6563b.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 
@@ -426,7 +426,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SIIa.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SIIa.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SIIb_plot,
@@ -445,7 +445,7 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SIIb.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_SIIb.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 vradaGTC = []
@@ -542,7 +542,7 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_WIYN_and_GTCa.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_WIYN_and_GTCa.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
 sc = plt.scatter(distX_SIIb_plot,
@@ -569,10 +569,73 @@ plt.xlim(-110., 110.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_WIYN_and_GTCb.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_WIYN_and_GTCb.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
 
-# sum up spectral range 6690 - 6760 and reproduce an image
+
+
+
+
+
+cm = plt.cm.get_cmap('rainbow')
+fig , (ax1,ax2) = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(12.5,5.0), gridspec_kw = {'width_ratios':[1, 1.27]})
+sc = ax1.scatter(distX_SIIa_plot,
+                 distY_SIIa_plot,
+                 c=np.array(vradSIIa),
+                 vmin=minval,
+                 vmax=maxval,
+                 s=40,
+                 cmap=cm,
+                 label='[SII] WIYN')
+sb = ax1.scatter(np.array(distXaGTC),
+                 np.array(distYaGTC),
+                 c=np.array(vradaGTC),
+                 vmin=minval,
+                 vmax=maxval,
+                 s=15,
+                 cmap=cm,
+                 label='[SII] & [ArIII] GTC')
+#plt.colorbar(sc, label='radial velocity [km/s]')
+
+ax1.set_ylim([-110., 110.])
+ax1.set_xlim([-110., 110.])
+#plt.xlim(-50., -15.)
+#plt.xlabel('center distance [arc sec]')
+ax1.set_ylabel('center distance [arc sec]')
+#ax1.legend()
+
+scb = ax2.scatter(distX_SIIb_plot,
+                 distY_SIIb_plot,
+                 c=np.array(vradSIIb),
+                 vmin=minval,
+                 vmax=maxval,
+                 s=40,
+                 cmap=cm,
+                 label='[SII] WIYN')
+sbb = ax2.scatter(np.array(distXbGTC),
+                 np.array(distYbGTC),
+                 c=np.array(vradbGTC),
+                 vmin=minval,
+                 vmax=maxval,
+                 s=15,
+                 cmap=cm,
+                 label='[SII] GTC')
+plt.colorbar(scb, label='radial velocity [km/s]')
+
+ax2.set_ylim([-110., 110.])
+ax2.set_xlim([-110., 110.])
+#plt.xlim(-50., -15.)
+#ax2.set_xlabel('center distance [arc sec]')
+#plt.ylabel('center distance [arc sec]')
+ax2.legend()
+fig.text(0.5,0.02,'center distance [arc sec]',ha='center')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_map_WIYN_and_GTC_a+b.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.show()
+
+
+
+
+#sum up spectral range 6690 - 6760 and reproduce an image
 wavelengthRange = [6690,6760]
 inFile = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMedian.fits'#_6684-6760n.fits'#-skyMean.fits'
 hdulist = pyfits.open(inFile)
@@ -623,5 +686,5 @@ plt.xlim(-80., 80.)
 plt.xlabel('center distance [arc sec]')
 plt.ylabel('center distance [arc sec]')
 plt.legend()
-plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_reconstructed_image_WIYN.pdf', format='pdf', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_reconstructed_image_WIYN.eps', format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()

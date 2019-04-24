@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from PyAstronomy import pyasl
-import astropy.io.fits as pyfits
+import astropy.io.fits as apyfits
 #import pymodelfit
 from pyraf import iraf
 import re
@@ -315,11 +315,11 @@ def markAreas(imageData, skyAreaLeft, skyAreaRight, objectAreas):
         imageData[:,area[1]] = maxImageData
 
 def writeFits(imData, fname, clobber=True):
-    hdu = pyfits.PrimaryHDU(imData)
+    hdu = apyfits.PrimaryHDU(imData)
     hdu.writeto(fname, clobber=clobber)
 
 def getImageData(fname):
-    hdulist = pyfits.open(fname)
+    hdulist = apyfits.open(fname)
     scidata = hdulist[1].data
     hdulist.close()
     return scidata
@@ -333,7 +333,7 @@ def specCombineMinimum(imA, imB):
     return imOut
 
 def getHeader(imName, hdu=1):
-    hdulist = pyfits.open(imName)
+    hdulist = apyfits.open(imName)
     print('len(hdulist) = ',len(hdulist))
     header = hdulist[hdu].header
     return header
@@ -477,11 +477,11 @@ def imMinCombine(fitsName1,
     data1 = None
     data2 = None
     if offset > 0:
-        hdulist1 = pyfits.open(fitsName1)
-        hdulist2 = pyfits.open(fitsName2)
+        hdulist1 = apyfits.open(fitsName1)
+        hdulist2 = apyfits.open(fitsName2)
     else:
-        hdulist2 = pyfits.open(fitsName1)
-        hdulist1 = pyfits.open(fitsName2)
+        hdulist2 = apyfits.open(fitsName1)
+        hdulist1 = apyfits.open(fitsName2)
         offset = 0 - offset
         print('changed offset to ',offset)
     data1 = hdulist1[0].data
@@ -593,7 +593,7 @@ def imMinCombine(fitsName1,
                             section='',
                             circle='',
                             div_min='INDEF')
-        hdulistPolyFitOut = pyfits.open(polyFitOut)
+        hdulistPolyFitOut = apyfits.open(polyFitOut)
         zFit = hdulistPolyFitOut[0].data
         print('data1.shape = ',data1.shape)
         print('data1.shape = ',data1.shape)
