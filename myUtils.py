@@ -938,3 +938,16 @@ def getStarWithMinDist(gaiaData, ra, dec, iStar=0):
         if (dist) < 1.:
             return [index, dist]
     return [index, dist]
+
+def isLineEmpty(line):
+    return len(line.strip()) == 0
+
+def readFileToArr(fname):
+    text_file = open(fname, "r")
+    lines = text_file.readlines()
+
+    """remove empty lines"""
+    lines = list(filter(len, lines))
+
+    linesOut = [line.strip() for line in lines]
+    return linesOut
