@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 
 from astropy.coordinates import SkyCoord
+import astropy.io.fits as apyfits
 import astropy.units as u
 from datetime import date, datetime
 import hammer
@@ -9,8 +10,6 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-from PyAstronomy import pyasl
-import astropy.io.fits as apyfits
 #import pymodelfit
 from pyraf import iraf
 import re
@@ -410,19 +409,31 @@ def hmsToDeg(string):
 # string = xx:yy:zz.zzz
 def dmsToDeg(string):
     d, m, s = [float(i) for i in string.split(':')]
+    if d < 0.:
+        d = 0. - d
+        return 0. - (s / 3600. + m / 60. + d)
     return s / 3600. + m / 60. + d
 
-def angularDistance(ra1, dec1, ra2, dec2):
+def hmsToCoordStr(string):
+    h, m, s = [i for i in string.split(':')]
+    return h+'h'+m+'m'+s+'s'
+
+def dmsToCoordStr(string):
+    d, m, s = [i for i in string.split(':')]
+    return d+'d'+m+'m'+s+'s'
+
+def angularDistancePyAsl(ra1, dec1, ra2, dec2):
+    from PyAstronomy import pyasl
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
     return pyasl.getAngDist(ra1, dec1, ra2, dec2)
 
-def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
+def angularDistanceFromXYPyAsl(fitsName, x1, y1, x2, y2):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
     result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
 #    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
 #    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
-    raHMS1, decHMS1, x1, y1 = getRaDecXY(result1)
-    raHMS2, decHMS2, x2, y2 = getRaDecXY(result2)
+    raHMS1, decHMS1, x1, y1 = getRaDecXY(result1.decode('utf-8'))
+    raHMS2, decHMS2, x2, y2 = getRaDecXY(result2.decode('utf-8'))
 #    print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
 #    print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
     ra1 = hmsToDeg(raHMS1)
@@ -432,6 +443,30 @@ def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
 #    print('ra1 = ',ra1,', dec1 = ',dec1)
 #    print('ra2 = ',ra2,', dec2 = ',dec2)
     return angularDistance(ra1, dec1, ra2, dec2)
+
+def angularDistance(ra1, dec1, ra2, dec2):
+#    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
+    mm1 = SkyCoord(ra=ra1, dec=dec1, frame='icrs')
+    mm2 = SkyCoord(ra=ra2, dec=dec2, frame='icrs')
+    return mm1.separation(mm2).arcsecond
+
+def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
+    result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
+    result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
+#    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
+#    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
+    raHMS1, decHMS1, x1, y1 = getRaDecXY(result1.decode('utf-8'))
+    raHMS2, decHMS2, x2, y2 = getRaDecXY(result2.decode('utf-8'))
+#    print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)
+#    print('raHMS2 = ',raHMS2,', decHMS2 = ',decHMS2)
+    ra1 = hmsToCoordStr(raHMS1)
+    dec1 = dmsToCoordStr(decHMS1)
+    ra2 = hmsToCoordStr(raHMS2)
+    dec2 = dmsToCoordStr(decHMS2)
+#    print('ra1 = ',ra1,', dec1 = ',dec1)
+#    print('ra2 = ',ra2,', dec2 = ',dec2)
+    return angularDistance(ra1, dec1, ra2, dec2)
+
 
 def getArcsecDistance(fitsName, x1, y1, x2, y2):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
