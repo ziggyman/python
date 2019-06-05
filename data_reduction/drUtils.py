@@ -11,7 +11,8 @@ from numpy.polynomial.legendre import legval
 #import hammer
 #import numpy as np
 import os
-from scipy.interpolate import interp1d
+#from scipy.interpolate import interp1d
+from scipy import interpolate
 from shutil import copyfile
 #from sklearn import linear_model
 
@@ -523,7 +524,7 @@ def chebyshev(xNorm, coeffs):
         return y
 
     yCheck = chebval(xNorm, coeffs)
-    print('yCheck = ',yCheck)
+#    print('yCheck = ',yCheck)
     return yCheck
 
 def legendre(xNorm, coeffs):
@@ -550,7 +551,7 @@ def legendre(xNorm, coeffs):
         return y
 
     yCheck = legval(xNorm,coeffs)
-    print('yCheck = ',yCheck)
+#    print('yCheck = ',yCheck)
     return yCheck
 
 def linearSpline(x, xRange, order, coeffs):
@@ -583,29 +584,35 @@ def cubicSpline(x, xRange, order, coeffs):
     print('cubic spline: y = ',y)
     return y
 
-def calcTrace(dbFile, apNum=0):
+#xRange: [1,size]
+#return x=[0...size-1], y=[0...size-1]
+def calcTrace(dbFile, apNum=0, xRange = None):
     records = iu.get_records(dbFile)
+#    print('calcTrace: dbFile = <'+dbFile+'>: len(records) = ',len(records))
     xCenter, yCenter = [float(c) for c in records[apNum].get_fields()['center'].split(' ')]
-    print('xCenter = ',xCenter,', yCenter = ',yCenter)
+#    print('xCenter = ',xCenter,', yCenter = ',yCenter)
     curve = records[apNum].get_fields()['curve']
     nCoeffs = len(curve)
-    print('calcTrace: nCoeffs = ',nCoeffs)
+#    print('calcTrace: nCoeffs = ',nCoeffs)
     funcs = ['none','chebyshev','legendre','cubicSpline','linearSpline']
     function = funcs[int(curve[0])]
-    print('calcTrace: function = ',function)
+#    print('calcTrace: function = ',function)
     order = curve[1][0]
-    print('calcTrace: order = ',order)
-    xRange = [curve[2][0],curve[3][0]]
-    print('calcTrace: xRange = ',xRange)
+#    print('calcTrace: order = ',order)
+    if xRange is None:
+        xRange = [curve[2][0],curve[3][0]]
+#    print('calcTrace: xRange = ',xRange)
     xNorm = []
-    for x in np.arange(xRange[0],xRange[1]+1):
+    xArr = np.arange(xRange[0],xRange[1]+1)
+    for x in xArr:
         if (function == funcs[1]) or (function == funcs[2]):
             xNorm.append((2.0 * x - (xRange[1] + xRange[0])) / (xRange[1] - xRange[0]))
 
-    print('calcTrace: xNorm = ',xNorm)
+#    print('calcTrace: xNorm = ',xNorm)
     coeffs = [c[0] for c in curve[4:]]
-    print('calcTrace: coeffs = ',coeffs)
+#    print('calcTrace: coeffs = ',coeffs)
 
+    y = None
     if function == funcs[1]:
         y = chebyshev(xNorm, coeffs) + xCenter
     elif function == funcs[2]:
@@ -616,25 +623,115 @@ def calcTrace(dbFile, apNum=0):
         y = linearSpline(np.arange(xRange[0],xRange[1]+1), xRange, order, coeffs) + xCenter
     else:
         print('calcTrace: could not identify function <'+function+'>')
-    print('calcTrace: function = <'+function+'>: y = ',y)
+#    print('calcTrace: function = <'+function+'>: y = ',y)
+
+    return [xArr-1.0,y-1.0]
+
+# imFile: string
+# trace: [xArr,yArr]
+def markCenter(imFileIn, trace, imFileOut=None):
+    image = CCDData.read(imFileIn, unit="adu")
+    print('image = ',image)
+    print('dir(image) = ',dir(image))
+    print('markCenter: trace[0].shape[0] = ',trace[0].shape[0])
+    for i in np.arange(0,trace[0].shape[0],1):
+#        print('markCenter: trace[0][',i,'] = ',trace[0][i])
+#        tempIm = image[int(trace[0][i])]
+#        print('markCenter: image[trace[0][',i,'] = ',trace[0][i],'] = ',tempIm.size,': ',tempIm)
+#        print('markCenter: trace[1][',i,'] = ',trace[1][i])
+#        print('markCenter: image[trace[0][',i,'],trace[1][',i,']] = ',image[int(trace[0][i]),int(trace[1][i])])
+#        print('markCenter: image[',int(trace[0][i]),', ',int(trace[1][i]),'] = ',image[int(trace[0][i]),int(trace[1][i])])
+#        print('markCenter: setting [',trace[0][i],', ',trace[1][i],'] to 0')
+        image.data[int(trace[0][i]), int(trace[1][i])] = 0.
+#        print('markCenter: image[',int(trace[0][i]),', ',int(trace[1][i]),'] = ',image[int(trace[0][i]),int(trace[1][i])])
+    if imFileOut is not None:
+        image.write(imFileOut, overwrite=True)
+    return image
+
+#def interpolatePixel(image, x, y):
 
 
-def interpolate(dbFileVerticalTrace, dbFileHorizontalTrace):
+def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
+    # read imFile for dimensions
+    image = CCDData.read(imFile, unit="adu")
+    print('image.shape = ',image.shape)
+
     records = iu.get_records(dbFileVerticalTrace)
-    print('records = ',records)
-    print('dir(records[0]) = ',dir(records[0]))
     print('len(records) = ',len(records))
+    verticalTraces = []
     for i in np.arange(0,len(records),1):
-        print(records[i])
-        print('records[',i,'].get_fields() = ',records[i].get_fields())
+        verticalTraces.append(calcTrace(dbFileVerticalTrace,i,[1,image.shape[0]]))
+        x, y = verticalTraces[len(verticalTraces)-1]
+        print('vertical trace ',len(verticalTraces)-1,': x.shape = ',x.shape,', y.shape = ',y.shape)
+        for i in np.arange(0,x.shape[0],1):
+            print('x[',i,'] = ',x[i],', y[',i,'] = ',y[i])
 
     records = iu.get_records(dbFileHorizontalTrace)
-    print('records = ',records)
-    print('dir(records[0]) = ',dir(records[0]))
     print('len(records) = ',len(records))
+    horizontalTraces = []
     for i in np.arange(0,len(records),1):
-        print(records[i])
-        print('records[',i,'].get_fields() = ',records[i].get_fields())
+        horizontalTraces.append(calcTrace(dbFileHorizontalTrace,i,[1,image.shape[1]]))
+        x, y = horizontalTraces[len(horizontalTraces)-1]
+        print('horizontal trace ',len(horizontalTraces)-1,': x.shape = ',x.shape,', y.shape = ',y.shape)
+        for i in np.arange(0,x.shape[0],1):
+            print('x[',i,'] = ',x[i],', y[',i,'] = ',y[i])
 
-    calcTrace(dbFileVerticalTrace)
+    image = CCDData.read(imFile, unit="adu")
+    print('image.shape = ',image.shape)
+    inFile = ''
+    outFile = ''
+    for i in np.arange(0,len(verticalTraces),1):
+        if i == 0:
+            inFile = imFile
+            outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
+        else:
+            inFile = outFile
+            outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
+        markCenter(inFile,verticalTraces[i],outFile)
+    horFile = outFile
+    for i in np.arange(0,len(horizontalTraces),1):
+        if i == 0:
+            inFile = horFile
+            outFile = inFile[:inFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
+        else:
+            inFile = outFile
+            outFile = horFile[:horFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
+        markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
+
+    print('len(verticalTraces) = ',len(verticalTraces))
+    print('len(verticalTraces[0]) = ',len(verticalTraces[0]))
+    print('verticalTraces[0][0].shape = ',verticalTraces[0][0].shape)
+    print('horizontalTraces[0][1][:] - horizontalTraces[0][1][0] = ',horizontalTraces[0][1][:] - horizontalTraces[0][1][0])
+    print('verticalTraces[0][1][:] - verticalTraces[0][1][0] = ',verticalTraces[0][1][:] - verticalTraces[0][1][0])
+    coords = np.ndarray(shape=(image.shape[0],image.shape[1],2), dtype=np.float32)
+    for i in np.arange(0,image.shape[0],1):
+        coords[i,:,0] = float(i) + horizontalTraces[0][1][:] - horizontalTraces[0][1][0]
+    for i in np.arange(0,image.shape[1],1):
+        coords[:,i,1] = float(i) + verticalTraces[0][1][:] - verticalTraces[0][1][0]
+
+    f = interpolate.interp2d(np.arange(0,horizontalTraces[0][1].shape[0],1),np.arange(0,verticalTraces[0][1].shape[0]), image, kind='linear')
+    print('interpolated function = ',f)
+    fIm = f(horizontalTraces[0][1], verticalTraces[0][1])
+    print('fIm.shape = ',fIm.shape)
+    image.data = fIm
+    image.write(imFile[:imFile.rfind('.')]+'_interpolated.fits', overwrite=True)
+    if False:
+    #    coords[0,0,0] = 0.
+    #    coords[0,0,1] = 0.
+        for i in np.arange(1,image.shape[0],1):
+            for j in np.arange(1,image.shape[1],1):
+    #            print('i = ',i,', j = ',j,': coords[',i-1,'][',j-1,'][0] = ',coords[i-1][j-1][0])
+    #            print('i = ',i,', j = ',j,': verticalTraces[0][1][',i,' = ',verticalTraces[0][1][i])
+    #            print('i = ',i,', j = ',j,': verticalTraces[0][1][',i-1,' = ',verticalTraces[0][1][i-1])
+    #            print('i = ',i,', j = ',j,': horizontalTraces[0][1][',i,' = ',horizontalTraces[0][1][i])
+    #            print('i = ',i,', j = ',j,': horizontalTraces[0][1][',i-1,' = ',horizontalTraces[0][1][i-1])
+    #            coords[i,j,0] = coords[i-1][j-1][0] + verticalTraces[0][1][i] - verticalTraces[0][1][i-1]
+    #            coords[i,j,1] = coords[i-1][j-1][1] + horizontalTraces[0][1][i] - horizontalTraces[0][1][i-1]
+                print('[',i,', ',j,'] = [',coords[i,j,0],', ',coords[i,j,1],']')
+    #            STOP
+        if verticalTraces[0][1][0] < verticalTraces[0][1][verticalTraces[0][1].shape[0]-1]:
+            print('y[0] = ',verticalTraces[0][1][0],' < y[',verticalTraces[0][1].shape[0]-1,'] = ',verticalTraces[0][1][verticalTraces[0][1].shape[0]-1])
+
+        else:
+            print('y[0] = ',verticalTraces[0][1][0],' > y[',verticalTraces[0][1].shape[0]-1,'] = ',verticalTraces[0][1][verticalTraces[0][1].shape[0]-1])
     return 1

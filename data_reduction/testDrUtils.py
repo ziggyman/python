@@ -1,6 +1,6 @@
 from astropy.nddata import CCDData
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
-from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolate
+from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 import numpy as np
 import os
 from shutil import copyfile
@@ -9,7 +9,7 @@ from myUtils import readFileToArr
 overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 
-def test_separateFileList(inList='/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190506/allFits.list'):
+def test_separateFileList(inList='/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/allFits.list'):
     suffixes = ['','ot','otz','otzx','otzxf']
 
 #    copyfile(inList, inList+'bak')
@@ -24,8 +24,8 @@ def test_combine():
     #        clippingParameters=None,
     #        scaling=False,
     #        fitsOutName=None)
-    inFiles = readFileToArr('/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/bias.list')
-    combinedImage = combine(inFiles, fitsOutName='/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias.fits')
+    inFiles = readFileToArr('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/bias.list')
+    combinedImage = combine(inFiles, fitsOutName='/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias.fits')
     print('combinedImage = ',type(combinedImage))
     print('dir(combinedImage) = ',dir(combinedImage))
     print('combinedImage.shape = ',combinedImage.shape)
@@ -39,7 +39,7 @@ def test_combine():
                     clippingParameters={'min_clip':0.,
                                         'max_clip':700.},
                     scaling=True,
-                    fitsOutName='/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
+                    fitsOutName='/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
     print('average minmax: mean(combinedImage) = ',np.mean(combinedImage))
 
     combinedImage = combine(inFiles,
@@ -48,7 +48,7 @@ def test_combine():
                     clippingParameters={'nlow':2,
                                         'nhigh':2},
                     scaling=True,
-                    fitsOutName='/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
+                    fitsOutName='/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
     print('average extrema: mean(combinedImage) = ',np.mean(combinedImage))
 
     combinedImage = combine(inFiles,
@@ -59,7 +59,7 @@ def test_combine():
                                         'high_thresh':3.,
                                         'func':np.ma.median},
                     scaling=True,
-                    fitsOutName='/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
+                    fitsOutName='/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
     print('average sigma 0: mean(combinedImage) = ',np.mean(combinedImage))
 
     combinedImage = combine(inFiles,
@@ -70,7 +70,7 @@ def test_combine():
                                         'high_thresh':3.,
                                         'func':np.ma.median},
                     scaling=True,
-                    fitsOutName='/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
+                    fitsOutName='/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
     print('average sigma 1: mean(combinedImage) = ',np.mean(combinedImage))
 
     combinedImage = combine(inFiles,
@@ -81,12 +81,12 @@ def test_combine():
                                         'high_thresh':3.,
                                         'func':np.ma.median},
                     scaling=True,
-                    fitsOutName='/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
+                    fitsOutName='/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias_av.fits')
     print('average sigma 3: mean(combinedImage) = ',np.mean(combinedImage))
 
 #subtractOverscan(fitsFilesIn, overscanSection, trimSection=None, fitsFilesOut=None, overwrite=True):
 def test_subtractOverscan():
-    inFiles = readFileToArr('/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/bias.list')
+    inFiles = readFileToArr('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/bias.list')
     outArrs = subtractOverscan(inFiles,
                                overscanSection,
                                trimSection=None,
@@ -137,7 +137,7 @@ def test_subtractOverscan():
         pass
 
 def test_subtractBias():
-    inFiles = readFileToArr('/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/bias.list')
+    inFiles = readFileToArr('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/bias.list')
     otFiles = [addSuffixToFileName(fileName, 'ot') for fileName in inFiles]
     outArrs = subtractOverscan(inFiles,
                                overscanSection,
@@ -154,7 +154,7 @@ def test_subtractBias():
         print('iFile = ',iFile,': meanA - meanB = ',meanDiff)
 
     # create master bias
-    masterBias = '/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias_ot.fits'
+    masterBias = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias_ot.fits'
     combinedImage = combine(otFiles,
                     combinerMethod='average',
                     clippingMethod='sigma',
@@ -179,7 +179,7 @@ def test_subtractBias():
               ': difference to previous calculation = ',meanDiff - meanDiffs[iFile])
 
 def test_cleanCosmic():
-    inFiles = readFileToArr('/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/bias.list')
+    inFiles = readFileToArr('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/bias.list')
     if inFiles[0].rfind('/') == -1:
         inFiles = [os.path.join(path, fileName) for fileName in inFiles]
     otFiles = [addSuffixToFileName(fileName, 'ot') for fileName in inFiles]
@@ -190,7 +190,7 @@ def test_cleanCosmic():
                                overwrite=True)
 
     # create master bias
-    masterBias = '/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/combinedBias_ot.fits'
+    masterBias = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedBias_ot.fits'
     combinedImage = combine(otFiles,
                     combinerMethod='average',
                     clippingMethod='sigma',
@@ -202,7 +202,7 @@ def test_cleanCosmic():
                     fitsOutName=masterBias)
     print('average sigma 0: mean(combinedImage) = ',np.mean(combinedImage))
 
-    inFiles = readFileToArr('/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/hd82106.list')
+    inFiles = readFileToArr('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/hd82106.list')
     if inFiles[0].rfind('/') == -1:
         inFiles = [os.path.join(path, fileName) for fileName in inFiles]
     otFiles = [addSuffixToFileName(fileName, 'ot') for fileName in inFiles]
@@ -245,7 +245,7 @@ def test_cleanCosmic():
                           fitsFilesOut=otzxFiles,
                           overwrite=True)
 
-def test_flatCorrect(objectFiles = '/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/hd82106.list'):
+def test_flatCorrect(objectFiles = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/hd82106.list'):
     path = objectFiles[0:objectFiles.rfind('/')+1]
     inFiles = readFileToArr(os.path.join(path,'bias.list'))
     if inFiles[0].rfind('/') == -1:
@@ -329,7 +329,7 @@ def test_flatCorrect(objectFiles = '/Volumes/obiwan/azuri/spectra/saao/saao_may2
 
     return otzxfFiles
 
-def test_combineSkyFlats(inFiles = '/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/skyflats.list'):
+def test_combineSkyFlats(inFiles = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/skyflats.list'):
     inFiles = test_flatCorrect(inFiles)
 
     combinedFlat = inFiles[0][:inFiles[0].rfind('/')+1]+'combinedSkyFlat.fits'
@@ -344,7 +344,7 @@ def test_combineSkyFlats(inFiles = '/Volumes/obiwan/azuri/spectra/saao/saao_may2
                    fitsOutName=combinedFlat)
     return combinedFlat
 
-path = '/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/'
+path = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/'
 #test_separateFileList(os.path.join(path,'allFits.list'))
 #test_combine()
 #test_subtractOverscan()
@@ -352,5 +352,6 @@ path = '/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/'
 #test_cleanCosmic()
 #test_flatCorrect(os.path.join(path,'allFits.list'))
 #test_combineSkyFlats()
-interpolate('/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
-            '/Volumes/obiwan/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90')
+interpolateTraceIm('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/vertical_trace.fits',#FLAT_Domeflat_a1061047_otz.fits',
+            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
+            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90')
