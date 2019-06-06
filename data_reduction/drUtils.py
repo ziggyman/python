@@ -13,6 +13,7 @@ from numpy.polynomial.legendre import legval
 import os
 #from scipy.interpolate import interp1d
 from scipy import interpolate
+from scipy.interpolate import griddata
 from shutil import copyfile
 #from sklearn import linear_model
 
@@ -632,12 +633,12 @@ def calcTrace(dbFile, apNum=0, xRange = None):
 def markCenter(imFileIn, trace, imFileOut=None):
     image = CCDData.read(imFileIn, unit="adu")
     print('image = ',image)
-    print('dir(image) = ',dir(image))
-    print('markCenter: trace[0].shape[0] = ',trace[0].shape[0])
+    print('trace = ',len(trace),': ',trace)
+    print('markCenter: trace[0].shape = ',trace[0].shape)
     for i in np.arange(0,trace[0].shape[0],1):
 #        print('markCenter: trace[0][',i,'] = ',trace[0][i])
 #        tempIm = image[int(trace[0][i])]
-#        print('markCenter: image[trace[0][',i,'] = ',trace[0][i],'] = ',tempIm.size,': ',tempIm)
+        print('markCenter: int(trace[0][',i,']) = ',int(trace[0][i]),', int(trace[1][',i,']) = ',int(trace[1][i]))
 #        print('markCenter: trace[1][',i,'] = ',trace[1][i])
 #        print('markCenter: image[trace[0][',i,'],trace[1][',i,']] = ',image[int(trace[0][i]),int(trace[1][i])])
 #        print('markCenter: image[',int(trace[0][i]),', ',int(trace[1][i]),'] = ',image[int(trace[0][i]),int(trace[1][i])])
@@ -650,7 +651,8 @@ def markCenter(imFileIn, trace, imFileOut=None):
 
 #def interpolatePixel(image, x, y):
 
-
+# NOTE that the horizontal trace needs to come from an image that was rotated by
+# 90 degrees and flipped along the long axis
 def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
     # read imFile for dimensions
     image = CCDData.read(imFile, unit="adu")
@@ -687,6 +689,7 @@ def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
         else:
             inFile = outFile
             outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
+        print('marking vertical trace ',i)
         markCenter(inFile,verticalTraces[i],outFile)
     horFile = outFile
     for i in np.arange(0,len(horizontalTraces),1):
@@ -696,6 +699,7 @@ def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
         else:
             inFile = outFile
             outFile = horFile[:horFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
+        print('marking horizontal trace ',i)
         markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
 
     print('len(verticalTraces) = ',len(verticalTraces))
@@ -703,18 +707,47 @@ def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
     print('verticalTraces[0][0].shape = ',verticalTraces[0][0].shape)
     print('horizontalTraces[0][1][:] - horizontalTraces[0][1][0] = ',horizontalTraces[0][1][:] - horizontalTraces[0][1][0])
     print('verticalTraces[0][1][:] - verticalTraces[0][1][0] = ',verticalTraces[0][1][:] - verticalTraces[0][1][0])
-    coords = np.ndarray(shape=(image.shape[0],image.shape[1],2), dtype=np.float32)
+    coordsFit = np.ndarray(shape=(image.shape[0],image.shape[1],2), dtype=np.float32)
     for i in np.arange(0,image.shape[0],1):
-        coords[i,:,0] = float(i) + horizontalTraces[0][1][:] - horizontalTraces[0][1][0]
+        coordsFit[i,:,0] = float(i) + horizontalTraces[0][1][:] - horizontalTraces[0][1][0]
     for i in np.arange(0,image.shape[1],1):
-        coords[:,i,1] = float(i) + verticalTraces[0][1][:] - verticalTraces[0][1][0]
+        coordsFit[:,i,1] = float(i) + verticalTraces[0][1][:] - verticalTraces[0][1][0]
 
-    f = interpolate.interp2d(np.arange(0,horizontalTraces[0][1].shape[0],1),np.arange(0,verticalTraces[0][1].shape[0]), image, kind='linear')
+    xx = np.arange(0,verticalTraces[0][1].shape[0])
+    print('xx = ',xx.shape,': ',xx)
+    yy = np.arange(0,horizontalTraces[0][1].shape[0],1)
+    print('yy = ',yy.shape,': ',yy)
+    f = interpolate.interp2d(yy,xx, image, kind='linear')
     print('interpolated function = ',f)
-    fIm = f(horizontalTraces[0][1], verticalTraces[0][1])
-    print('fIm.shape = ',fIm.shape)
-    image.data = fIm
+    print('horizontalTraces[0][1] = ',horizontalTraces[0][1].shape,': ',horizontalTraces[0][1])
+    print('verticalTraces[0][1] = ',verticalTraces[0][1].shape,': ',verticalTraces[0][1])
+
+    xyOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
+    xyFit = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
+    zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
+    print('image.data.shape = ',image.data.shape)
+    nPoints = 0
+    for ix in np.arange(0,image.data.shape[0],1):
+        for iy in np.arange(0,image.data.shape[1],1):
+            xyOrig[(ix*image.data.shape[1]) + iy,0] = ix
+            xyOrig[(ix*image.data.shape[1]) + iy,1] = iy
+            zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
+            xyFit[(ix*image.data.shape[1]) + iy,0] = ix + horizontalTraces[0][1][iy] - horizontalTraces[0][1][0]
+            xyFit[(ix*image.data.shape[1]) + iy,1] = iy + verticalTraces[0][1][ix] - verticalTraces[0][1][0]
+            print('xOrig[',(ix*image.data.shape[1]) + iy,'] = ',ix,', yOrig[',(ix*image.data.shape[1]) + iy,'] = ',iy,': z = ',
+                   zOrig[(ix*image.data.shape[1]) + iy],', xFit = ',xyFit[(ix*image.data.shape[1]) + iy,0],', yFit = ',xyFit[(ix*image.data.shape[1]) + iy,1])
+            nPoints += 1
+
+    print('nPoints set = ',nPoints,': xyOrig.shape = ',xyOrig.shape,', zOrig.shape = ',zOrig.shape,', xyFit.shape = ',xyFit.shape)
+    zFit = griddata(xyOrig, zOrig, xyFit, method='nearest')
+
+    for ix in np.arange(0,image.data.shape[0],1):
+        for iy in np.arange(0,image.data.shape[1],1):
+            image.data[ix, iy] = zFit[(ix*image.data.shape[1]) + iy]
+#    fIm = f(horizontalTraces[0][1], verticalTraces[0][1])
+#    print('fIm.shape = ',fIm.shape)
     image.write(imFile[:imFile.rfind('.')]+'_interpolated.fits', overwrite=True)
+
     if False:
     #    coords[0,0,0] = 0.
     #    coords[0,0,1] = 0.

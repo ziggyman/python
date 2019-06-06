@@ -352,6 +352,9 @@ path = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/'
 #test_cleanCosmic()
 #test_flatCorrect(os.path.join(path,'allFits.list'))
 #test_combineSkyFlats()
-interpolateTraceIm('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/vertical_trace.fits',#FLAT_Domeflat_a1061047_otz.fits',
+#interpolateTraceIm('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/vertical_trace.fits',#FLAT_Domeflat_a1061047_otz.fits',
+#            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
+#            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90')
+interpolateTraceIm('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/horizontal_trace.fits',#FLAT_Domeflat_a1061047_otz.fits',
             '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
-            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90')
+            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90flipl')
