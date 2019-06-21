@@ -5,15 +5,18 @@ from astropy import units as u
 import astropy.modeling.tests.irafutil as iu
 from astropy.nddata import CCDData
 import ccdproc# import Combiner, subtract_overscan
+from collections import namedtuple
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from numpy.polynomial.legendre import legval
 #import hammer
 #import numpy as np
 import os
-#from scipy.interpolate import interp1d
-from scipy import interpolate
+from scipy.interpolate import interp1d
+#from scipy import interpolate
 from scipy.interpolate import griddata
+from scipy.interpolate import UnivariateSpline
+from scipy.signal import medfilt
 from shutil import copyfile
 #from sklearn import linear_model
 
@@ -21,6 +24,9 @@ from shutil import copyfile
 
 # remove file <fileName> (including directory) if it exists
 # also works for </dir/start"*"ending>
+
+Info = namedtuple('Info', 'start height')
+
 def silentRemove(fileName):
     if '*' not in fileName:
         if os.path.exists(fileName): os.remove(fileName)
@@ -63,8 +69,62 @@ def addSuffixToFileName(fileName, suffix):
 # <inList>: string
 # <suffixes>: list of suffixes for which to create the individual file lists
 #             #e.g. = ['','_z','_zf']
+# <exptypes>: list of strings of exposure types for which to create lists,
+#             default is None. If not None then <objects> MUST also be given
+# <objects>: list of lists of strings for each exposure type for which to create
+#            individual lists. If '*' then all files with the exposure type will
+#            be added to the list. If 'individual' then one list will be created
+#            for all individual objects with exposure type in <exptypes>.
+#            Default is None. Must be given if <exptypes>
+#            is not None
 # <changeNames>: if True copy each <file> in <inList> to <EXPTYPE_OBJECT_><file>
-def separateFileList(inList, suffixes, changeNames=False):
+def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=False):
+    def createLists(exptype, object, lines, suffix):
+        listMiddleName = object
+        if (object == '*'):
+            listMiddleName = ''
+        isList = os.path.join(path, exptype+listMiddleName+'.list')
+        isntList = os.path.join(path, 'non'+exptype+listMiddleName+'.list')
+        isList = addSuffixToFileName(isList, suffix)
+        isntList = addSuffixToFileName(isntList, suffix)
+        isNames = []
+        isntNames = []
+        fOutName = ''
+        for line in lines:
+            hdulist = pyfits.open(line)
+
+            fOutName = line
+#            fOutName = addSuffixToFileName(fOutName, suffix)
+
+            expType = hdulist[0].header['EXPTYPE']
+            objectName = hdulist[0].header['OBJECT']
+            if changeNames:
+                fOutName = os.path.join(fOutName[:fOutName.rfind('/')],
+                                        expType+'_'+objectName+'_'+fOutName[fOutName.rfind('/')+1:])
+                if suffix == '':
+                    copyfile(line, fOutName)
+                line = fOutName
+            if expType == exptype:
+                if object == '*':
+                    print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
+                    isNames.append(line)
+                else:
+                    if objectName == object:
+                        print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
+                        isNames.append(line)
+                    else:
+                        print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
+                        isntNames.append(line)
+            else:
+                print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
+                isntNames.append(line)
+        with open(isList,'w') as f:
+            for name in isNames:
+                f.write(addSuffixToFileName(name,suffix)+'\n')
+        with open(isntList,'w') as f:
+            for name in isntNames:
+                f.write(addSuffixToFileName(name,suffix)+'\n')
+
     lines = []
     path = inList[:inList.rfind('/')]
     with open(inList,'r') as f:
@@ -77,72 +137,94 @@ def separateFileList(inList, suffixes, changeNames=False):
         objectNames = []
         expTypes = []
 
-        nonZerosOutName = os.path.join(path,'nonZeros.list')
-        nonZerosOutName = addSuffixToFileName(nonZerosOutName, suffix)
+        if (exptypes is None) and (objects is None):
+            nonZerosOutName = os.path.join(path,'nonZeros.list')
+            nonZerosOutName = addSuffixToFileName(nonZerosOutName, suffix)
 
-        nonFlatsOutName = os.path.join(path,'nonFlats.list')
-        nonFlatsOutName = addSuffixToFileName(nonFlatsOutName, suffix)
+            nonFlatsOutName = os.path.join(path,'nonFlats.list')
+            nonFlatsOutName = addSuffixToFileName(nonFlatsOutName, suffix)
 
-        # delete existing output lists
-        for fileName in [nonZerosOutName, nonFlatsOutName]:
-            silentRemove(fileName)
+            # delete existing output lists
+            for fileName in [nonZerosOutName, nonFlatsOutName]:
+                silentRemove(fileName)
 
-        for line in lines:
-            hdulist = pyfits.open(line)
+            for line in lines:
+                hdulist = pyfits.open(line)
 
-            fOutName = line
-            fOutName = addSuffixToFileName(fOutName, suffix)
+                fOutName = line
+                fOutName = addSuffixToFileName(fOutName, suffix)
 
-            expType = hdulist[0].header['EXPTYPE']
-            print('line = ',line,': expType = ',expType)
-            if expType not in [x['expType'] for x in expTypes]:
-                listOutName = os.path.join(path,expType.lower()+'.list')
-                listOutName = addSuffixToFileName(listOutName,suffix)
-                print('writing to listOutName = <'+listOutName+'>')
-                expTypes.append({'expType':expType, 'listOutName':listOutName})
-                silentRemove(listOutName)
-            else:
-                for x in expTypes:
-                    if x['expType'] == expType:
-                        listOutName = x['listOutName']
-            print('listOutName = <'+listOutName+'>')
-
-            objectName = hdulist[0].header['OBJECT']
-            print('line = ',line,': objectName = ',objectName,', expType = ',expType)
-            if expType == 'SCIENCE':
-                if objectName not in [x['objectName'] for x in objectNames]:
-                    listOutNameObs = os.path.join(path,objectName.lower()+'.list')
-                    listOutNameObs = addSuffixToFileName(listOutNameObs, suffix)
-                    print('writing to listOutNameObs = <'+listOutNameObs+'>')
-                    objectNames.append({'objectName':objectName,'listOutNameObs':listOutNameObs})
-                    silentRemove(listOutNameObs)
+                expType = hdulist[0].header['EXPTYPE']
+                print('line = ',line,': expType = ',expType)
+                if expType not in [x['expType'] for x in expTypes]:
+                    listOutName = os.path.join(path,expType.lower()+'.list')
+                    listOutName = addSuffixToFileName(listOutName,suffix)
+                    print('writing to listOutName = <'+listOutName+'>')
+                    expTypes.append({'expType':expType, 'listOutName':listOutName})
+                    silentRemove(listOutName)
                 else:
-                    for x in objectNames:
-                        if x['objectName'] == objectName:
-                            listOutNameObs = x['listOutNameObs']
+                    for x in expTypes:
+                        if x['expType'] == expType:
+                            listOutName = x['listOutName']
+                print('listOutName = <'+listOutName+'>')
 
-            if changeNames:
-                fOutName = os.path.join(fOutName[:fOutName.rfind('/')],
-                                        expType+'_'+objectName+'_'+fOutName[fOutName.rfind('/')+1:])
-                if suffix == '':
-                    copyfile(line, fOutName)
+                objectName = hdulist[0].header['OBJECT']
+                print('line = ',line,': objectName = ',objectName,', expType = ',expType)
+                if expType == 'SCIENCE':
+                    if objectName not in [x['objectName'] for x in objectNames]:
+                        listOutNameObs = os.path.join(path,objectName.lower()+'.list')
+                        listOutNameObs = addSuffixToFileName(listOutNameObs, suffix)
+                        print('writing to listOutNameObs = <'+listOutNameObs+'>')
+                        objectNames.append({'objectName':objectName,'listOutNameObs':listOutNameObs})
+                        silentRemove(listOutNameObs)
+                    else:
+                        for x in objectNames:
+                            if x['objectName'] == objectName:
+                                listOutNameObs = x['listOutNameObs']
 
-            # write output lists
-            with open(listOutName,'a') as f:
-                f.write(fOutName+'\n')
+                if changeNames:
+                    fOutName = os.path.join(fOutName[:fOutName.rfind('/')],
+                                            expType+'_'+objectName+'_'+fOutName[fOutName.rfind('/')+1:])
+                    if suffix == '':
+                        copyfile(line, fOutName)
 
-            if expType == 'SCIENCE':
-                with open(listOutNameObs,'a') as f:
+                # write output lists
+                with open(listOutName,'a') as f:
                     f.write(fOutName+'\n')
 
-            if objectName != 'Bias':
-                with open(nonZerosOutName,'a') as f:
-                    f.write(fOutName+'\n')
+                if expType == 'SCIENCE':
+                    with open(listOutNameObs,'a') as f:
+                        f.write(fOutName+'\n')
 
-            if expType not in ['FLAT','BIAS']:
-                with open(nonFlatsOutName,'a') as f:
-                    f.write(fOutName+'\n')
+                if objectName != 'Bias':
+                    with open(nonZerosOutName,'a') as f:
+                        f.write(fOutName+'\n')
 
+                if expType not in ['FLAT','BIAS']:
+                    with open(nonFlatsOutName,'a') as f:
+                        f.write(fOutName+'\n')
+        else:
+            individualLists = []
+            if len(exptypes) != len(objects):
+                print('separateFileList: ERROR: lengths of <exptypes> and <objects> are not the same')
+                STOP
+            for iExptype in np.arange(0,len(exptypes),1):
+                exptype = exptypes[iExptype]
+                for object in objects[iExptype]:
+                    if  object == 'individual':
+                        for line in lines:
+                            hdulist = pyfits.open(line)
+                            expType = hdulist[0].header['EXPTYPE']
+                            if expType == exptype:
+                                objectName = hdulist[0].header['OBJECT']
+                                if objectName not in individualLists:
+                                    individualLists.append(objectName)
+                    else:
+                        createLists(exptype,object,lines,suffix)
+
+                if len(individualLists) > 0:
+                    for object in individualLists:
+                        createLists(exptype,object,lines,suffix)
 # combine images in <ccdImages>, write output to <fitsOutName> if not None
 #
 # parameters:
@@ -159,6 +241,7 @@ def separateFileList(inList, suffixes, changeNames=False):
 #                       extrema: {'nlow':1, - mask the lowest pixel value
 #                                 'nhigh':2} - and the highest two pixel values
 # <scaling>:     boolean - normalize each image by its mean before combining
+# <minVal>: float - replace all values less than <minVal> with <minVal>
 # <fitsOutName>: string, default is don't write (None)
 # <overwrite>:   boolean, default is True
 #
@@ -169,6 +252,7 @@ def combine(ccdImages,
             clippingMethod='None',
             clippingParameters=None,
             scaling=False,
+            minVal=None,
             fitsOutName=None,
             overwrite=True):
     ccdData = [CCDData.read(fname, unit="adu") for fname in ccdImages]
@@ -214,6 +298,10 @@ def combine(ccdImages,
         combinedImage = combiner.average_combine()
     elif combinerMethod == 'median':
         combinedImage = combiner.median_combine()
+
+    # replace all values less than <minVal> with <minVal>
+    if minVal is not None:
+        combinedImage.data = np.minimum(combinedImage.data, minVal)
 
     if fitsOutName is not None:
         combinedImage.write(fitsOutName, overwrite=overwrite)
@@ -503,6 +591,11 @@ def flatCorrect(fitsFilesIn,
             ccdDataFlattened.write(fitsFilesOut[iFile], overwrite=overwrite)
     return dataOut
 
+# calculate Chebyshev polynomial for normalized x values [-1.0,...,1.0] and give coefficients
+#
+# parameters:
+# xNorm : python array of normalized x values in the range [-1.,1.]
+# coeffs: python array of Chebyshev polynomial coefficients
 def chebyshev(xNorm, coeffs):
     if False:
         y = []
@@ -528,6 +621,11 @@ def chebyshev(xNorm, coeffs):
 #    print('yCheck = ',yCheck)
     return yCheck
 
+# calculate Legendre polynomial for normalized x values [-1.0,...,1.0] and give coefficients
+#
+# parameters:
+# xNorm : python array of normalized x values in the range [-1.,1.]
+# coeffs: python array of Legendre polynomial coefficients
 def legendre(xNorm, coeffs):
     if False:
         y = []
@@ -555,7 +653,13 @@ def legendre(xNorm, coeffs):
 #    print('yCheck = ',yCheck)
     return yCheck
 
-def linearSpline(x, xRange, order, coeffs):
+# calculate linear spline for normalized x values [-1.0,...,1.0] and give coefficients
+#
+# parameters:
+# xRange : python array of length 2 giving the range for the x values
+# order  : order of the linear spline (TODO: calculate from number of coefficients)
+# coeffs : python array of linear spline coefficients
+def linearSpline(xRange, order, coeffs):
     y = []
     print('linearSpline: order = ',order,', len(coeffs) = ',len(coeffs))
     for x in np.arange(xRange[0],xRange[1]+1):
@@ -568,7 +672,13 @@ def linearSpline(x, xRange, order, coeffs):
     print('linear spline: y = ',y)
     return y
 
-def cubicSpline(x, xRange, order, coeffs):
+# calculate cubic spline for normalized x values [-1.0,...,1.0] and give coefficients
+#
+# parameters:
+# xRange : python array of length 2 giving the range for the x values
+# order  : order of the linear spline (TODO: calculate from number of coefficients)
+# coeffs : python array of cubic spline coefficients
+def cubicSpline(xRange, order, coeffs):
     print('cubicSpline: order = ',order,', len(coeffs) = ',len(coeffs))
     y = []
     for x in np.arange(xRange[0],xRange[1]+1):
@@ -585,33 +695,30 @@ def cubicSpline(x, xRange, order, coeffs):
     print('cubic spline: y = ',y)
     return y
 
-#xRange: [1,size]
-#return x=[0...size-1], y=[0...size-1]
+# calculate the trace function from an IRAF database file for a given aperture number
+#
+# parameters:
+# dbFile: string, name of the database file including path
+# apNum : int, aperture number (starting with 0)
+# xRange: [1,size]
+#
+# return: x=[0...size-1], y=[0...size-1]
 def calcTrace(dbFile, apNum=0, xRange = None):
     records = iu.get_records(dbFile)
-#    print('calcTrace: dbFile = <'+dbFile+'>: len(records) = ',len(records))
     xCenter, yCenter = [float(c) for c in records[apNum].get_fields()['center'].split(' ')]
-#    print('xCenter = ',xCenter,', yCenter = ',yCenter)
     curve = records[apNum].get_fields()['curve']
-    nCoeffs = len(curve)
-#    print('calcTrace: nCoeffs = ',nCoeffs)
     funcs = ['none','chebyshev','legendre','cubicSpline','linearSpline']
     function = funcs[int(curve[0])]
-#    print('calcTrace: function = ',function)
     order = curve[1][0]
-#    print('calcTrace: order = ',order)
     if xRange is None:
         xRange = [curve[2][0],curve[3][0]]
-#    print('calcTrace: xRange = ',xRange)
     xNorm = []
     xArr = np.arange(xRange[0],xRange[1]+1)
     for x in xArr:
         if (function == funcs[1]) or (function == funcs[2]):
             xNorm.append((2.0 * x - (xRange[1] + xRange[0])) / (xRange[1] - xRange[0]))
 
-#    print('calcTrace: xNorm = ',xNorm)
     coeffs = [c[0] for c in curve[4:]]
-#    print('calcTrace: coeffs = ',coeffs)
 
     y = None
     if function == funcs[1]:
@@ -619,37 +726,76 @@ def calcTrace(dbFile, apNum=0, xRange = None):
     elif function == funcs[2]:
         y = legendre(xNorm, coeffs) + xCenter
     elif function == funcs[3]:
-        y = cubicSpline(np.arange(xRange[0],xRange[1]+1), xRange, order, coeffs) + xCenter
+        y = cubicSpline(xRange, order, coeffs) + xCenter
     elif function == funcs[4]:
-        y = linearSpline(np.arange(xRange[0],xRange[1]+1), xRange, order, coeffs) + xCenter
+        y = linearSpline(xRange, order, coeffs) + xCenter
     else:
         print('calcTrace: could not identify function <'+function+'>')
-#    print('calcTrace: function = <'+function+'>: y = ',y)
 
     return [xArr-1.0,y-1.0]
 
-# imFile: string
+# mark centers in fits file by setting the int(center) to zero
+#
+# parameters:
+# imFileIn: string, name of fits file in which to mark the apertures
 # trace: [xArr,yArr]
+# imFileOut: name of output file if output file shall be created
+#
+# return:
+# image with centers of aperture set to zero
 def markCenter(imFileIn, trace, imFileOut=None):
     image = CCDData.read(imFileIn, unit="adu")
     print('image = ',image)
     print('trace = ',len(trace),': ',trace)
     print('markCenter: trace[0].shape = ',trace[0].shape)
     for i in np.arange(0,trace[0].shape[0],1):
-#        print('markCenter: trace[0][',i,'] = ',trace[0][i])
-#        tempIm = image[int(trace[0][i])]
-        print('markCenter: int(trace[0][',i,']) = ',int(trace[0][i]),', int(trace[1][',i,']) = ',int(trace[1][i]))
-#        print('markCenter: trace[1][',i,'] = ',trace[1][i])
-#        print('markCenter: image[trace[0][',i,'],trace[1][',i,']] = ',image[int(trace[0][i]),int(trace[1][i])])
-#        print('markCenter: image[',int(trace[0][i]),', ',int(trace[1][i]),'] = ',image[int(trace[0][i]),int(trace[1][i])])
-#        print('markCenter: setting [',trace[0][i],', ',trace[1][i],'] to 0')
         image.data[int(trace[0][i]), int(trace[1][i])] = 0.
-#        print('markCenter: image[',int(trace[0][i]),', ',int(trace[1][i]),'] = ',image[int(trace[0][i]),int(trace[1][i])])
     if imFileOut is not None:
         image.write(imFileOut, overwrite=True)
     return image
 
-#def interpolatePixel(image, x, y):
+# returns height, width, and position of the top left corner of the largest
+#  rectangle with the given value in mat
+def max_size(mat, value=0):
+    it = iter(mat)
+    hist = [(el==value) for el in next(it, [])]
+    max_size_start, start_row = max_rectangle_size(hist), 0
+    for i, row in enumerate(it):
+        hist = [(1+h) if el == value else 0 for h, el in zip(hist, row)]
+        mss = max_rectangle_size(hist)
+        if area(mss) > area(max_size_start):
+            max_size_start, start_row = mss, i+2-mss[0]
+    return max_size_start[:2], (start_row, max_size_start[2])
+
+# returns height, width, and start column of the largest rectangle that
+#  fits entirely under the histogram
+def max_rectangle_size(histogram):
+    stack = []
+    top = lambda: stack[-1]
+    max_size_start = (0, 0, 0) # height, width, start of the largest rectangle
+    pos = 0 # current position in the histogram
+    for pos, height in enumerate(histogram):
+        start = pos # position where rectangle starts
+        while True:
+            if not stack or height > top().height:
+                stack.append(Info(start, height)) # push
+            elif stack and height < top().height:
+                max_size_start = max(
+                    max_size_start,
+                    (top().height, pos - top().start, top().start),
+                    key=area)
+                start, _ = stack.pop()
+                continue
+            break # height == top().height goes here
+
+    pos += 1
+    for start, height in stack:
+        max_size_start = max(max_size_start, (height, pos - start, start),
+            key=area)
+
+    return max_size_start
+
+def area(size): return size[0]*size[1]
 
 # NOTE that the horizontal trace needs to come from an image that was rotated by
 # 90 degrees and flipped along the long axis
@@ -702,31 +848,10 @@ def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
         print('marking horizontal trace ',i)
         markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
 
-    print('len(verticalTraces) = ',len(verticalTraces))
-    print('len(verticalTraces[0]) = ',len(verticalTraces[0]))
-    print('verticalTraces[0][0].shape = ',verticalTraces[0][0].shape)
-    print('horizontalTraces[0][1][:] - horizontalTraces[0][1][0] = ',horizontalTraces[0][1][:] - horizontalTraces[0][1][0])
-    print('verticalTraces[0][1][:] - verticalTraces[0][1][0] = ',verticalTraces[0][1][:] - verticalTraces[0][1][0])
-    coordsFit = np.ndarray(shape=(image.shape[0],image.shape[1],2), dtype=np.float32)
-    for i in np.arange(0,image.shape[0],1):
-        coordsFit[i,:,0] = float(i) + horizontalTraces[0][1][:] - horizontalTraces[0][1][0]
-    for i in np.arange(0,image.shape[1],1):
-        coordsFit[:,i,1] = float(i) + verticalTraces[0][1][:] - verticalTraces[0][1][0]
-
-    xx = np.arange(0,verticalTraces[0][1].shape[0])
-    print('xx = ',xx.shape,': ',xx)
-    yy = np.arange(0,horizontalTraces[0][1].shape[0],1)
-    print('yy = ',yy.shape,': ',yy)
-    f = interpolate.interp2d(yy,xx, image, kind='linear')
-    print('interpolated function = ',f)
-    print('horizontalTraces[0][1] = ',horizontalTraces[0][1].shape,': ',horizontalTraces[0][1])
-    print('verticalTraces[0][1] = ',verticalTraces[0][1].shape,': ',verticalTraces[0][1])
-
     xyOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
     xyFit = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
     zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
     print('image.data.shape = ',image.data.shape)
-    nPoints = 0
     for ix in np.arange(0,image.data.shape[0],1):
         for iy in np.arange(0,image.data.shape[1],1):
             xyOrig[(ix*image.data.shape[1]) + iy,0] = ix
@@ -734,37 +859,50 @@ def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
             zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
             xyFit[(ix*image.data.shape[1]) + iy,0] = ix + horizontalTraces[0][1][iy] - horizontalTraces[0][1][0]
             xyFit[(ix*image.data.shape[1]) + iy,1] = iy + verticalTraces[0][1][ix] - verticalTraces[0][1][0]
-            print('xOrig[',(ix*image.data.shape[1]) + iy,'] = ',ix,', yOrig[',(ix*image.data.shape[1]) + iy,'] = ',iy,': z = ',
-                   zOrig[(ix*image.data.shape[1]) + iy],', xFit = ',xyFit[(ix*image.data.shape[1]) + iy,0],', yFit = ',xyFit[(ix*image.data.shape[1]) + iy,1])
-            nPoints += 1
 
-    print('nPoints set = ',nPoints,': xyOrig.shape = ',xyOrig.shape,', zOrig.shape = ',zOrig.shape,', xyFit.shape = ',xyFit.shape)
-    zFit = griddata(xyOrig, zOrig, xyFit, method='nearest')
+    zFit = griddata(xyOrig, zOrig, xyFit, method='cubic')
 
+    # re-order vector back to 2D array
     for ix in np.arange(0,image.data.shape[0],1):
         for iy in np.arange(0,image.data.shape[1],1):
             image.data[ix, iy] = zFit[(ix*image.data.shape[1]) + iy]
-#    fIm = f(horizontalTraces[0][1], verticalTraces[0][1])
-#    print('fIm.shape = ',fIm.shape)
+
+    #trim image to only contain good data inside the original trace
+    maxSizeArr = np.zeros(image.data.shape)
+    maxSizeArr[np.where(np.isnan(image.data))] = 1
+    tempArr = max_size(maxSizeArr)
+    print('tempArr = ',tempArr)
+    print('image.data.shape = ',image.data.shape)
+    print('dir(image) = ',dir(image))
+    image.data = image.data[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+    image.mask = image.mask[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+    image.uncertainty = image.uncertainty[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+
+    print('image.data.shape = ',image.data.shape)
+    print('image.mask.shape = ',image.mask.shape)
+    print('dir(image.uncertainty) = ',dir(image.uncertainty))
+    image.header['NAXIS1'] = tempArr[0][1]
+    image.header['NAXIS2'] = tempArr[0][0]
+    print('image.header = ',image.header)
+    print('image.shape = ',image.shape)
+
     image.write(imFile[:imFile.rfind('.')]+'_interpolated.fits', overwrite=True)
-
-    if False:
-    #    coords[0,0,0] = 0.
-    #    coords[0,0,1] = 0.
-        for i in np.arange(1,image.shape[0],1):
-            for j in np.arange(1,image.shape[1],1):
-    #            print('i = ',i,', j = ',j,': coords[',i-1,'][',j-1,'][0] = ',coords[i-1][j-1][0])
-    #            print('i = ',i,', j = ',j,': verticalTraces[0][1][',i,' = ',verticalTraces[0][1][i])
-    #            print('i = ',i,', j = ',j,': verticalTraces[0][1][',i-1,' = ',verticalTraces[0][1][i-1])
-    #            print('i = ',i,', j = ',j,': horizontalTraces[0][1][',i,' = ',horizontalTraces[0][1][i])
-    #            print('i = ',i,', j = ',j,': horizontalTraces[0][1][',i-1,' = ',horizontalTraces[0][1][i-1])
-    #            coords[i,j,0] = coords[i-1][j-1][0] + verticalTraces[0][1][i] - verticalTraces[0][1][i-1]
-    #            coords[i,j,1] = coords[i-1][j-1][1] + horizontalTraces[0][1][i] - horizontalTraces[0][1][i-1]
-                print('[',i,', ',j,'] = [',coords[i,j,0],', ',coords[i,j,1],']')
-    #            STOP
-        if verticalTraces[0][1][0] < verticalTraces[0][1][verticalTraces[0][1].shape[0]-1]:
-            print('y[0] = ',verticalTraces[0][1][0],' < y[',verticalTraces[0][1].shape[0]-1,'] = ',verticalTraces[0][1][verticalTraces[0][1].shape[0]-1])
-
-        else:
-            print('y[0] = ',verticalTraces[0][1][0],' > y[',verticalTraces[0][1].shape[0]-1,'] = ',verticalTraces[0][1][verticalTraces[0][1].shape[0]-1])
     return 1
+
+def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 5):
+    image = CCDData.read(skyFileIn, unit="adu")
+    profileImage = np.ndarray(image.data.shape, dtype=np.float32)
+
+    # normalize each column of the sky flat
+    for col in np.arange(0,profileImage.shape[1],1):
+#        us = UnivariateSpline(np.arange(0,profileImage.shape[0],1),image.data[:,col], s=2. * float(profileImage.shape[0]))
+#        profileImage[:,col] = us(np.arange(0,profileImage.shape[0],1))
+
+        profileImage[:,col] = profileImage[:,col] / np.median(profileImage[:,col])
+
+    # smooth each row
+    for row in np.arange(0,profileImage.shape[0],1):
+        profileImage[row,:] = medfilt(profileImage[row,:], rowMedianSmoothSize)
+
+    image.data = profileImage
+    image.write(skyFlatOut, overwrite=True)

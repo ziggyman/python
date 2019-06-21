@@ -33,7 +33,7 @@ from scipy import optimize, interpolate
 import pdb
 
 
-[docs]class baseObject:
+class baseObject:
     """Empty object container.
     """
     def __init__(self):
@@ -55,14 +55,14 @@ readnoise = 25 # e-
 
 #########
 
-[docs]def message(text):
+def message(text):
     """Display a message; for now, with text."""
     from sys import stdout
 
     print text
     stdout.flush()
 
-[docs]def pickloc(ax=None, zoom=10):
+def pickloc(ax=None, zoom=10):
     """
     :INPUTS:
        ax   : (axes instance) -- axes in which to pick a location
@@ -112,7 +112,7 @@ readnoise = 25 # e-
 
     return loc
 
-[docs]def fitTophat(vec, err=None, verbose=False, guess=None):
+def fitTophat(vec, err=None, verbose=False, guess=None):
     """Fit a 1D tophat function to an input data vector.
 
     Return the fit, and uncertainty estimates on that fit.
@@ -161,7 +161,7 @@ readnoise = 25 # e-
 
     return fit, fiterr
 
-[docs]def fitGaussian(vec, err=None, verbose=False, guess=None):
+def fitGaussian(vec, err=None, verbose=False, guess=None):
     """Fit a Gaussian function to an input data vector.
 
     Return the fit, and uncertainty estimates on that fit.
@@ -225,7 +225,7 @@ readnoise = 25 # e-
 
 
 
-[docs]def fitGaussiann(vec, err=None, verbose=False, guess=None, holdfixed=None):
+def fitGaussiann(vec, err=None, verbose=False, guess=None, holdfixed=None):
     """Fit a Gaussian function to an input data vector.
 
     Return the fit, and uncertainty estimates on that fit.
@@ -293,7 +293,7 @@ readnoise = 25 # e-
 
     return fit, fiterr
 
-[docs]def fit2Gaussian(vec, err=None, verbose=False, guess=None, holdfixed=None):
+def fit2Gaussian(vec, err=None, verbose=False, guess=None, holdfixed=None):
     """Fit two Gaussians simultaneously to an input data vector.
 
     :INPUTS:
@@ -375,7 +375,7 @@ readnoise = 25 # e-
 
     return fit[0]
 
-[docs]def fitPSF(ec, guessLoc, fitwidth=20, verbose=False, sigma=5, medwidth=6, err_ec=None):
+def fitPSF(ec, guessLoc, fitwidth=20, verbose=False, sigma=5, medwidth=6, err_ec=None):
     """
     Helper function to fit 1D PSF near a given region.  Assumes
     spectrum runs horizontally across the frame!
@@ -445,7 +445,7 @@ readnoise = 25 # e-
     return x, newY, err_newY
 
 
-[docs]def traceorders(filename, pord=5, dispaxis=0, nord=1, verbose=False, ordlocs=None, stepsize=20, fitwidth=20, plotalot=False, medwidth=6, xylims=None, uncertainties=None, g=gain, rn=readnoise, badpixelmask=None, retsnr=False, retfits=False):
+def traceorders(filename, pord=5, dispaxis=0, nord=1, verbose=False, ordlocs=None, stepsize=20, fitwidth=20, plotalot=False, medwidth=6, xylims=None, uncertainties=None, g=gain, rn=readnoise, badpixelmask=None, retsnr=False, retfits=False):
     """
     Trace spectral orders for a specified filename.
 
@@ -736,7 +736,7 @@ readnoise = 25 # e-
     return  ret
 
 
-[docs]def makeprofile(filename, trace, **kw): #dispaxis=0, fitwidth=20, verbose=False, oversamp=4, nsigma=20, retall=False, neg=False, xylims=None, rn=readnoise, g=gain, extract_radius=10, bkg_radii=[15, 20], bkg_order=0, badpixelmask=None, interp=False):
+def makeprofile(filename, trace, **kw): #dispaxis=0, fitwidth=20, verbose=False, oversamp=4, nsigma=20, retall=False, neg=False, xylims=None, rn=readnoise, g=gain, extract_radius=10, bkg_radii=[15, 20], bkg_order=0, badpixelmask=None, interp=False):
     """
     Make a spatial profile from a spectrum, given its traced location.
     We interpolate the PSF at each pixel to a common reference frame,
@@ -1055,7 +1055,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return model
 
 
-[docs]def profileError(param, spc, profile, w, xaxis=None, retresidual=False):
+def profileError(param, spc, profile, w, xaxis=None, retresidual=False):
     "Compute the chi-squared error on a spectrum vs. a profile "
     # 2012-04-25 12:59 IJMC: Slightly optimised (if retresidual is False)
 
@@ -1073,7 +1073,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return ret
 
 
-[docs]def fitprofile(spc, profile, w=None,verbose=False, guess=None, retall=False):
+def fitprofile(spc, profile, w=None,verbose=False, guess=None, retall=False):
     """Fit a spline-class spatial profile to a spectrum cross-section
     """
     # 2010-11-29 14:14 IJC: Added poor attempt at catching bad pixels
@@ -1146,7 +1146,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def fitProfileSlices(splineProfile, profileStack, stdProfile, goodPixels,verbose=False, bkg_radii=None, extract_radius=None):
+def fitProfileSlices(splineProfile, profileStack, stdProfile, goodPixels,verbose=False, bkg_radii=None, extract_radius=None):
     """Fit a given spatial profile to a spectrum
 
     Helper function for :func:`extractSpectralProfiles`
@@ -1248,7 +1248,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def extractSpectralProfiles(args, **kw):
+def extractSpectralProfiles(args, **kw):
     """
     Extract spectrum
 
@@ -1351,7 +1351,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def gaussint(x):
+def gaussint(x):
     """
     :PURPOSE:
         Compute the integral from -inf to x of the normalized Gaussian
@@ -1370,7 +1370,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     scalefactor = 1./np.sqrt(2)
     return 0.5 + 0.5 * erf(x * scalefactor)
 
-[docs]def slittrans(*varargin):
+def slittrans(*varargin):
     """+
      :NAME:
          slittrans
@@ -1462,7 +1462,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return slit4
 
 
-[docs]def atmosdisp(wave, wave_0, za, pressure, temp, water=2., fco2=0.0004, obsalt=0.):
+def atmosdisp(wave, wave_0, za, pressure, temp, water=2., fco2=0.0004, obsalt=0.):
     """:NAME:
          atmosdisp
 
@@ -1547,7 +1547,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def parangle(HA, DEC, lat):
+def parangle(HA, DEC, lat):
     """
     +
      NAME:
@@ -1653,7 +1653,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
     return eta, za
 
-[docs]def lightloss(objfile, wguide, seeing, press=None, water=None, temp=None, fco2=None, wobj=None, dx=0, dy=0, retall=False):
+def lightloss(objfile, wguide, seeing, press=None, water=None, temp=None, fco2=None, wobj=None, dx=0, dy=0, retall=False):
     """    +
      NAME:
          lightloss
@@ -1827,7 +1827,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def lightloss2(wobj, slitwd, slitht, slitPA, targetPA, zenith_angle, wguide, seeing, press=615., water=2., temp=0., fco2=0.004, obsalt=4.16807, teldiam=3., dx=0, dy=0, retall=False, ydisp=None, xdisp=None, fwhm=None):
+def lightloss2(wobj, slitwd, slitht, slitPA, targetPA, zenith_angle, wguide, seeing, press=615., water=2., temp=0., fco2=0.004, obsalt=4.16807, teldiam=3., dx=0, dy=0, retall=False, ydisp=None, xdisp=None, fwhm=None):
     """    +
      NAME:
          lightloss2
@@ -1980,7 +1980,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
         return slitloss
 
 
-[docs]def humidpressure(RH, T):
+def humidpressure(RH, T):
     """    +
      NAME:
          humidpressure
@@ -2025,7 +2025,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
         (theta_mod*theta_mod*theta_mod*theta_mod)
 
 
-[docs]def runlblrtm(lamrange, pwv=2., zang=0., alt=4.2, co2=390, res=200, dotrans=True, dorad=False,
+def runlblrtm(lamrange, pwv=2., zang=0., alt=4.2, co2=390, res=200, dotrans=True, dorad=False,
               pwv_offset=4.,
               verbose=False, _save='/Users/ianc/temp/testatmo.mat',
               _wd='/Users/ianc/proj/atmo/aerlbl_v12.0_package/caltech_wrapper_v02/',
@@ -2201,7 +2201,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
     return ret
 
-[docs]def zenith(ra, dec, ha, obs):
+def zenith(ra, dec, ha, obs):
     """ Compute zenith angle (in degrees) for an observation.
 
     :INPUTS:
@@ -2299,7 +2299,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def spexsxd_scatter_model(dat, halfwid=48, xlims=[470, 1024], ylims=[800, 1024], full_output=False, itime=None):
+def spexsxd_scatter_model(dat, halfwid=48, xlims=[470, 1024], ylims=[800, 1024], full_output=False, itime=None):
     """Model the scattered light seen in SpeX/SXD K-band frames.
 
     :INPUTS:
@@ -2473,7 +2473,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def spexsxd_scatter_fix(fn1, fn2, **kw):
+def spexsxd_scatter_fix(fn1, fn2, **kw):
     """ Fix scattered light in SpeX/SXD K-band and write a new file.
 
     :INPUTS:
@@ -2541,7 +2541,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def tophat2(param, x):
+def tophat2(param, x):
     """Grey-pixel tophat function with set width
     param: [cen_pix, amplitude, background]
     newparam: [amplitude, full width, cen_pix, background]
@@ -2564,7 +2564,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return th + param[3]
 
 
-[docs]def tophat_alt(param, x):
+def tophat_alt(param, x):
     """Standard tophat function (alternative version).
 
     :INPUTS:
@@ -2617,7 +2617,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return amplitude * ret + vertical_offset
 
 
-[docs]def model_resel(param, x):
+def model_resel(param, x):
     """Model a spectral resolution element.
 
     :INPUTS:
@@ -2662,7 +2662,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
     return lineprofile + back1 + back2
 
-[docs]def add_partial_pixel(x0, y0, z0, z):
+def add_partial_pixel(x0, y0, z0, z):
     """
     :INPUTS:
       x0 : int or sequence of ints
@@ -2747,7 +2747,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return ret
 
 
-[docs]def modelSpectralTrace(param, shape=None, nscat=None, npw=None, npy=None, noy=None, now=None, ndist=None, x=None, y=None, transpose=False):
+def modelSpectralTrace(param, shape=None, nscat=None, npw=None, npy=None, noy=None, now=None, ndist=None, x=None, y=None, transpose=False):
     """Model a raw spectral trace!
 
     :INPUTS:
@@ -2855,7 +2855,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return interp_model
 
 
-[docs]def makeSpexSlitlessSky(skyfns, scatcen=[980, 150], scatdim=[60, 300]):
+def makeSpexSlitlessSky(skyfns, scatcen=[980, 150], scatdim=[60, 300]):
     """
     Generate a normalized Sky frame from SpeX slitless spectroscopy data.
 
@@ -2894,7 +2894,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def resamplespec(w1, w0, spec0, oversamp=100):
+def resamplespec(w1, w0, spec0, oversamp=100):
     """
     Resample a spectrum while conserving flux density.
 
@@ -2944,7 +2944,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 #wcoords = spec.wavelengthMatch(mastersky0, wsky, thissky, ethissky, guess=wcoef1, order=None)
 
-[docs]def wavelengthMatch(spectrum, wtemplate, template, etemplate, guess=None, nthread=1):
+def wavelengthMatch(spectrum, wtemplate, template, etemplate, guess=None, nthread=1):
     """
     Determine dispersion solution for a spectrum, from a template.
 
@@ -3071,7 +3071,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
     return dispersionSolution, wavelengths, bestparams
 
-[docs]def makemodel(params, xvec, specvec, wtemplate):
+def makemodel(params, xvec, specvec, wtemplate):
     """Helper function for :func:`wavelengthMatch`: generate a scaled,
     interpolative model of the template."""
     wcoef = params[0:-2]
@@ -3080,7 +3080,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return offset + scale * np.interp(wtemplate, neww, specvec, left=0, right=0)
 
 
-[docs]def normalizeSpecFlat(flatdat, nspec=1, minsep=50, median_width=51, readnoise=40, badpixelmask=None, traces=None):
+def normalizeSpecFlat(flatdat, nspec=1, minsep=50, median_width=51, readnoise=40, badpixelmask=None, traces=None):
     """Trace and normalize a spectroscopic flat field frame.
 
     :INPUTS:
@@ -3183,7 +3183,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return masterflat
 
 
-[docs]def optspecextr_idl(frame, gain, readnoise, x1, x2, idlexec, clobber=True, tempframefn='tempframe.fits', specfn='tempspec.fits', scriptfn='temp_specextract.pro', IDLoptions="adjfunc='adjgauss', adjoptions={center:1,centerfit:1,centerdeg:3}, bgdeg=3", inmask=None):
+def optspecextr_idl(frame, gain, readnoise, x1, x2, idlexec, clobber=True, tempframefn='tempframe.fits', specfn='tempspec.fits', scriptfn='temp_specextract.pro', IDLoptions="adjfunc='adjgauss', adjoptions={center:1,centerfit:1,centerdeg:3}, bgdeg=3", inmask=None):
     """Run optimal spectral extraction in IDL; pass results to Python.
 
     :INPUTS:
@@ -3353,7 +3353,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return specs
 
 
-[docs]def optimalExtract(*args, **kw):
+def optimalExtract(*args, **kw):
     """
     Extract spectrum, following Horne 1986.
 
@@ -3669,7 +3669,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def superExtract(*args, **kw):
+def superExtract(*args, **kw):
     """
     Optimally extract curved spectra, following Marsh 1989.
 
@@ -4302,7 +4302,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def spextractor(frame, gain, readnoise, framevar=None, badpixelmask=None, mode='superExtract', trace=None, options=None, trace_options=None, verbose=False):
+def spextractor(frame, gain, readnoise, framevar=None, badpixelmask=None, mode='superExtract', trace=None, options=None, trace_options=None, verbose=False):
     """Extract a spectrum from a frame using one of several methods.
 
     :INPUTS:
@@ -4457,7 +4457,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return ret
 
 
-[docs]def scaleSpectralSky_pca(frame, skyframes, variance=None, mask=None, badpixelmask=None, npca=3, gain=3.3, readnoise=30):
+def scaleSpectralSky_pca(frame, skyframes, variance=None, mask=None, badpixelmask=None, npca=3, gain=3.3, readnoise=30):
     """
     Use PCA and blank sky frames to subtract
 
@@ -4547,7 +4547,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     skyframe[maskind] = skyvalues
     return skyframe
 
-[docs]def scaleSpectralSky_dsa(subframe, variance=None, badpixelmask=None, nk=31, pord=1, nmed=3, gain=3.3, readnoise=30, dispaxis=0, spatial_index=None):
+def scaleSpectralSky_dsa(subframe, variance=None, badpixelmask=None, nk=31, pord=1, nmed=3, gain=3.3, readnoise=30, dispaxis=0, spatial_index=None):
     """
     Use difference-imaging techniques to subtract moderately tilted
     sky background.  Doesn't work so well!
@@ -4662,7 +4662,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def scaleSpectralSky_cor(subframe, badpixelmask=None, maxshift=20, fitwidth=2, pord=1, nmed=3, dispaxis=0, spatial_index=None, refpix=None, tord=2):
+def scaleSpectralSky_cor(subframe, badpixelmask=None, maxshift=20, fitwidth=2, pord=1, nmed=3, dispaxis=0, spatial_index=None, refpix=None, tord=2):
     """
     Use cross-correlation to subtract tilted sky backgrounds.
 
@@ -4805,7 +4805,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def defringe_sinusoid(subframe, badpixelmask=None, nmed=5, dispaxis=0, spatial_index=None, period_limits=[20, 100], retall=False, gain=None, readnoise=None, bictest=False, sinonly=False):
+def defringe_sinusoid(subframe, badpixelmask=None, nmed=5, dispaxis=0, spatial_index=None, period_limits=[20, 100], retall=False, gain=None, readnoise=None, bictest=False, sinonly=False):
     """
     Use simple fitting to subtract fringes and sky background.
 
@@ -5021,7 +5021,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 #
 
-[docs]def makexflat(subreg, xord, nsigma=3, minsnr=10, minfrac=0.5, niter=1):
+def makexflat(subreg, xord, nsigma=3, minsnr=10, minfrac=0.5, niter=1):
     """Helper function for XXXX.
 
     :INPUTS:
@@ -5074,7 +5074,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def make_spectral_flats(sky, domeflat, subreg_corners, badpixelmask=None, xord_pix=[15,2], xord_sky=[2,1], yord=2, minsnr=5, minfrac_pix=0.7, minfrac_sky=0.5, locs=None, nsigma=3):
+def make_spectral_flats(sky, domeflat, subreg_corners, badpixelmask=None, xord_pix=[15,2], xord_sky=[2,1], yord=2, minsnr=5, minfrac_pix=0.7, minfrac_sky=0.5, locs=None, nsigma=3):
     """
     Construct appropriate corrective frames for multi-object
     spectrograph data.  Specifically: corrections for irregular slit
@@ -5223,7 +5223,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return wideslit_skyflat, narrowslit_domeflat
 
 
-[docs]def calibrate_stared_mosfire_spectra(scifn, outfn, skycorrect, pixcorrect, subreg_corners, **kw):
+def calibrate_stared_mosfire_spectra(scifn, outfn, skycorrect, pixcorrect, subreg_corners, **kw):
     """Correct non-dithered WIDE-slit MOSFIRE spectral frames for:
           pixel-to-pixel nonuniformities (i.e., traditional flat-fielding)
 
@@ -5486,7 +5486,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
 
 
-[docs]def reconstitute_gmos_roi(infile, outfile, **kw):
+def reconstitute_gmos_roi(infile, outfile, **kw):
     """Convert GMOS frames taken with custom ROIs into standard FITS frames.
 
     :INPUTS:
@@ -5566,7 +5566,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
 
     return #detsecs, datasecs, biassecs
 
-[docs]def rotationalProfile(delta_epsilon, delta_lam):
+def rotationalProfile(delta_epsilon, delta_lam):
     """Compute the rotational profile of a star, assuming solid-body
     rotation and linear limb darkening.
 
@@ -5620,7 +5620,7 @@ def makeFitModel(param, spc,profile, xtemp=None):
     return ret
 
 
-[docs]def modelline(param, prof2, dv):
+def modelline(param, prof2, dv):
   """Generate a rotational profile, convolve it with a second input
   profile, normalize it (simply), and return.
 
