@@ -22,11 +22,10 @@ from shutil import copyfile
 
 # TODO: Make it possible to pass in CCDData instead of fits file names
 
-# remove file <fileName> (including directory) if it exists
-# also works for </dir/start"*"ending>
-
 Info = namedtuple('Info', 'start height')
 
+# remove file <fileName> (including directory) if it exists
+# also works for </dir/start"*"ending>
 def silentRemove(fileName):
     if '*' not in fileName:
         if os.path.exists(fileName): os.remove(fileName)
@@ -36,6 +35,10 @@ def silentRemove(fileName):
         for item in fileList:
             if item.endswith(fileName[fileName.find('*')+1:]):
                 os.remove(os.path.join(dirName, item))
+
+def writeFits(ccdData, output_file, overwrite=True):
+    hdulist = ccdData.to_hdu()
+    hdulist.writeto(output_file, overwrite=overwrite)
 
 # insert <(_)suffix> before '.ending'
 # if <suffix> is '' then no '_' is inserted either and the original <fileName>
@@ -304,7 +307,9 @@ def combine(ccdImages,
         combinedImage.data = np.minimum(combinedImage.data, minVal)
 
     if fitsOutName is not None:
-        combinedImage.write(fitsOutName, overwrite=overwrite)
+        print('combinedImage.data.shape = ',combinedImage.data.shape)
+        print('combinedImage.header = ',combinedImage.header)
+        writeFits(combinedImage, fitsOutName, overwrite=overwrite)
 
     return combinedImage
 
@@ -328,7 +333,7 @@ def subtractOverscan(fitsFilesIn, overscanSection, trimSection=None, fitsFilesOu
         else:
             trimmed = ccdproc.trim_image(ccdDataNoOverscan, fits_section=trimSection)
             if fitsFilesOut is not None:
-                trimmed.write(fitsFilesOut[iFile], overwrite=overwrite)
+                writeFits(trimmed, fitsFilesOut[iFile], overwrite=overwrite)
             dataOut.append(trimmed)
     return dataOut
 
@@ -352,7 +357,7 @@ def subtractBias(fitsFilesIn,
                                                       masterBiasArr)
         dataOut.append(ccdDataBiasSubtracted)
         if fitsFilesOut is not None:
-            ccdDataBiasSubtracted.write(fitsFilesOut[iFile], overwrite=overwrite)
+            writeFits(ccdDataBiasSubtracted, fitsFilesOut[iFile], overwrite=overwrite)
     return dataOut
 
 # find and remove cosmic rays from the images in <fitsFilesIn>, write results to <fitsFilesOut>
@@ -405,9 +410,9 @@ def subtractBias(fitsFilesIn,
 #                                                    Default: "gauss".
 #                                'psffwhm':2.5, float, optional - Full Width Half Maximum of the PSF to use to generate
 #                                               the kernel. Default: 2.5.
-#                                               psfsize : int, optional
-#                                               Size of the kernel to calculate. Returned kernel will have size psfsize
-#                                               x psfsize. psfsize should be odd. Default: 7.
+#                                'psfsize':7, int, optional
+#                                             Size of the kernel to calculate. Returned kernel will have size psfsize
+#                                             x psfsize. psfsize should be odd. Default: 7.
 #                                'psfk':None, numpy.ndarray (with float dtype) or None, optional
 #                                             PSF kernel array to use for the fine structure image if fsmode == 'convolve'.
 #                                             If None and fsmode == 'convolve', we calculate the psf kernel using psfmodel.
@@ -543,7 +548,7 @@ def cleanCosmic(fitsFilesIn,
         ccdDataCleaned.header['COSMIC'] = ctype.upper()
         dataOut.append(ccdDataCleaned)
         if fitsFilesOut is not None:
-            ccdDataCleaned.write(fitsFilesOut[iFile], overwrite=overwrite)
+            writeFits(ccdDataCleaned, fitsFilesOut[iFile], overwrite=overwrite)
     return dataOut
 
 # Correct the image for flat fielding.
@@ -577,18 +582,27 @@ def flatCorrect(fitsFilesIn,
                 fitsFilesOut=None,
                 overwrite=True):
     ccdDataFlat = CCDData.read(flat, unit="adu")
+    print('flatCorrect: ccdDataFlat = ',ccdDataFlat)
+    print('min(ccdDataFlat) = ',np.min(ccdDataFlat),', max(ccdDataFlat) = ',np.max(ccdDataFlat))
+    print('ccdDataFlat[np.where(np.isnan(ccdDataFlat))] = ',ccdDataFlat[np.where(np.isnan(ccdDataFlat))])
+    print('ccdDataFlat[np.where(np.isinf(ccdDataFlat))] = ',ccdDataFlat[np.where(np.isinf(ccdDataFlat))])
     dataOut = []
 
     for iFile in np.arange(0,len(fitsFilesIn),1):
         ccdData = CCDData.read(fitsFilesIn[iFile], unit="adu")
+        print('flatCorrect: iFile = ',iFile,': ccdData = ',ccdData)
+        print('min(ccdData) = ',np.min(ccdData),', max(ccdData) = ',np.max(ccdData))
+        print('ccdData[np.where(np.isnan(ccdData))] = ',ccdData[np.where(np.isnan(ccdData))])
+        print('ccdData[np.where(np.isinf(ccdData))] = ',ccdData[np.where(np.isinf(ccdData))])
         ccdDataFlattened = ccdproc.flat_correct(ccdData,
                                                 flat=ccdDataFlat,
                                                 min_value=min_value,
                                                 norm_value=norm_value,
                                                 add_keyword=add_keyword)
+        print('flatCorrect: iFile = ',iFile,' ',fitsFilesIn[iFile],': ccdDataFlattened = ',ccdDataFlattened)
         dataOut.append(ccdDataFlattened)
         if fitsFilesOut is not None:
-            ccdDataFlattened.write(fitsFilesOut[iFile], overwrite=overwrite)
+            writeFits(ccdDataFlattened, fitsFilesOut[iFile], overwrite=overwrite)
     return dataOut
 
 # calculate Chebyshev polynomial for normalized x values [-1.0,...,1.0] and give coefficients
@@ -751,7 +765,7 @@ def markCenter(imFileIn, trace, imFileOut=None):
     for i in np.arange(0,trace[0].shape[0],1):
         image.data[int(trace[0][i]), int(trace[1][i])] = 0.
     if imFileOut is not None:
-        image.write(imFileOut, overwrite=True)
+        writeFits(image, imFileOut, overwrite=True)
     return image
 
 # returns height, width, and position of the top left corner of the largest
@@ -799,98 +813,87 @@ def area(size): return size[0]*size[1]
 
 # NOTE that the horizontal trace needs to come from an image that was rotated by
 # 90 degrees and flipped along the long axis
-def interpolateTraceIm(imFile, dbFileVerticalTrace, dbFileHorizontalTrace):
+def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, markCenters=False):
     # read imFile for dimensions
-    image = CCDData.read(imFile, unit="adu")
-    print('image.shape = ',image.shape)
+
+    image = CCDData.read(imFiles[0], unit="adu")
 
     records = iu.get_records(dbFileVerticalTrace)
-    print('len(records) = ',len(records))
     verticalTraces = []
     for i in np.arange(0,len(records),1):
         verticalTraces.append(calcTrace(dbFileVerticalTrace,i,[1,image.shape[0]]))
-        x, y = verticalTraces[len(verticalTraces)-1]
-        print('vertical trace ',len(verticalTraces)-1,': x.shape = ',x.shape,', y.shape = ',y.shape)
-        for i in np.arange(0,x.shape[0],1):
-            print('x[',i,'] = ',x[i],', y[',i,'] = ',y[i])
+#        x, y = verticalTraces[len(verticalTraces)-1]
 
     records = iu.get_records(dbFileHorizontalTrace)
-    print('len(records) = ',len(records))
     horizontalTraces = []
     for i in np.arange(0,len(records),1):
         horizontalTraces.append(calcTrace(dbFileHorizontalTrace,i,[1,image.shape[1]]))
-        x, y = horizontalTraces[len(horizontalTraces)-1]
-        print('horizontal trace ',len(horizontalTraces)-1,': x.shape = ',x.shape,', y.shape = ',y.shape)
-        for i in np.arange(0,x.shape[0],1):
-            print('x[',i,'] = ',x[i],', y[',i,'] = ',y[i])
-
-    image = CCDData.read(imFile, unit="adu")
-    print('image.shape = ',image.shape)
-    inFile = ''
-    outFile = ''
-    for i in np.arange(0,len(verticalTraces),1):
-        if i == 0:
-            inFile = imFile
-            outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
-        else:
-            inFile = outFile
-            outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
-        print('marking vertical trace ',i)
-        markCenter(inFile,verticalTraces[i],outFile)
-    horFile = outFile
-    for i in np.arange(0,len(horizontalTraces),1):
-        if i == 0:
-            inFile = horFile
-            outFile = inFile[:inFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
-        else:
-            inFile = outFile
-            outFile = horFile[:horFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
-        print('marking horizontal trace ',i)
-        markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
+#        x, y = horizontalTraces[len(horizontalTraces)-1]
 
     xyOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
     xyFit = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
     zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
-    print('image.data.shape = ',image.data.shape)
     for ix in np.arange(0,image.data.shape[0],1):
         for iy in np.arange(0,image.data.shape[1],1):
             xyOrig[(ix*image.data.shape[1]) + iy,0] = ix
             xyOrig[(ix*image.data.shape[1]) + iy,1] = iy
-            zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
             xyFit[(ix*image.data.shape[1]) + iy,0] = ix + horizontalTraces[0][1][iy] - horizontalTraces[0][1][0]
             xyFit[(ix*image.data.shape[1]) + iy,1] = iy + verticalTraces[0][1][ix] - verticalTraces[0][1][0]
 
-    zFit = griddata(xyOrig, zOrig, xyFit, method='cubic')
+    for imFile in imFiles:
+        image = CCDData.read(imFile, unit="adu")
 
-    # re-order vector back to 2D array
-    for ix in np.arange(0,image.data.shape[0],1):
-        for iy in np.arange(0,image.data.shape[1],1):
-            image.data[ix, iy] = zFit[(ix*image.data.shape[1]) + iy]
+        if markCenters:
+            inFile = ''
+            outFile = ''
+            for i in np.arange(0,len(verticalTraces),1):
+                if i == 0:
+                    inFile = imFile
+                    outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
+                else:
+                    inFile = outFile
+                    outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
+                markCenter(inFile,verticalTraces[i],outFile)
+            horFile = outFile
+            for i in np.arange(0,len(horizontalTraces),1):
+                if i == 0:
+                    inFile = horFile
+                    outFile = inFile[:inFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
+                else:
+                    inFile = outFile
+                    outFile = horFile[:horFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
+                markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
 
-    #trim image to only contain good data inside the original trace
-    maxSizeArr = np.zeros(image.data.shape)
-    maxSizeArr[np.where(np.isnan(image.data))] = 1
-    tempArr = max_size(maxSizeArr)
-    print('tempArr = ',tempArr)
-    print('image.data.shape = ',image.data.shape)
-    print('dir(image) = ',dir(image))
-    image.data = image.data[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
-    image.mask = image.mask[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
-    image.uncertainty = image.uncertainty[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+        zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
+        for ix in np.arange(0,image.data.shape[0],1):
+            for iy in np.arange(0,image.data.shape[1],1):
+                zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
+        zFit = griddata(xyOrig, zOrig, xyFit, method='cubic')
 
-    print('image.data.shape = ',image.data.shape)
-    print('image.mask.shape = ',image.mask.shape)
-    print('dir(image.uncertainty) = ',dir(image.uncertainty))
-    image.header['NAXIS1'] = tempArr[0][1]
-    image.header['NAXIS2'] = tempArr[0][0]
-    print('image.header = ',image.header)
-    print('image.shape = ',image.shape)
+        # re-order vector back to 2D array
+        for ix in np.arange(0,image.data.shape[0],1):
+            for iy in np.arange(0,image.data.shape[1],1):
+                image.data[ix, iy] = zFit[(ix*image.data.shape[1]) + iy]
 
-    image.write(imFile[:imFile.rfind('.')]+'_interpolated.fits', overwrite=True)
+        #trim image to only contain good data inside the original trace
+        maxSizeArr = np.zeros(image.data.shape)
+        maxSizeArr[np.where(np.isnan(image.data))] = 1
+        tempArr = max_size(maxSizeArr)
+        image.data = image.data[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+        image.mask = image.mask[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+        image.uncertainty = image.uncertainty[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+
+        image.header['NAXIS1'] = tempArr[0][1]
+        image.header['NAXIS2'] = tempArr[0][0]
+
+        writeFits(image, imFile[:imFile.rfind('.')]+'i.fits', overwrite=True)
     return 1
 
-def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 5):
+def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
     image = CCDData.read(skyFileIn, unit="adu")
+    print('makeSkyFlat: image[np.where(np.isnan(image))] = ',image[np.where(np.isnan(image))])
+    print('makeSkyFlat: image[np.where(np.isinf(image))] = ',image[np.where(np.isinf(image))])
+    print('makeSkyFlat: min(image) = ',np.min(image),', max(image) = ',np.max(image))
     profileImage = np.ndarray(image.data.shape, dtype=np.float32)
 
     # normalize each column of the sky flat
@@ -898,11 +901,22 @@ def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 5):
 #        us = UnivariateSpline(np.arange(0,profileImage.shape[0],1),image.data[:,col], s=2. * float(profileImage.shape[0]))
 #        profileImage[:,col] = us(np.arange(0,profileImage.shape[0],1))
 
-        profileImage[:,col] = profileImage[:,col] / np.median(profileImage[:,col])
+        profileImage[:,col] = image[:,col] / np.median(image[:,col])
+    print('makeSkyFlat: 1) profileImage[np.where(np.isnan(profileImage))] = ',profileImage[np.where(np.isnan(profileImage))])
+    print('makeSkyFlat: 1) profileImage[np.where(np.isinf(profileImage))] = ',profileImage[np.where(np.isinf(profileImage))])
 
     # smooth each row
     for row in np.arange(0,profileImage.shape[0],1):
         profileImage[row,:] = medfilt(profileImage[row,:], rowMedianSmoothSize)
+    print('makeSkyFlat: profileImage = ',profileImage.shape,': ',profileImage)
+    print('makeSkyFlat: 2) profileImage[np.where(np.isnan(profileImage))] = ',profileImage[np.where(np.isnan(profileImage))])
+    print('makeSkyFlat: 2) profileImage[np.where(np.isinf(profileImage))] = ',profileImage[np.where(np.isinf(profileImage))])
+
+    # set values <= to 0.01
+    profileImage[np.where(profileImage <= 0.00001)] = 0.001
+    print('makeSkyFlat: profileImage > 0. = ',profileImage.shape,': ',profileImage)
+    print('makeSkyFlat: profileImage[np.where(np.isnan(profileImage))] = ',profileImage[np.where(np.isnan(profileImage))])
+    print('makeSkyFlat: profileImage[np.where(np.isinf(profileImage))] = ',profileImage[np.where(np.isinf(profileImage))])
 
     image.data = profileImage
-    image.write(skyFlatOut, overwrite=True)
+    writeFits(image, skyFlatOut, overwrite=True)

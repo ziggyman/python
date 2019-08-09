@@ -3,22 +3,26 @@ import pyfits
 import pyraf
 from pyraf import iraf
 from sklearn.decomposition import PCA
-execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate
+from myUtils import getWavelength
+import matplotlib.pyplot as plt
 
-standardStar = True
-cubePlusSky = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum.fits'
+standardStar = False
+cubePlusSky = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/pa30_zdtsEcndr.fits'
 
-cubeMinusSkyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMean.fits'
-skyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum_sky.fits'
+cubeMinusSkyOut = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/pa30_zdtsEcndr-skyMean.fits'
+cubeMinusSkyOutMedian = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/pa30_zdtsEcndr-skyMedian.fits'
+skyOutMean = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/pa30_zdtsEcndr_skyMean.fits'
+skyOutMedian = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/pa30_zdtsEcndr_skyMedian.fits'
+componentsOutRoot = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/pa30_zdtsEcndr_PCA'
 
-componentsOutRoot = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum_PCA'
 if standardStar:
-    cubePlusSky = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined.fits'
+    cubePlusSky = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/kwb_141015_114545_ori_zdtsEcn1dr.fits'
 
-    cubeMinusSkyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined-skyMean.fits'
-    skyOut = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined_sky.fits'
-
-    componentsOutRoot = '/Volumes/obiwan/azuri/spectra/sparsepak/stella/Hiltner102_botzfxsEcBld_combined_PCA'
+    cubeMinusSkyOut = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/kwb_141015_114545_ori_zdtsEcn1dr-skyMean.fits'
+    cubeMinusSkyOutMedian = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/kwb_141015_114545_ori_zdtsEcn1dr-skyMedian.fits'
+    skyOutMean = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/kwb_141015_114545_ori_zdtsEcn1dr_skyMean.fits'
+    skyOutMedian = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/kwb_141015_114545_ori_zdtsEcn1dr_skyMedian.fits'
+    componentsOutRoot = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/kwb_141015_114545_ori_zdtsEcn1dr_PCA'
 
 
 
@@ -39,7 +43,7 @@ print('pca_explained_variance_ = ',pca.explained_variance_.shape,': ',pca.explai
 B = pca.transform(dataCubePlusSky)
 print('B = ',B.shape,': ',B)
 
-iFiber = 51
+iFiber = 31
 
 componentsSum = pca.components_[0,:] * B[iFiber,0]
 
@@ -61,7 +65,7 @@ plt.show()
 hdulistCubeMinusSkyOut = hdulistCubePlusSky
 hdulistCubeMinusSkyOut.data = pca.mean_
 hdulistCubeMinusSkyOut.writeto(componentsOutRoot+'mean.fits', clobber=True)
-hdulistCubeMinusSkyOut.writeto(skyOut, clobber=True)
+hdulistCubeMinusSkyOut.writeto(skyOutMean, clobber=True)
 
 plt.plot(wavelength, pca.mean_, label = 'PCA mean')
 #plt.xlim(5690., 6760.)
@@ -75,8 +79,24 @@ for i in range(nComponents):
     plt.legend()
     plt.show()
 
+# subtrace mean as sky
 hdulistCubeMinusSkyOut.data = dataCubePlusSky
-for i in range(dataCubePlusSky.shape[0]):
+for i in np.arange(0,dataCubePlusSky.shape[0],1):
     hdulistCubeMinusSkyOut.data[i,:] = dataCubePlusSky[i,:] - pca.mean_
 hdulistCubeMinusSkyOut.writeto(cubeMinusSkyOut, clobber=True)
+
+# subtrace mean as sky
+hdulistCubeMinusSkyOut.data = dataCubePlusSky
+skyArr = np.zeros(dataCubePlusSky.shape,dtype=np.float32)
+for i in np.arange(0,dataCubePlusSky.shape[1],1):
+    col = dataCubePlusSky[:,i]
+    sky = np.median(dataCubePlusSky[:,i])
+    skyArr[:,i] = sky
+    print('column ',i,': col = ',col.shape,': ',col,', sky = ',sky.shape,': ',sky)
+    hdulistCubeMinusSkyOut.data[:,i] = col - sky
+hdulistCubeMinusSkyOut.writeto(cubeMinusSkyOutMedian, clobber=True)
+
+hdulistCubeMinusSkyOut.data = skyArr
+hdulistCubeMinusSkyOut.writeto(skyOutMedian, clobber=True)
+
 #zap.process(cubePlusSky, outcubefits=cubeOut)

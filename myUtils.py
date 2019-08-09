@@ -317,9 +317,9 @@ def writeFits(imData, fname, clobber=True):
     hdu = apyfits.PrimaryHDU(imData)
     hdu.writeto(fname, clobber=clobber)
 
-def getImageData(fname):
+def getImageData(fname,hduNum=1):
     hdulist = apyfits.open(fname)
-    scidata = hdulist[1].data
+    scidata = hdulist[hduNum].data
     hdulist.close()
     return scidata
 

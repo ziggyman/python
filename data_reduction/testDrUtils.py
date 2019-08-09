@@ -11,7 +11,7 @@ overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 
 def test_separateFileList(inList='/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/allFits.list'):
-    suffixes = ['','ot','otz','otzf','otzx','otzxf']
+    suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxfif']
 
 #    copyfile(inList, inList+'bak')
 #    silentRemove(inList[:inList.rfind('/')+1]+'*.list')
@@ -348,23 +348,156 @@ def test_combineSkyFlats(inFiles = '/Volumes/work/azuri/spectra/saao/saao_may201
                    fitsOutName=combinedFlat)
     return combinedFlat
 
-path = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/'
-#test_separateFileList(os.path.join(path,'allFits.list'))
-#test_combine()
-#test_subtractOverscan()
-#test_subtractBias()
-#test_cleanCosmic()
-#test_flatCorrect(os.path.join(path,'allFits.list'))
-test_combineSkyFlats()
-#interpolateTraceIm('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/vertical_trace.fits',#FLAT_Domeflat_a1061047_otz.fits',
-#            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
-#            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90')
-#interpolateTraceIm('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/horizontal_trace.fits',#FLAT_Domeflat_a1061047_otz.fits',
-#            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
-#            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90flipl')
-interpolateTraceIm('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat.fits',#FLAT_Domeflat_a1061047_otz.fits',
-            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
-            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90flipl')
-makeSkyFlat('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat_interpolated.fits',
-            '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat_interpolated_flattened.fits',
-            7)
+def testInterpolateTraceIm():
+    interpolateTraceIm(['/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat.fits'],#FLAT_Domeflat_a1061047_otz.fits
+                       '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
+                       '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90flipl')
+
+def testMakeSkyFlat():
+    makeSkyFlat('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat_interpolated.fits',
+                '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat_interpolated_flattened.fits',
+                7)
+
+def test_skyFlatCorrect(objectFiles = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/SCIENCE.list'):
+    path = objectFiles[0:objectFiles.rfind('/')+1]
+    inFilesBias = readFileToArr(os.path.join(path,'BIAS.list'))
+    if inFilesBias[0].rfind('/') == -1:
+        inFilesBias = [os.path.join(path, fileName) for fileName in inFilesBias]
+    otFilesBias = [addSuffixToFileName(fileName, 'ot') for fileName in inFilesBias]
+    otArrsBias = subtractOverscan(inFilesBias,
+                               overscanSection,
+                               trimSection=trimSection,
+                               fitsFilesOut=otFilesBias,
+                               overwrite=True)
+
+    # create master bias
+    masterBias = os.path.join(path,'combinedBias_ot.fits')
+    combinedBias = combine(otFilesBias,
+                            combinerMethod='average',
+                            clippingMethod='sigma',
+                            clippingParameters={'niter':0,
+                                                'low_thresh':-3.,
+                                                'high_thresh':3.,
+                                                'func':np.ma.median},
+                            scaling=True,
+                            fitsOutName=masterBias)
+    print('average sigma 0: mean(combinedBias) = ',np.mean(combinedBias))
+
+    inFilesDomeflats = readFileToArr(os.path.join(path,'FLATDomeflat.list'))
+    otFilesDomeflats = [addSuffixToFileName(fileName, 'ot') for fileName in inFilesDomeflats]
+    otArrsDomeflats = subtractOverscan(inFilesDomeflats,
+                                       overscanSection,
+                                       trimSection=trimSection,
+                                       fitsFilesOut=otFilesDomeflats,
+                                       overwrite=True)
+
+    otzFilesDomeflats = [addSuffixToFileName(fileName, 'otz') for fileName in inFilesDomeflats]
+    otzArrsDomeflats = subtractBias(otFilesDomeflats,
+                                    masterBias,
+                                    fitsFilesOut=otzFilesDomeflats,
+                                    overwrite=True)
+
+    combinedFlat = os.path.join(path,'combinedFlat.fits')
+    flat = combine(otzFilesDomeflats,
+                   combinerMethod='average',
+                   clippingMethod='sigma',
+                   clippingParameters={'niter':2,
+                                       'low_thresh':-3.,
+                                       'high_thresh':3.,
+                                       'func':np.ma.median},
+                   scaling=True,
+                   minVal=0.0001,
+                   fitsOutName=combinedFlat)
+
+    inFiles = readFileToArr(objectFiles)
+    if inFiles[0].rfind('/') == -1:
+        inFiles = [os.path.join(path, fileName) for fileName in inFiles]
+    otFiles = [addSuffixToFileName(fileName, 'ot') for fileName in inFiles]
+    outArrs = subtractOverscan(inFiles,
+                               overscanSection,
+                               trimSection=trimSection,
+                               fitsFilesOut=otFiles,
+                               overwrite=True)
+
+    otzFiles = [addSuffixToFileName(fileName, 'otz') for fileName in inFiles]
+    otzArrs = subtractBias(otFiles,
+                           masterBias,
+                           fitsFilesOut=otzFiles,
+                           overwrite=True)
+
+#    otzxFiles = [addSuffixToFileName(fileName, 'otzx') for fileName in inFiles]
+#    otzxArrs = cleanCosmic(otzFiles,
+#                           fitsFilesOut=otzxFiles,
+#                           overwrite=True)
+
+    otzfFiles = [addSuffixToFileName(fileName, 'otzf') for fileName in inFiles]
+    otzfArrs = flatCorrect(otzFiles,
+                           combinedFlat,
+                           fitsFilesOut=otzfFiles)
+
+    test_combineSkyFlats()
+
+    interpolateTraceIm(['/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat.fits'],#FLAT_Domeflat_a1061047_otz.fits
+                       '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
+                       '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90flipl')
+
+    interpolateTraceIm(otzfFiles,
+                       '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/apvertical_trace',
+                       '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/database/aphorizontal_tracer90flipl')
+
+    makeSkyFlat('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlati.fits',
+                '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlati_flattened.fits',
+                7)
+
+    otzfiFiles = [addSuffixToFileName(fileName, 'otzfi') for fileName in inFiles]
+    otzfifFiles = [addSuffixToFileName(fileName, 'otzfif') for fileName in inFiles]
+    otzfifArrs = flatCorrect(otzfiFiles,
+                             '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/combinedSkyFlat_interpolated_flattened.fits',
+                             fitsFilesOut=otzfifFiles)
+
+
+    return otzfifFiles
+
+if False:
+    path = '/Users/azuri/spupnik/data/20190501/'
+    test_separateFileList(os.path.join(path,'allFits.list'))
+    test_combine()
+    test_subtractOverscan()
+    test_subtractBias()
+    test_cleanCosmic()
+    test_flatCorrect(os.path.join(path,'allFits.list'))
+    test_combineSkyFlats()
+    testInterpolateTraceIm()
+    testMakeSkyFlat()
+    test_skyFlatCorrect()
+    test_skyFlatCorrect('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/ARC.list')
+
+    inFiles = readFileToArr('/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/SCIENCEWKK98_201_otzfif.list')
+    wkk = combine(inFiles,
+                   combinerMethod='average',
+                   clippingMethod='sigma',
+                   clippingParameters={'niter':2,
+                                       'low_thresh':-3.,
+                                       'high_thresh':3.,
+                                       'func':np.ma.median},
+                   scaling=True,
+                   minVal=0.0001,
+                   fitsOutName='/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/SCIENCEWKK98_201_otzxfif_combined.fits')
+
+
+cosmicParameters = {'sigclip':4.,
+                    'cleantype':'meanmask',
+                    'gain':0.219,
+                    'readnoise':3.4,
+                    'sepmed':False,
+                    'fsmode':'convolve',
+                    'psfmodel':'moffat',
+                    'verbose':True,
+                    'niter':1,
+                    'psfbeta':1.5}
+inFiles = readFileToArr('/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/do_cosmics.list')
+outFiles = [addSuffixToFileName(fileName, 'x') for fileName in inFiles]
+outArrs = cleanCosmic(inFiles,
+                      cosmicParameters = cosmicParameters,
+                      fitsFilesOut=outFiles,
+                      overwrite=True)
