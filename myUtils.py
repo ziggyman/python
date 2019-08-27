@@ -130,6 +130,8 @@ def boxCarMedianSmooth(imageData, axis, width):
     return newDataArray
 
 def boxCarMeanSmooth(imageData, axis, width):
+    print('use scipy.ndimage.median_filter instead')
+    STOP
     print('imageData.shape = ',imageData.shape)
     print('len(imageData.shape) = ',len(imageData.shape))
     print('imageData = ',imageData)

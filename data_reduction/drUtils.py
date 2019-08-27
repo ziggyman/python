@@ -16,9 +16,12 @@ from scipy.interpolate import interp1d
 #from scipy import interpolate
 from scipy.interpolate import griddata
 from scipy.interpolate import UnivariateSpline
-from scipy.signal import medfilt
+from scipy import ndimage
+#from scipy.signal import medfilt
 from shutil import copyfile
 #from sklearn import linear_model
+
+#from myUtils import getImageData
 
 # TODO: Make it possible to pass in CCDData instead of fits file names
 
@@ -36,9 +39,31 @@ def silentRemove(fileName):
             if item.endswith(fileName[fileName.find('*')+1:]):
                 os.remove(os.path.join(dirName, item))
 
-def writeFits(ccdData, output_file, overwrite=True):
-    hdulist = ccdData.to_hdu()
-    hdulist.writeto(output_file, overwrite=overwrite)
+#def writeFits(ccdData, output_file, overwrite=True):
+#    hdulist = ccdData.to_hdu()
+#    hdulist.writeto(output_file, overwrite=overwrite)
+
+
+def getImageData(fname,hduNum=1):
+    hdulist = pyfits.open(fname)
+    scidata = hdulist[hduNum].data
+    hdulist.close()
+    return scidata
+
+# read header from inputFileName, add metaKeys and metaData to that header,
+# adjust the size according to ccdData, and write ccdData and header to outputFileName
+def writeFits(ccdData, inputFileName, outputFileName, metaKeys=None, metaData=None, overwrite=True):
+    hdulist = pyfits.open(inputFileName)
+    print('writeFits: len(hdulist) = ',len(hdulist),', inputFileName = ',inputFileName,', outputFileName = ',outputFileName,', old mean = ',hdulist[len(hdulist)-1].data,', mean(ccdData) = ',np.mean(ccdData.data))
+    hdulist[len(hdulist)-1].data = ccdData.data
+    hdulist[len(hdulist)-1].header['NAXIS1'] = ccdData.data.shape[1]
+    hdulist[len(hdulist)-1].header['NAXIS2'] = ccdData.data.shape[0]
+    if metaKeys is not None:
+        for iKey in np.arange(0,len(metaKeys),1):
+            hdulist[len(hdulist)-1].header[metaKeys[iKey]] = metaData[iKey]
+    print('writeFits: mean(hdulist[',len(hdulist)-1,'].data) = ',np.mean(hdulist[len(hdulist)-1].data))
+    hdulist.writeto(outputFileName, overwrite=overwrite)
+    print('writeFits: new mean after writing image = ',np.mean(getImageData(outputFileName,len(hdulist)-1)))
 
 # insert <(_)suffix> before '.ending'
 # if <suffix> is '' then no '_' is inserted either and the original <fileName>
@@ -304,12 +329,12 @@ def combine(ccdImages,
 
     # replace all values less than <minVal> with <minVal>
     if minVal is not None:
-        combinedImage.data = np.minimum(combinedImage.data, minVal)
+        combinedImage.data = np.maximum(combinedImage.data, minVal)
 
     if fitsOutName is not None:
         print('combinedImage.data.shape = ',combinedImage.data.shape)
         print('combinedImage.header = ',combinedImage.header)
-        writeFits(combinedImage, fitsOutName, overwrite=overwrite)
+        writeFits(combinedImage, ccdImages[0], fitsOutName, ['COMBINED'], ['from %d images' % len(ccdImages)], overwrite=overwrite)
 
     return combinedImage
 
@@ -333,7 +358,7 @@ def subtractOverscan(fitsFilesIn, overscanSection, trimSection=None, fitsFilesOu
         else:
             trimmed = ccdproc.trim_image(ccdDataNoOverscan, fits_section=trimSection)
             if fitsFilesOut is not None:
-                writeFits(trimmed, fitsFilesOut[iFile], overwrite=overwrite)
+                writeFits(trimmed, fitsFilesIn[iFile], fitsFilesOut[iFile], ['OVERSCAN'], ['subtracted'], overwrite=overwrite)
             dataOut.append(trimmed)
     return dataOut
 
@@ -357,7 +382,7 @@ def subtractBias(fitsFilesIn,
                                                       masterBiasArr)
         dataOut.append(ccdDataBiasSubtracted)
         if fitsFilesOut is not None:
-            writeFits(ccdDataBiasSubtracted, fitsFilesOut[iFile], overwrite=overwrite)
+            writeFits(ccdDataBiasSubtracted, fitsFilesIn[iFile], fitsFilesOut[iFile], ['BIAS'], ['subtracted %s' % masterBias], overwrite=overwrite)
     return dataOut
 
 # find and remove cosmic rays from the images in <fitsFilesIn>, write results to <fitsFilesOut>
@@ -402,7 +427,7 @@ def subtractBias(fitsFilesIn,
 #                                                               fine structure image.
 #                                                   Default: "median".
 #                                'psfmodel':'gauss', str, optional - Model to use to generate the psf kernel if
-#                                                    fsmode == ‘convolve’ and psfk is None. The current choices are
+#                                                    fsmode == 'convolve' and psfk is None. The current choices are
 #                                                    Gaussian and Moffat profiles:
 #                                                    "gauss" and "moffat" produce circular PSF kernels.
 #                                                    The "gaussx" and "gaussy" produce Gaussian kernels in the x and y
@@ -528,6 +553,9 @@ def cleanCosmic(fitsFilesIn,
             gbox = 0
             rbox = 0
             error_image = None
+#            print('ccdData.uncertainty = ',ccdData.uncertainty)
+#            error_image = ccdData.uncertainty.array
+#            print('error_image = ',error_image)
             if cosmicParameters is not None:
                 if 'thresh' in cosmicParameters.keys():
                     thresh = cosmicParameters['thresh']
@@ -548,8 +576,120 @@ def cleanCosmic(fitsFilesIn,
         ccdDataCleaned.header['COSMIC'] = ctype.upper()
         dataOut.append(ccdDataCleaned)
         if fitsFilesOut is not None:
-            writeFits(ccdDataCleaned, fitsFilesOut[iFile], overwrite=overwrite)
+            writeFits(ccdDataCleaned, fitsFilesIn[iFile], fitsFilesOut[iFile], ['COSMICS'], [cosmicMethod], overwrite=overwrite)
     return dataOut
+
+
+# axis: 0 (columns) or 1 (rows), or 2 for 2D box
+# width: odd number
+def boxCarMedianSmooth(imageData, axis, width):
+    print('imageData.shape = ',imageData.shape)
+    print('len(imageData.shape) = ',len(imageData.shape))
+    print('imageData = ',imageData)
+    newDataArray = None
+    if len(imageData.shape) > 1:
+        newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0,0]))
+        if axis == 0:
+            for iRow in range(imageData.shape[0]):
+                for iCol in range(imageData.shape[1]):
+                    if iCol < int(width/2.0):
+                        iColStart = 0
+                        iColEnd = iCol+int(width/2.0)+1
+                    elif iCol > imageData.shape[1]-int(width/2.0)-1:
+                        iColStart = iCol - int(width/2.0)
+                        iColEnd = imageData.shape[1]
+                    else:
+                        iColStart = iCol - int(width/2.0)
+                        iColEnd = iCol + int(width/2.0) + 1
+                    newDataArray[iRow,iCol] = np.median(imageData[iRow,iColStart:iColEnd])
+    #                print 'iRow = ',iRow,', iCol = ',iCol,': iColStart = ',iColStart,', iColEnd = ',iColEnd,': imageData[iRow,iColStart:iColEnd] = ',imageData[iRow,iColStart:iColEnd],': median = ',newDataArray[iRow,iCol]
+        elif axis == 1:
+            for iCol in range(imageData.shape[1]):
+                for iRow in range(imageData.shape[0]):
+                    if iRow < int(width/2.0):
+                        iRowStart = 0
+                        iRowEnd = iRow+int(width/2.0)+1
+                    elif iRow > imageData.shape[0]-int(width/2.0)-1:
+                        iRowStart = iRow - int(width/2.0)
+                        iRowEnd = imageData.shape[1]
+                    else:
+                        iRowStart = iRow - int(width/2.0)
+                        iRowEnd = iRow + int(width/2.0) + 1
+                    newDataArray[iRow,iCol] = np.median(imageData[iRowStart:iRowEnd,iCol])
+    #                print 'iCol = ',iCol,', iRow = ',iRow,': iRowStart = ',iRowStart,', iRowEnd = ',iRowEnd,': imageData[iRowStart:iRowEnd,iCol] = ',imageData[iRowStart:iRowEnd,iCol],': median = ',newDataArray[iRow,iCol]
+        elif axis == 2:
+            for iCol in range(imageData.shape[1]):
+                if iCol < int(width/2.0):
+                    iColStart = 0
+                    iColEnd = iCol+int(width/2.0)+1
+                elif iCol > imageData.shape[0]-int(width/2.0)-1:
+                    iColStart = iCol - int(width/2.0)
+                    iColEnd = imageData.shape[1]
+                else:
+                    iColStart = iCol - int(width/2.0)
+                    iColEnd = iCol + int(width/2.0) + 1
+                for iRow in range(imageData.shape[0]):
+                    if iRow < int(width/2.0):
+                        iRowStart = 0
+                        iRowEnd = iRow+int(width/2.0)+1
+                    elif iRow > imageData.shape[0]-int(width/2.0)-1:
+                        iRowStart = iRow - int(width/2.0)
+                        iRowEnd = imageData.shape[1]
+                    else:
+                        iRowStart = iRow - int(width/2.0)
+                        iRowEnd = iRow + int(width/2.0) + 1
+                    newDataArray[iRow,iCol] = np.median(imageData[iRowStart:iRowEnd,iColStart:iColEnd])
+    #                print 'iColStart = ',iColEnd,', iRow = ',iRow,': iRowStart = ',iRowStart,', iRowEnd = ',iRowEnd,': imageData[iRowStart:iRowEnd,iColStart:iColEnd] = ',imageData[iRowStart:iRowEnd,iColStart:iColEnd],': median = ',newDataArray[iRow,iCol]
+        else:
+            print('ERROR: axis(=',axis,') out of bounds [0,1,2]')
+    else:
+        newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0]))
+        for iCol in range(imageData.shape[0]):
+            if iCol < int(width/2.0):
+                iColStart = 0
+                iColEnd = iCol+int(width/2.0)+1
+            elif iCol > imageData.shape[0]-int(width/2.0)-1:
+                iColStart = iCol - int(width/2.0)
+                iColEnd = imageData.shape[0]
+            else:
+                iColStart = iCol - int(width/2.0)
+                iColEnd = iCol + int(width/2.0) + 1
+            newDataArray[iCol] = np.median(imageData[iColStart:iColEnd])
+    return newDataArray
+
+def imDivide(inFileNames, quotientImageName, outFileNames, zeroVal=0.):
+    quotientArr = CCDData.read(quotientImageName, unit="adu").data
+    for i in np.arange(0,len(inFileNames),1):
+        data = CCDData.read(inFileNames[i], unit="adu")
+        data.data = data.data / quotientArr
+        data.data[np.where(quotientArr == 0.)] = zeroVal
+        writeFits(data, inFileNames[i], outFileNames[i], overwrite=True)
+
+def makeMasterFlat(combinedFlatIn, boxSize, minSNR, outFileNameMasterFlat=None, outFileNameMasterFlatSmoothed=None):
+    ccdDataFlat = CCDData.read(combinedFlatIn, unit="adu")
+    print('mean(ccdDataFlat) = ',np.mean(ccdDataFlat.data))
+    print('ccdDataFlat.data = ',ccdDataFlat.data.shape,': ',ccdDataFlat.data)
+    smoothedFlatArr = ndimage.median_filter(ccdDataFlat.data, boxSize)
+    print('mean(smoothedFlatArr) = ',np.mean(smoothedFlatArr))
+    print('smoothedFlatArr = ',smoothedFlatArr.shape,': ',smoothedFlatArr)
+    masterFlatArr = smoothedFlatArr / ccdDataFlat.data
+#    masterFlatArr = masterFlatArr / np.amax(masterFlatArr)
+    print('1. mean(masterFlatArr) = ',np.mean(masterFlatArr))
+    print('1. masterFlatArr = ',masterFlatArr.shape,': ',masterFlatArr)
+    whereSNRltMinSNR = np.where(np.sqrt(ccdDataFlat.data) < minSNR)
+    masterFlatArr[whereSNRltMinSNR] = 1.0
+    print('2. mean(masterFlatArr) = ',np.mean(masterFlatArr))
+    if outFileNameMasterFlat is not None:
+        ccdDataFlat.data = masterFlatArr
+        print('mean(master ccdDataFlat) = ',np.mean(ccdDataFlat.data))
+        writeFits(ccdDataFlat, combinedFlatIn, outFileNameMasterFlat, ['BOXSIZE','MINSNR'], ['%d' % boxSize, '%d' % minSNR], overwrite=True)
+    if outFileNameMasterFlat is not None:
+        ccdDataFlat.data = smoothedFlatArr
+        writeFits(ccdDataFlat, combinedFlatIn, outFileNameMasterFlatSmoothed[0:outFileNameMasterFlatSmoothed.rfind('.')]+'_notScaled.fits', ['BOXSIZE','MINSNR'], ['%d' % boxSize, '%d' % int(minSNR)], overwrite=True)
+        ccdDataFlat.data = smoothedFlatArr / np.amax(smoothedFlatArr)
+        print('mean(smoothed ccdDataFlat) = ',np.mean(ccdDataFlat.data))
+        writeFits(ccdDataFlat, combinedFlatIn, outFileNameMasterFlatSmoothed, ['BOXSIZE','MINSNR'], ['%d' % boxSize, '%d' % int(minSNR)], overwrite=True)
+    return masterFlatArr, smoothedFlatArr
 
 # Correct the image for flat fielding.
 # The flat field image is normalized by its mean or a user-supplied value before flat correcting.
@@ -602,7 +742,7 @@ def flatCorrect(fitsFilesIn,
         print('flatCorrect: iFile = ',iFile,' ',fitsFilesIn[iFile],': ccdDataFlattened = ',ccdDataFlattened)
         dataOut.append(ccdDataFlattened)
         if fitsFilesOut is not None:
-            writeFits(ccdDataFlattened, fitsFilesOut[iFile], overwrite=overwrite)
+            writeFits(ccdDataFlattened, fitsFilesIn[iFile], fitsFilesOut[iFile], ['FLATCORR'], [flat], overwrite=overwrite)
     return dataOut
 
 # calculate Chebyshev polynomial for normalized x values [-1.0,...,1.0] and give coefficients
@@ -765,7 +905,7 @@ def markCenter(imFileIn, trace, imFileOut=None):
     for i in np.arange(0,trace[0].shape[0],1):
         image.data[int(trace[0][i]), int(trace[1][i])] = 0.
     if imFileOut is not None:
-        writeFits(image, imFileOut, overwrite=True)
+        writeFits(image, imFileIn, imFileOut, overwrite=True)
     return image
 
 # returns height, width, and position of the top left corner of the largest
@@ -868,7 +1008,7 @@ def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, mark
         for ix in np.arange(0,image.data.shape[0],1):
             for iy in np.arange(0,image.data.shape[1],1):
                 zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
-        zFit = griddata(xyOrig, zOrig, xyFit, method='cubic')
+        zFit = griddata(xyOrig, zOrig, xyFit, method='linear')
 
         # re-order vector back to 2D array
         for ix in np.arange(0,image.data.shape[0],1):
@@ -880,13 +1020,13 @@ def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, mark
         maxSizeArr[np.where(np.isnan(image.data))] = 1
         tempArr = max_size(maxSizeArr)
         image.data = image.data[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
-        image.mask = image.mask[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
-        image.uncertainty = image.uncertainty[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+#        image.mask = image.mask[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+#        image.uncertainty = image.uncertainty[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
 
         image.header['NAXIS1'] = tempArr[0][1]
         image.header['NAXIS2'] = tempArr[0][0]
 
-        writeFits(image, imFile[:imFile.rfind('.')]+'i.fits', overwrite=True)
+        writeFits(image, imFile, imFile[:imFile.rfind('.')]+'i.fits', ['STRAIGHT'], ['interpolated'], overwrite=True)
     return 1
 
 def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
@@ -907,7 +1047,7 @@ def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
 
     # smooth each row
     for row in np.arange(0,profileImage.shape[0],1):
-        profileImage[row,:] = medfilt(profileImage[row,:], rowMedianSmoothSize)
+        profileImage[row,:] = ndimage.median_filter(profileImage[row,:], rowMedianSmoothSize)
     print('makeSkyFlat: profileImage = ',profileImage.shape,': ',profileImage)
     print('makeSkyFlat: 2) profileImage[np.where(np.isnan(profileImage))] = ',profileImage[np.where(np.isnan(profileImage))])
     print('makeSkyFlat: 2) profileImage[np.where(np.isinf(profileImage))] = ',profileImage[np.where(np.isinf(profileImage))])
@@ -919,4 +1059,4 @@ def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
     print('makeSkyFlat: profileImage[np.where(np.isinf(profileImage))] = ',profileImage[np.where(np.isinf(profileImage))])
 
     image.data = profileImage
-    writeFits(image, skyFlatOut, overwrite=True)
+    writeFits(image, skyFileIn, skyFlatOut, ['SKY_FLAT'], ['rowMedianSmoothSize = %d' % rowMedianSmoothSize], overwrite=True)
