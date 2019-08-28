@@ -91,6 +91,20 @@ def writeCSV(data, fName, sortKey = None):
             line += '\n'
             f.write(line)
 
+def removeAlreadyObserved(data, fName='/Users/azuri/daten/uni/HKU/observing/already_observed.list'):
+    alreadyObserved = readFileToArr(fName)
+    dataOut = []
+    for line in data:
+        targetName = line['Name'].strip('"')
+        found = False
+        for name in alreadyObserved:
+            if name == targetName:
+                found = True
+                print('found name <'+name+'> in targetName = <'+targetName+'>')
+        if not found:
+            dataOut.append(line)
+    return dataOut
+
 catLines = readCSV(allPossibleTargets)
 
 time = observationStartTime
@@ -129,6 +143,9 @@ for line in catLines:
             if nGoodHours > 0:
                 goodTargets.append(line)
                 print('target is possible to observe')
+goodLength = len(goodTargets)
 print('found ',len(goodTargets),' good targets')
 
+goodTargets = removeAlreadyObserved(goodTargets)
+print('removed ',goodLength - len(goodTargets),' targets already observed')
 writeCSV(goodTargets,outFileName,'DRAJ2000')
