@@ -4,7 +4,7 @@ from astropy.coordinates import SkyCoord
 import astropy.io.fits as apyfits
 import astropy.units as u
 from datetime import date, datetime
-import hammer
+#import hammer
 import itertools
 import math
 import matplotlib.pyplot as plt
@@ -396,12 +396,12 @@ def raDecToLonLat(ra, dec):
 #    c = SkyCoord(frame="galactic", l="1h12m43.2s", b="+1d12m43s")
 #    return [float(c.ra.value),float(c.dec.value)]
 
-def getPixel(hammerX, hammerY):
-    ham = hammer.Hammer()
-    for pix in ham.getPixels():
-        if ham.isInside(pix, hammerX, hammerY):
-            return pix
-    return None
+#def getPixel(hammerX, hammerY):
+#    ham = hammer.Hammer()
+#    for pix in ham.getPixels():
+#        if ham.isInside(pix, hammerX, hammerY):
+#            return pix
+#    return None
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):

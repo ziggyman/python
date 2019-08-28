@@ -11,7 +11,7 @@ def readFileToArr(fname):
     linesOut = [line.strip() for line in lines]
     return linesOut
 
-def readFrenchAmateursCatalogue(fName='/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/FrenchAmateursCatalogue.txt'):
+def readHASHSelection(fName='/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/FrenchAmateursCatalogue.txt'):
     lines = readFileToArr(fName)
     lines[1] = lines[1].split(' ')
     catalogueKeys = [lines[0]]
@@ -69,5 +69,7 @@ def readLeDu(fName='/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/LeDu2017_tabl
     print('catLines = ',len(catLines),': ',catLines)
     return catLines
 
-#frenchAmateursCatalogue = readFrenchAmateursCatalogue()
+frenchAmateursCatalogue = readHASHSelection()
 leDuCatalogue = readLeDu()
+LAstrCatalogue = readHASHSelection('/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/2017LAstr131b46L.txt')
+
