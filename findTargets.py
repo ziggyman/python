@@ -1,13 +1,13 @@
 from astroplan import Observer
-from astroplan import download_IERS_A
+#from astroplan import download_IERS_A
 import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 import numpy as np
-from time import clock
 
-#sso = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
-#saao = Observer.at_site("Southern African Large Telescope")#, timezone='Eastern Daylight Time')
+ssoObs = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
+saaoObs = Observer.at_site("Southern African Large Telescope")#, timezone='Eastern Daylight Time')
+obs = ssoObs
 
 sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
 sso_utcoffset = 10*u.hour # Australian Eastern Standard Time
@@ -17,8 +17,7 @@ saao_utcoffset = 2*u.hour  # Eastern Daylight Time
 location = sso
 utcoffset = sso_utcoffset
 
-observationStartTime = Time('2019-9-5 19:10:00') - utcoffset
-observationEndTime = Time('2019-9-6 4:55:00') - utcoffset
+midnight = Time('2019-9-6 0:00:00') - utcoffset
 
 minimumAltitude = 30.
 
@@ -27,6 +26,18 @@ maximumMajorDiameter = 100.
 
 allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets.csv'
 outFileName = allPossibleTargets[0:allPossibleTargets.rfind('/')]+'/targets_SSO.csv'
+
+print('astronomical twilight as Observatory: %s - %s' % (obs.twilight_evening_astronomical(midnight), obs.twilight_morning_astronomical(midnight)))
+observationStartTime = obs.twilight_evening_astronomical(midnight)#Time('2019-9-5 19:10:00') - utcoffset
+observationEndTime = obs.twilight_morning_astronomical(midnight)#Time('2019-9-6 4:55:00') - utcoffset
+observationStartTime.format = 'iso'
+observationEndTime.format = 'iso'
+print('observationStartTime = ',observationStartTime+utcoffset)
+print('observationEndTime = ',observationEndTime+utcoffset)
+
+#observationStartTime = Time('2019-9-5 19:10:00') - utcoffset
+#observationEndTime = Time('2019-9-6 4:55:00') - utcoffset
+
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
     h, m, s = [float(i) for i in string.split(':')]
@@ -74,22 +85,21 @@ def writeCSV(data, fName, sortKey = None):
     dataSorted = data
     if sortKey is not None:
         dataSorted = sorted(data, key=lambda k: k[sortKey])
-    print('dir(data[0]) = ',dir(data[0]))
-    print('data[0].keys() = ',data[0].keys())
     keys = list(data[0].keys())
     with open(fName,'w') as f:
         line = keys[0]
         for key in keys[1:]:
-            line += ','+key
+            line += ', '+key
         line += '\n'
         f.write(line)
 
         for dataLine in dataSorted:
             line = dataLine[keys[0]]
             for key in keys[1:]:
-                line += ','+dataLine[key]
+                line += ', '+dataLine[key]
             line += '\n'
             f.write(line)
+    print('wrote ',fName)
 
 def removeAlreadyObserved(data, fName='/Users/azuri/daten/uni/HKU/observing/already_observed.list'):
     alreadyObserved = readFileToArr(fName)
@@ -110,7 +120,7 @@ catLines = readCSV(allPossibleTargets)
 time = observationStartTime
 times = [time]
 while time < observationEndTime:
-    time += 1*u.hour
+    time += 1*u.minute
     print('time = ',time)
     times.append(time)
 
@@ -126,21 +136,17 @@ for line in catLines:
             print('ra = ',ra,', dec = ',dec)
             targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
             nGoodHours = 0
-#            for time in times:
-            if True:
-                print(clock())
-                altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
-#                altaz = targetCoord.transform_to(AltAz(obstime=time,location=location))
-                print(clock())
-                altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
-#                print("target's Altitude = {0.alt:.2}".format(altaz))
-                print('altitude = ',altitude)
-                whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
-                print('whereGTminAlt = ',whereGTminAlt)
-                nGoodHours = len(whereGTminAlt)
-                print('object can be observed for ',nGoodHours,' hours')
-#                    nGoodHours += 1
-            if nGoodHours > 0:
+            altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
+            altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
+            maxAltitude = np.max(altitude)
+            line.update({'maxAlt':'%.1f'%maxAltitude})
+            print('altitude = ',altitude)
+            print('max(altitude) = ',maxAltitude)
+            whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
+            print('whereGTminAlt = ',whereGTminAlt)
+            nGoodHours = len(whereGTminAlt) / 60.
+            print('object can be observed for ',nGoodHours,' hours')
+            if nGoodHours > 0.5:
                 goodTargets.append(line)
                 print('target is possible to observe')
 goodLength = len(goodTargets)
