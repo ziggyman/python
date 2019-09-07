@@ -1,7 +1,8 @@
 from findTargets import readCSV
 
 #fNameIn = '/Users/azuri/daten/uni/HKU/observing/targets_SSO_priority_good_new.csv'
-fNameIn = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_good.csv'
+fNameIn = '/Users/azuri/daten/uni/HKU/observing/targets_SSO_new_noDiamGiven_good.csv'
+#fNameIn = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_good.csv'
 fNameOut = fNameIn[0:fNameIn.rfind('.')]+'_RA_DEC.dat'
 
 lines = readCSV(fNameIn)

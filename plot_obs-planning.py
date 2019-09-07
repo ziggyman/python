@@ -97,6 +97,7 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     # and 7am EDT:
 
     time = midnight - 8*u.hour
+    print('type(time) = ',type(time))
     times = [time]
     fullHours = []
     while time < midnight + 8*u.hour:
@@ -106,6 +107,8 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
         if time.strftime("%M") == '00':
             print('full hour found at ',time)
             fullHours.append(time)
+    print('type(times) = ',type(times))
+    print('type(times[0]) = ',type(times[0]))
 #    delta_midnight = np.linspace(-8, 8, 100)*u.hour
     frameNight = AltAz(obstime=times,#midnight+delta_midnight,
                        location=observatory)
@@ -125,9 +128,9 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     ##############################################################################
     # Plot the airmass as a function of time:
 
+    plotTimesTmp = [timeX+utcoffset for timeX in times]
+    plotTimes = [timeX.to_datetime() for timeX in plotTimesTmp]
     if plotAirmass:
-        plotTimesTmp = [timeX+utcoffset for timeX in times]
-        plotTimes = [timeX.to_datetime() for timeX in plotTimesTmp]
 
         plt.plot(np.array(plotTimes), np.array(targetairmasssNight))
         plt.xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
@@ -141,10 +144,29 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     # evenly spaced times between noon on July 12 and noon on July 13:
 
     from astropy.coordinates import get_sun
-#    delta_midnight = np.linspace(-8, 8, 1000)*u.hour
-#    times = midnight + delta_midnight
-    frames = AltAz(obstime=times, location=observatory)
-    sunaltazs = get_sun(times).transform_to(frames)
+#    delta_midnight = np.linspace(-12, 12, 1000)*u.hour
+#    times_July12_to_13 = midnight + delta_midnight
+#    print('times_July12_to_13 = ',times_July12_to_13)
+#    print('type(times_July12_to_13) = ',type(times_July12_to_13))
+#    print('dir(times_July12_to_13) = ',dir(times_July12_to_13))
+#    frame_July12_to_13 = AltAz(obstime=times_July12_to_13, location=observatory)
+#    sunaltazs_July12_to_13 = get_sun(times_July12_to_13).transform_to(frame_July12_to_13)
+
+
+#    utTimes = np.array([timeX.value for timeX in times])
+#    utTimes = Time(scale='utc',format='iso',value=[timeX.value for timeX in times])
+    utTimes = Time([timeX.value for timeX in times])
+
+    frames = AltAz(obstime=utTimes, location=observatory)
+    print('times = ',times)
+    print('type(times) = ',type(times))
+    print('type(times[0]) = ',type(times[0]))
+    print('utTimes = ',utTimes)
+    print('type(utTimes) = ',type(utTimes))
+    print('dir(utTimes) = ',dir(utTimes))
+    print('dir(utTimes[0]) = ',dir(utTimes[0]))
+    print('type(frames) = ',type(frames))
+    sunaltazs = get_sun(utTimes).transform_to(frames)
 
 
     ##############################################################################
@@ -153,7 +175,7 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     # to get a precise location of the moon.
 
     from astropy.coordinates import get_moon
-    moons = get_moon(times)
+    moons = get_moon(utTimes)
     moonaltazs = moons.transform_to(frames)
 
     ##############################################################################
@@ -171,14 +193,27 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
                 c=targetaltazs.az, label='target', lw=0, s=8,
                 cmap='viridis')
     print('dir(plotTimes[0]) = ',dir(plotTimes[0]))
-    plt.fill_between([timeX.to('hr').value for timeX in plotTimes], 0, 90,
+    print('dir(plotTimes[0].hour) = ',dir(plotTimes[0].hour))
+
+#    plt.fill_between(delta_midnight.to('hr').value, 0, 90,
+#                     sunaltazs_July12_to_13.alt < -0*u.deg, color='0.5', zorder=0)
+
+    timeHours = [timeX.hour for timeX in plotTimes]
+    print('type(timeHours) = ',type(timeHours))
+    print('len(timeHours) = ',len(timeHours))
+    print('len(sunaltazs.alt) = ',len(sunaltazs.alt))
+    for i in np.arange(0,len(timeHours),1):
+        print('timeHour = ',timeHours[i],': sun alt = ',sunaltazs.alt[i])
+
+#    plt.fill_between(timeHours, 0, 90,
+    plt.fill_between(plotTimes, 0, 90,
                      sunaltazs.alt < -0*u.deg, color='0.5', zorder=0)
-    plt.fill_between([timeX.to('hr').value for timeX in plotTimes], 0, 90,
+    plt.fill_between(plotTimes, 0, 90,
                      sunaltazs.alt < -18*u.deg, color='k', zorder=0)
     plt.colorbar().set_label('Azimuth [deg]')
     plt.legend(loc='upper left')
     plt.xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
-    plt.xticks(fullHours)
+#    plt.xticks(fullHours)
     plt.ylim(0, 90)
     plt.xlabel('local time')
     plt.ylabel('Altitude [deg]')
@@ -192,4 +227,4 @@ utcoffset = 2*u.hour
 date = '2019-09-05'
 targetCoord = SkyCoord(ra=130.74928*u.deg, dec=-46.69036*u.deg, frame='icrs')
 
-plot_target(targetCoord, observatoryLocation, observatoryName, utcoffset, date, True)
+plot_target(targetCoord, observatoryLocation, observatoryName, utcoffset, date, False)

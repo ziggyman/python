@@ -5,7 +5,7 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 import numpy as np
 
-run = True
+run = False
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -101,24 +101,25 @@ def removeAlreadyObserved(data, fName='/Users/azuri/daten/uni/HKU/observing/alre
 
 def moveTargetsStartingWithToNewList(fNameIn, namePrefix, fNameGoodOut, fNameRejectedOut, append=True):
     all = readCSV(fNameIn)
-    keys = list(all[0].keys())
-    nRemoved=0
-    with open(fNameGoodOut, 'w') as fGood:
-        writeCSVHeader(all[0], fGood)
-        appen = 'w'
-        if append:
-            appen = 'a'
-        with open(fNameRejectedOut, appen) as fReject:
-            if appen == 'w':
-                # write header
-                writeCSVHeader(all[0], fReject)
-            for target in all:
-                if target['Name'].strip('"')[:len(namePrefix)] == namePrefix:
-                    nRemoved += 1
-                    writeCSVLine(target, keys, fReject)
-                else:
-                    writeCSVLine(target, keys, fGood)
-    print('removed ',nRemoved,' targets which start with <'+namePrefix+'>')
+    if len(all) > 0:
+        keys = list(all[0].keys())
+        nRemoved=0
+        with open(fNameGoodOut, 'w') as fGood:
+            writeCSVHeader(all[0], fGood)
+            appen = 'w'
+            if append:
+                appen = 'a'
+            with open(fNameRejectedOut, appen) as fReject:
+                if appen == 'w':
+                    # write header
+                    writeCSVHeader(all[0], fReject)
+                for target in all:
+                    if target['Name'].strip('"')[:len(namePrefix)] == namePrefix:
+                        nRemoved += 1
+                        writeCSVLine(target, keys, fReject)
+                    else:
+                        writeCSVLine(target, keys, fGood)
+        print('removed ',nRemoved,' targets which start with <'+namePrefix+'>')
 
 def writeSAAOTargetList(fNameIn, fNameOut):
     all = readCSV(fNameIn)
@@ -260,11 +261,11 @@ if run:
                             nGoodHours = 0
                             altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
                             altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
-                            print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
+                            #print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
                             maxAltitude = np.max(altitude)
                             line.update({'maxAlt':'%.1f'%maxAltitude})
                 #            print('altitude = ',altitude)
-                            print('max(altitude) = ',maxAltitude)
+                            print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': max(altitude) = ',maxAltitude)
                             whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
                 #            print('whereGTminAlt = ',whereGTminAlt)
                             nGoodHours = len(whereGTminAlt) / 60.
@@ -272,7 +273,7 @@ if run:
                             if nGoodHours > 1.5:
                                 goodTargets.append(line)
 #                                print('target is possible to observe')
-                    else:
+                    elif noDiameterPN and (diamStr == ''):
                         ra = float(line['DRAJ2000'])
                         dec = float(line['DDECJ2000'])
 #                        print('ra = ',ra,', dec = ',dec)
