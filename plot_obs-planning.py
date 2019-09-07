@@ -63,7 +63,7 @@ from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 #utcoffset = -4*u.hour
 #date = '2019-09-05'
 
-def plot_target(target, observatoryLocation, observatoryName, utcoffset, date):
+def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, plotAirmass=False):
     midnight = Time(date+' 00:00:00') - utcoffset
     observatory = observatoryLocation
     obs = Observer.at_site(observatoryName)#, timezone='Eastern Standard Time')
@@ -96,41 +96,55 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date):
     # Find the alt,az coordinates of target at 100 times evenly spaced between 10pm
     # and 7am EDT:
 
-    time = observationStartTime
+    time = midnight - 8*u.hour
     times = [time]
-    while time < observationEndTime:
+    fullHours = []
+    while time < midnight + 8*u.hour:
         time += 1*u.minute
-        print('time = ',time)
+#        print('time = ',time)
         times.append(time)
-    delta_midnight = np.linspace(-10, 10, 100)*u.hour
-    frameNight = AltAz(obstime=midnight+delta_midnight,
-                              location=observatory)
+        if time.strftime("%M") == '00':
+            print('full hour found at ',time)
+            fullHours.append(time)
+#    delta_midnight = np.linspace(-8, 8, 100)*u.hour
+    frameNight = AltAz(obstime=times,#midnight+delta_midnight,
+                       location=observatory)
+    print('type(frameNight) = ',type(frameNight))
+    print('frameNight = ',frameNight)
     targetaltazsNight = target.transform_to(frameNight)
+    print('targetaltazsNight = ',targetaltazsNight)
+    print('type(targetaltazsNight) = ',type(targetaltazsNight))
 
     ##############################################################################
     # convert alt, az to airmass with `~astropy.coordinates.AltAz.secz` attribute:
 
     targetairmasssNight = targetaltazsNight.secz
+    print('type(targetairmasssNight) = ',type(targetairmasssNight))
+    print('targetairmasssNight = ',targetairmasssNight)
 
     ##############################################################################
     # Plot the airmass as a function of time:
 
-    plt.plot(delta_midnight, targetairmasssNight)
-    plt.xlim(-2, 10)
-    plt.ylim(1, 4)
-    plt.xlabel('Hours from EDT Midnight')
-    plt.ylabel('Airmass [Sec(z)]')
-    plt.show()
+    if plotAirmass:
+        plotTimesTmp = [timeX+utcoffset for timeX in times]
+        plotTimes = [timeX.to_datetime() for timeX in plotTimesTmp]
+
+        plt.plot(np.array(plotTimes), np.array(targetairmasssNight))
+        plt.xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
+        plt.ylim(1, 4)
+        plt.xlabel('local time')
+        plt.ylabel('Airmass [Sec(z)]')
+        plt.show()
 
     ##############################################################################
     # Use  `~astropy.coordinates.get_sun` to find the location of the Sun at 1000
     # evenly spaced times between noon on July 12 and noon on July 13:
 
     from astropy.coordinates import get_sun
-    delta_midnight = np.linspace(-12, 12, 1000)*u.hour
-    times_July12_to_13 = midnight + delta_midnight
-    frame_July12_to_13 = AltAz(obstime=times_July12_to_13, location=observatory)
-    sunaltazs_July12_to_13 = get_sun(times_July12_to_13).transform_to(frame_July12_to_13)
+#    delta_midnight = np.linspace(-8, 8, 1000)*u.hour
+#    times = midnight + delta_midnight
+    frames = AltAz(obstime=times, location=observatory)
+    sunaltazs = get_sun(times).transform_to(frames)
 
 
     ##############################################################################
@@ -139,40 +153,43 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date):
     # to get a precise location of the moon.
 
     from astropy.coordinates import get_moon
-    moon_July12_to_13 = get_moon(times_July12_to_13)
-    moonaltazs_July12_to_13 = moon_July12_to_13.transform_to(frame_July12_to_13)
+    moons = get_moon(times)
+    moonaltazs = moons.transform_to(frames)
 
     ##############################################################################
     # Find the alt,az coordinates of target at those same times:
 
-    targetaltazs_July12_to_13 = target.transform_to(frame_July12_to_13)
+    targetaltazs = target.transform_to(frames)
 
     ##############################################################################
     # Make a beautiful figure illustrating nighttime and the altitudes of target and
     # the Sun over that time:
 
-    plt.plot(delta_midnight, sunaltazs_July12_to_13.alt, color='r', label='Sun')
-    plt.plot(delta_midnight, moonaltazs_July12_to_13.alt, color=[0.75]*3, ls='--', label='Moon')
-    plt.scatter(delta_midnight, targetaltazs_July12_to_13.alt,
-                c=targetaltazs_July12_to_13.az, label='target', lw=0, s=8,
+    plt.plot(plotTimes, sunaltazs.alt, color='r', label='Sun')
+    plt.plot(plotTimes, moonaltazs.alt, color=[0.75]*3, ls='--', label='Moon')
+    plt.scatter(plotTimes, targetaltazs.alt,
+                c=targetaltazs.az, label='target', lw=0, s=8,
                 cmap='viridis')
-    plt.fill_between(delta_midnight.to('hr').value, 0, 90,
-                     sunaltazs_July12_to_13.alt < -0*u.deg, color='0.5', zorder=0)
-    plt.fill_between(delta_midnight.to('hr').value, 0, 90,
-                     sunaltazs_July12_to_13.alt < -18*u.deg, color='k', zorder=0)
+    print('dir(plotTimes[0]) = ',dir(plotTimes[0]))
+    plt.fill_between([timeX.to('hr').value for timeX in plotTimes], 0, 90,
+                     sunaltazs.alt < -0*u.deg, color='0.5', zorder=0)
+    plt.fill_between([timeX.to('hr').value for timeX in plotTimes], 0, 90,
+                     sunaltazs.alt < -18*u.deg, color='k', zorder=0)
     plt.colorbar().set_label('Azimuth [deg]')
     plt.legend(loc='upper left')
-    plt.xlim(-12, 12)
-    plt.xticks(np.arange(13)*2 -12)
+    plt.xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
+    plt.xticks(fullHours)
     plt.ylim(0, 90)
-    plt.xlabel('Hours from EDT Midnight')
+    plt.xlabel('local time')
     plt.ylabel('Altitude [deg]')
     plt.show()
 
-observatoryName = "Siding Spring Observatory"
-observatoryLocation = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
-utcoffset = 10*u.hour
+#observatoryName = "Siding Spring Observatory"
+#observatoryLocation = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
+observatoryName = "SAAO"
+observatoryLocation = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
+utcoffset = 2*u.hour
 date = '2019-09-05'
-targetCoord = SkyCoord(ra=293.95888*u.deg, dec=16.47986*u.deg, frame='icrs')
+targetCoord = SkyCoord(ra=130.74928*u.deg, dec=-46.69036*u.deg, frame='icrs')
 
-plot_target(targetCoord, observatoryLocation, observatoryName, utcoffset, date)
+plot_target(targetCoord, observatoryLocation, observatoryName, utcoffset, date, True)

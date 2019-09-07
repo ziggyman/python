@@ -5,38 +5,7 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 import numpy as np
 
-ssoObs = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
-saaoObs = Observer.at_site("Southern African Large Telescope")#, timezone='Eastern Daylight Time')
-obs = ssoObs
-
-sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
-sso_utcoffset = 10*u.hour # Australian Eastern Standard Time
-saao = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
-saao_utcoffset = 2*u.hour  # Eastern Daylight Time
-
-location = sso
-utcoffset = sso_utcoffset
-
-midnight = Time('2019-9-6 0:00:00') - utcoffset
-
-minimumAltitude = 30.
-
-minimumMajorDiameter = 10.
-maximumMajorDiameter = 100.
-
-allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets.csv'
-outFileName = allPossibleTargets[0:allPossibleTargets.rfind('/')]+'/targets_SSO.csv'
-
-print('astronomical twilight as Observatory: %s - %s' % (obs.twilight_evening_astronomical(midnight), obs.twilight_morning_astronomical(midnight)))
-observationStartTime = obs.twilight_evening_astronomical(midnight)#Time('2019-9-5 19:10:00') - utcoffset
-observationEndTime = obs.twilight_morning_astronomical(midnight)#Time('2019-9-6 4:55:00') - utcoffset
-observationStartTime.format = 'iso'
-observationEndTime.format = 'iso'
-print('observationStartTime = ',observationStartTime+utcoffset)
-print('observationEndTime = ',observationEndTime+utcoffset)
-
-#observationStartTime = Time('2019-9-5 19:10:00') - utcoffset
-#observationEndTime = Time('2019-9-6 4:55:00') - utcoffset
+run = True
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -63,95 +32,305 @@ def readFileToArr(fname):
 
 def readCSV(fName):
     lines = readFileToArr(fName)
+    print('read ',len(lines),' lines from ',fName)
     lines = [line.split(',') for line in lines]
+    for iLine in np.arange(0,len(lines),1):
+        lines[iLine] = [x.strip(' ') for x in lines[iLine]]
     catalogueKeys = []
     for key in lines[0]:
         catalogueKeys.append(key)
-    print('catalogueKeys = ',catalogueKeys)
+#    print('catalogueKeys = ',catalogueKeys)
     catLines = []
     for iLine in np.arange(1,len(lines),1):
         catLine = {catalogueKeys[0]:lines[iLine][0]}
         for iKey in np.arange(1,len(catalogueKeys),1):
             catLine.update({catalogueKeys[iKey]:lines[iLine][iKey]})
-        print('catLine = ',catLine)
+#        print('catLine = ',catLine)
         catLines.append(catLine)
-    print('lines = ',lines)
-    print('lines[0] = ',lines[0])
-    print('lines[1] = ',lines[1])
-    print('catLines = ',catLines)
+#    print('lines = ',lines)
+#    print('lines[0] = ',lines[0])
+#    print('lines[1] = ',lines[1])
+#    print('catLines = ',catLines)
     return catLines
 
-def writeCSV(data, fName, sortKey = None):
-    dataSorted = data
-    if sortKey is not None:
-        dataSorted = sorted(data, key=lambda k: k[sortKey])
-    keys = list(data[0].keys())
-    with open(fName,'w') as f:
-        line = keys[0]
-        for key in keys[1:]:
-            line += ', '+key
-        line += '\n'
-        f.write(line)
+def writeCSVHeader(dataLine, fileOut):
+    keys = list(dataLine.keys())
+    line = keys[0]
+    for key in keys[1:]:
+        line += ', '+key
+    line += '\n'
+    fileOut.write(line)
 
-        for dataLine in dataSorted:
-            line = dataLine[keys[0]]
-            for key in keys[1:]:
-                line += ', '+dataLine[key]
-            line += '\n'
-            f.write(line)
-    print('wrote ',fName)
+def writeCSVLine(dataLine, keys, fileOut):
+    line = dataLine[keys[0]]
+    for key in keys[1:]:
+        line += ', '+dataLine[key]
+    line += '\n'
+    fileOut.write(line)
+
+def writeCSV(data, fName, sortKey = None):
+    with open(fName,'w') as f:
+        if len(data) > 0:
+            dataSorted = data
+            keys = list(data[0].keys())
+            if sortKey is not None:
+                dataSorted = sorted(data, key=lambda k: k[sortKey])
+            writeCSVHeader(data[0],f)
+            for dataLine in dataSorted:
+                writeCSVLine(dataLine, keys, f)
+        else:
+            f.write('sorry no targets found')
+    print('wrote ',fName,' with ',len(data),' data lines')
 
 def removeAlreadyObserved(data, fName='/Users/azuri/daten/uni/HKU/observing/already_observed.list'):
     alreadyObserved = readFileToArr(fName)
     dataOut = []
+    nRemoved=0
     for line in data:
         targetName = line['Name'].strip('"')
         found = False
         for name in alreadyObserved:
             if name == targetName:
+                nRemoved += 1
                 found = True
-                print('found name <'+name+'> in targetName = <'+targetName+'>')
+#                print('found name <'+name+'> in targetName = <'+targetName+'>')
         if not found:
             dataOut.append(line)
+    print('removed ',nRemoved,' targets which have already been observed but the spectra have not yet been ingested into the HASH database')
     return dataOut
 
-catLines = readCSV(allPossibleTargets)
+def moveTargetsStartingWithToNewList(fNameIn, namePrefix, fNameGoodOut, fNameRejectedOut, append=True):
+    all = readCSV(fNameIn)
+    keys = list(all[0].keys())
+    nRemoved=0
+    with open(fNameGoodOut, 'w') as fGood:
+        writeCSVHeader(all[0], fGood)
+        appen = 'w'
+        if append:
+            appen = 'a'
+        with open(fNameRejectedOut, appen) as fReject:
+            if appen == 'w':
+                # write header
+                writeCSVHeader(all[0], fReject)
+            for target in all:
+                if target['Name'].strip('"')[:len(namePrefix)] == namePrefix:
+                    nRemoved += 1
+                    writeCSVLine(target, keys, fReject)
+                else:
+                    writeCSVLine(target, keys, fGood)
+    print('removed ',nRemoved,' targets which start with <'+namePrefix+'>')
 
-time = observationStartTime
-times = [time]
-while time < observationEndTime:
-    time += 1*u.minute
-    print('time = ',time)
-    times.append(time)
+def writeSAAOTargetList(fNameIn, fNameOut):
+    all = readCSV(fNameIn)
+    print('writeSAAOTargetList: read ',len(all),' lines')
+    with open(fNameOut,'w') as f:
+        for lineIn in all:
+            lineOut = lineIn['Name'].replace(' ','_').replace('"','')+' '+lineIn['RAJ2000']+' '+lineIn['DECJ2000']+' J2000\n'
+            f.write(lineOut)
+
+def findTargetsVisibleAt(targets, timeUTC):
+    targetsOut = []
+    for line in targets:
+        ra = float(line['DRAJ2000'])
+        dec = float(line['DDECJ2000'])
+        raHMS = line['RAJ2000']
+        decDMS = line['DECJ2000']
+#        print(line['Name']+': ra = ',raHMS,', dec = ',decDMS)
+        targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+        altaz = targetCoord.transform_to(AltAz(obstime=timeUTC,location=location))
+        altitude = float('{0.alt:.2}'.format(altaz).split(' ')[0])
+        localTime = timeUTC+utcoffset
+#        print('altitude of '+line['Name']+' at '+localTime.strftime("%H:%M")+' is '+str(altitude))
+        if altitude > minimumAltitude:
+            line.update({'Altitude': '%d' % int(altitude)})
+            targetsOut.append(line)
+#            print('object is visible')
+    return targetsOut
+
+def takeOnlyWhatIsInBothInputLists(fileA, fileB, fileNameOut):
+
+    targetsA = readCSV(fileA)
+    targetsB = readCSV(fileB)
+    print('len('+fileA+') = ',len(targetsA),', len('+fileB+') = ',len(targetsB))
+
+    goodTargets = []
+
+    for lineA in targetsA:
+        for lineB in targetsB:
+            if lineA['idPNMain'] == lineB['idPNMain']:
+                goodTargets.append(lineA)
+
+    writeCSV(goodTargets, fileNameOut, 'DRAJ2000')
+    print('found ',len(goodTargets),' in both files')
+    return goodTargets
+
+if run:
+    for site in ['SAAO','SSO']:
+        for noDiameterPN in [False, True]:
+            for priority in [True, False]:
+
+                if priority:
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_truePN_MPA.csv'
+                else:
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_with_catalogue_without_DFrew_noTrue.csv'
+
+                ssoObs = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
+                sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
+                sso_utcoffset = 10*u.hour # Australian Eastern Standard Time
+                ssoOutFileName = allPossibleTargets[0:allPossibleTargets.rfind('/')]+'/targets_SSO'
+                if priority:
+                    ssoOutFileName += '_priority'
+                ssoOutFileName += '_new.csv'
+                ssoMinimumAltitude = 30.
+                ssoMinimumMajorDiameter = 10.
+                ssoMaximumMajorDiameter = 500.
+
+                saaoObs = Observer.at_site("Southern African Large Telescope")#, timezone='Eastern Daylight Time')
+                saao = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
+                saao_utcoffset = 2*u.hour  # Eastern Daylight Time
+                saaoOutFileName = allPossibleTargets[0:allPossibleTargets.rfind('/')]+'/targets_SAAO'
+                if priority:
+                    saaoOutFileName += '_priority'
+                saaoOutFileName += '.csv'
+                saaoMinimumAltitude = 30.
+                saaoMinimumMajorDiameter = 0.
+                saaoMaximumMajorDiameter = 9.999
+
+                if site == 'SSO':
+                    obs = ssoObs
+                    location = sso
+                    utcoffset = sso_utcoffset
+                    minimumAltitude = ssoMinimumAltitude
+                    minimumMajorDiameter = ssoMinimumMajorDiameter
+                    maximumMajorDiameter = ssoMaximumMajorDiameter
+                    outFileName = ssoOutFileName
+                elif site == 'SAAO':
+                    obs = saaoObs
+                    location = saao
+                    utcoffset = saao_utcoffset
+                    minimumAltitude = saaoMinimumAltitude
+                    minimumMajorDiameter = saaoMinimumMajorDiameter
+                    maximumMajorDiameter = saaoMaximumMajorDiameter
+                    outFileName = saaoOutFileName
+                else:
+                    print('could not identify site "'+site+'"')
+                    STOP
+
+                if noDiameterPN:
+                    outFileName = outFileName[0:outFileName.rfind('.')]+'_noDiamGiven.csv'
+
+                midnight = Time('2019-9-6 0:00:00') - utcoffset
+
+                #print('astronomical twilight as Observatory: %s - %s' % (obs.twilight_evening_astronomical(midnight), obs.twilight_morning_astronomical(midnight)))
+                observationStartTime = obs.twilight_evening_astronomical(midnight)#Time('2019-9-5 19:10:00') - utcoffset
+                observationEndTime = obs.twilight_morning_astronomical(midnight)#Time('2019-9-6 4:55:00') - utcoffset
+                observationStartTime.format = 'iso'
+                observationEndTime.format = 'iso'
+                print('observationStartTime in local time = ',observationStartTime+utcoffset)
+                print('observationEndTime in local time = ',observationEndTime+utcoffset)
+                print('observationStartTime in UT = ',observationStartTime)
+                print('observationEndTime in UT = ',observationEndTime)
+
+                #observationStartTime = Time('2019-9-5 19:10:00') - utcoffset
+                #observationEndTime = Time('2019-9-6 4:55:00') - utcoffset
+
+                catLines = readCSV(allPossibleTargets)
+
+                time = observationStartTime
+                times = [time]
+                fullHours = []
+                while time < observationEndTime:
+                    time += 1*u.minute
+#                    print('time = ',time)
+                    times.append(time)
+                    if time.strftime("%M") == '00':
+#                        print('full hour found at ',time)
+                        fullHours.append(time)
+
+                goodTargets = []
+                for line in catLines:
+                    diamStr = line['MajDiam']
+                    if (not noDiameterPN) and (diamStr != ''):
+                        diam = float(diamStr)
+                        if (diam >= minimumMajorDiameter) and (diam <= maximumMajorDiameter):
+                            ra = float(line['DRAJ2000'])
+                            dec = float(line['DDECJ2000'])
+#                            print('ra = ',ra,', dec = ',dec)
+                            targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+                            nGoodHours = 0
+                            altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
+                            altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
+                            print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
+                            maxAltitude = np.max(altitude)
+                            line.update({'maxAlt':'%.1f'%maxAltitude})
+                #            print('altitude = ',altitude)
+                            print('max(altitude) = ',maxAltitude)
+                            whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
+                #            print('whereGTminAlt = ',whereGTminAlt)
+                            nGoodHours = len(whereGTminAlt) / 60.
+                            print('object can be observed for ',nGoodHours,' hours')
+                            if nGoodHours > 1.5:
+                                goodTargets.append(line)
+#                                print('target is possible to observe')
+                    else:
+                        ra = float(line['DRAJ2000'])
+                        dec = float(line['DDECJ2000'])
+#                        print('ra = ',ra,', dec = ',dec)
+                        targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+                        nGoodHours = 0
+                        altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
+                        altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
+                        print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
+                        maxAltitude = np.max(altitude)
+                        line.update({'maxAlt':'%.1f'%maxAltitude})
+            #            print('altitude = ',altitude)
+                        print('max(altitude) = ',maxAltitude)
+                        whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
+            #            print('whereGTminAlt = ',whereGTminAlt)
+                        nGoodHours = len(whereGTminAlt) / 60.
+                        print('object can be observed for ',nGoodHours,' hours')
+                        if nGoodHours > 1.5:
+                            goodTargets.append(line)
+#                            print('target is possible to observe')
+
+                #            if float(line['DRAJ2000']) < 199:
+                #                STOP
+                goodLength = len(goodTargets)
+                print('found ',len(goodTargets),' good targets')
+
+                goodTargets = removeAlreadyObserved(goodTargets)
+                print('removed ',goodLength - len(goodTargets),' targets already observed')
+                writeCSV(goodTargets,outFileName,'DRAJ2000')
+
+                goodFileName = outFileName[0:outFileName.rfind('.')]+'_good.csv'
+
+                moveTargetsStartingWithToNewList(outFileName,
+                                                 'DeGaPe',
+                                                 goodFileName,
+                                                 outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv',
+                                                 append=False)
+
+                moveTargetsStartingWithToNewList(goodFileName,
+                                                 'MGE',
+                                                 goodFileName,
+                                                 outFileName[0:outFileName.rfind('.')]+'_MGE.csv',
+                                                 append=False)
+
+                if (not noDiameterPN) and (obs == ssoObs):
+                    fileA = goodFileName
+                    fileB = outFileName[:outFileName.rfind('_')]+'_good.csv'
+
+                    goodFileName = fileB[:fileB.rfind('.')]+'_new.csv'
+                    print('fileA = <'+fileA+'>, fileB = <'+fileB+'>, goodFileName = <'+goodFileName+'>')
+                    takeOnlyWhatIsInBothInputLists(fileA, fileB, goodFileName)
 
 
-goodTargets = []
-for line in catLines:
-    diamStr = line['MajDiam']
-    if diamStr != '':
-        diam = float(diamStr)
-        if (diam >= minimumMajorDiameter) and (diam <= maximumMajorDiameter):
-            ra = float(line['DRAJ2000'])
-            dec = float(line['DDECJ2000'])
-            print('ra = ',ra,', dec = ',dec)
-            targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
-            nGoodHours = 0
-            altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
-            altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
-            maxAltitude = np.max(altitude)
-            line.update({'maxAlt':'%.1f'%maxAltitude})
-            print('altitude = ',altitude)
-            print('max(altitude) = ',maxAltitude)
-            whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
-            print('whereGTminAlt = ',whereGTminAlt)
-            nGoodHours = len(whereGTminAlt) / 60.
-            print('object can be observed for ',nGoodHours,' hours')
-            if nGoodHours > 0.5:
-                goodTargets.append(line)
-                print('target is possible to observe')
-goodLength = len(goodTargets)
-print('found ',len(goodTargets),' good targets')
+                writeSAAOTargetList(goodFileName,goodFileName[0:goodFileName.rfind('.')]+'.dat')
 
-goodTargets = removeAlreadyObserved(goodTargets)
-print('removed ',goodLength - len(goodTargets),' targets already observed')
-writeCSV(goodTargets,outFileName,'DRAJ2000')
+                print('fullHours = ',fullHours)
+                for fName in [goodFileName, outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv', outFileName[0:outFileName.rfind('.')]+'_MGE.csv']:
+                    targets = readCSV(fName)
+                    for time in fullHours:
+                        visibleAt = findTargetsVisibleAt(targets, time)
+                        localTime = time + utcoffset
+                        writeCSV(visibleAt, fName[:fName.rfind('.')]+'_visible_at_'+localTime.strftime("%H-%M")+'.csv', 'DRAJ2000')
