@@ -59,8 +59,13 @@ def ltToLST(longitude, utcoffset, localTime):
     #(Hours = Degrees/15, Degrees = Hours*15)
     lon = lon/15      #Convert longitude to hours
     LST = GMST+lon     #Fraction LST. If negative we want to add 24...
+    print('LST = ',LST)
     if LST < 0:
         LST = LST +24
+        print('a LST = ',LST)
+    if LST >= 24:
+        LST = LST - 24
+        print('b LST = ',LST)
     LSTmm = (LST - int(LST))*60          #convert fraction hours to minutes
     LSTss = (LSTmm - int(LSTmm))*60      #convert fractional minutes to seconds
     LSThh = int(LST)
@@ -71,7 +76,9 @@ def ltToLST(longitude, utcoffset, localTime):
     year = UTC.strftime("%Y")
     month = UTC.strftime("%m")
     day = UTC.strftime("%d")
-    returnValue = Time('%s-%s-%s %s:%s:%s' % (year, month, day, LSThh, LSTmm, LSTss))
+    timeStr = '%s-%s-%s %s:%s:%s' % (year, month, day, LSThh, LSTmm, LSTss)
+    print('timeStr = <'+timeStr+'>')
+    returnValue = Time(timeStr)
     return returnValue
 
 #longitude = 20.8105

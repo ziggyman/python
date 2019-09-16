@@ -51,6 +51,8 @@ import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz
 
+from localTimeToLST import ltToLST
+
 ##############################################################################
 # `astropy.coordinates.SkyCoord.from_name` uses Simbad to resolve object
 # names and retrieve coordinates.
@@ -97,33 +99,40 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     # and 7am EDT:
 
     time = midnight - 8*u.hour
-    print('type(time) = ',type(time))
+#    print('type(time) = ',type(time))
     times = [time]
     fullHours = []
+    fullHourIndices = []
+    ind = 1
     while time < midnight + 8*u.hour:
         time += 1*u.minute
 #        print('time = ',time)
         times.append(time)
         if time.strftime("%M") == '00':
-            print('full hour found at ',time)
+#            print('full hour found at ',time)
             fullHours.append(time)
-    print('type(times) = ',type(times))
-    print('type(times[0]) = ',type(times[0]))
+            fullHourIndices.append(ind)
+        ind += 1
+    print('fullHours = ',fullHours)
+    print('fullHourIndices = ',fullHourIndices)
+#    STOP
+#    print('type(times) = ',type(times))
+#    print('type(times[0]) = ',type(times[0]))
 #    delta_midnight = np.linspace(-8, 8, 100)*u.hour
     frameNight = AltAz(obstime=times,#midnight+delta_midnight,
                        location=observatory)
-    print('type(frameNight) = ',type(frameNight))
-    print('frameNight = ',frameNight)
+#    print('type(frameNight) = ',type(frameNight))
+#    print('frameNight = ',frameNight)
     targetaltazsNight = target.transform_to(frameNight)
-    print('targetaltazsNight = ',targetaltazsNight)
-    print('type(targetaltazsNight) = ',type(targetaltazsNight))
+#    print('targetaltazsNight = ',targetaltazsNight)
+#    print('type(targetaltazsNight) = ',type(targetaltazsNight))
 
     ##############################################################################
     # convert alt, az to airmass with `~astropy.coordinates.AltAz.secz` attribute:
 
     targetairmasssNight = targetaltazsNight.secz
-    print('type(targetairmasssNight) = ',type(targetairmasssNight))
-    print('targetairmasssNight = ',targetairmasssNight)
+#    print('type(targetairmasssNight) = ',type(targetairmasssNight))
+#    print('targetairmasssNight = ',targetairmasssNight)
 
     ##############################################################################
     # Plot the airmass as a function of time:
@@ -158,14 +167,14 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     utTimes = Time([timeX.value for timeX in times])
 
     frames = AltAz(obstime=utTimes, location=observatory)
-    print('times = ',times)
-    print('type(times) = ',type(times))
-    print('type(times[0]) = ',type(times[0]))
-    print('utTimes = ',utTimes)
-    print('type(utTimes) = ',type(utTimes))
-    print('dir(utTimes) = ',dir(utTimes))
-    print('dir(utTimes[0]) = ',dir(utTimes[0]))
-    print('type(frames) = ',type(frames))
+#    print('times = ',times)
+#    print('type(times) = ',type(times))
+#    print('type(times[0]) = ',type(times[0]))
+#    print('utTimes = ',utTimes)
+#    print('type(utTimes) = ',type(utTimes))
+#    print('dir(utTimes) = ',dir(utTimes))
+#    print('dir(utTimes[0]) = ',dir(utTimes[0]))
+#    print('type(frames) = ',type(frames))
     sunaltazs = get_sun(utTimes).transform_to(frames)
 
 
@@ -186,37 +195,84 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     ##############################################################################
     # Make a beautiful figure illustrating nighttime and the altitudes of target and
     # the Sun over that time:
+    fig = plt.figure()
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twiny()
 
-    plt.plot(plotTimes, sunaltazs.alt, color='r', label='Sun')
-    plt.plot(plotTimes, moonaltazs.alt, color=[0.75]*3, ls='--', label='Moon')
-    plt.scatter(plotTimes, targetaltazs.alt,
+    ax1.plot(plotTimes, sunaltazs.alt, color='r', label='Sun')
+    ax1.plot(plotTimes, moonaltazs.alt, color=[0.75]*3, ls='--', label='Moon')
+    im = ax1.scatter(plotTimes, targetaltazs.alt,
                 c=targetaltazs.az, label='target', lw=0, s=8,
                 cmap='viridis')
-    print('dir(plotTimes[0]) = ',dir(plotTimes[0]))
-    print('dir(plotTimes[0].hour) = ',dir(plotTimes[0].hour))
+#    print('dir(plotTimes[0]) = ',dir(plotTimes[0]))
+#    print('dir(plotTimes[0].hour) = ',dir(plotTimes[0].hour))
 
-#    plt.fill_between(delta_midnight.to('hr').value, 0, 90,
+#    ax1.fill_between(delta_midnight.to('hr').value, 0, 90,
 #                     sunaltazs_July12_to_13.alt < -0*u.deg, color='0.5', zorder=0)
 
     timeHours = [timeX.hour for timeX in plotTimes]
-    print('type(timeHours) = ',type(timeHours))
-    print('len(timeHours) = ',len(timeHours))
-    print('len(sunaltazs.alt) = ',len(sunaltazs.alt))
-    for i in np.arange(0,len(timeHours),1):
-        print('timeHour = ',timeHours[i],': sun alt = ',sunaltazs.alt[i])
+#    print('type(timeHours) = ',type(timeHours))
+#    print('len(timeHours) = ',len(timeHours))
+#    print('len(sunaltazs.alt) = ',len(sunaltazs.alt))
+#    for i in np.arange(0,len(timeHours),1):
+#        print('timeHour = ',timeHours[i],': sun alt = ',sunaltazs.alt[i])
 
-#    plt.fill_between(timeHours, 0, 90,
-    plt.fill_between(plotTimes, 0, 90,
+#    ax1.fill_between(timeHours, 0, 90,
+    ax1.fill_between(plotTimes, 0, 90,
                      sunaltazs.alt < -0*u.deg, color='0.5', zorder=0)
-    plt.fill_between(plotTimes, 0, 90,
+    ax1.fill_between(plotTimes, 0, 90,
                      sunaltazs.alt < -18*u.deg, color='k', zorder=0)
-    plt.colorbar().set_label('Azimuth [deg]')
-    plt.legend(loc='upper left')
-    plt.xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
-#    plt.xticks(fullHours)
-    plt.ylim(0, 90)
-    plt.xlabel('local time')
-    plt.ylabel('Altitude [deg]')
+    fig.colorbar(im, ax=ax1).set_label('Azimuth [deg]')
+    ax1.legend(loc='upper left')
+    print('plotTimes[0] = ',plotTimes[0],', plotTimes[len(plotTimes)-1] = ',plotTimes[len(plotTimes)-1])
+    ax1.set_xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
+
+    lonVal = observatory.lon.value
+    siderealTimes = []
+    fullHourLSTIndices = []
+    fullHourLST = []
+    for iTime in np.arange(0,len(times),1):
+#        print('iTime = ',iTime,': times[',iTime,'] = ',times[iTime])
+        siderealTime = ltToLST(lonVal, utcoffset, times[iTime])
+        if siderealTime.strftime("%M") == '00':
+            fullHourLSTIndices.append(iTime)
+            fullHourLST.append(siderealTime.strftime("%H:%M"))
+        siderealTimes.append(siderealTime)
+#    print('siderealTimes = ',siderealTimes)
+    print('fullHourLSTIndices = ',fullHourLSTIndices)
+
+    xTicks = 0
+    xTickInd = []
+    while xTicks < len(fullHourLSTIndices):
+        xTickInd.append(xTicks)
+        xTicks += 2
+    print('xTickInd = ',xTickInd)
+
+    xTickLabels = []
+    xTickTimes = []
+    for tempInd in np.arange(0,len(fullHourIndices),2):
+        xTickLabels.append(plotTimes[fullHourIndices[tempInd]].strftime("%H:%M"))
+        xTickTimes.append(plotTimes[fullHourIndices[tempInd]])
+
+    ax1.set_xticks(xTickTimes)
+    ax1.set_xticklabels(xTickLabels)
+    ax1.set_ylim(0, 90)
+    ax1.set_xlabel('local time')
+    ax1.set_ylabel('Altitude [deg]')
+
+#    print('dir(observatory) = ',dir(observatory))
+#    print('type(lonVal) = ',type(lonVal))
+#    print('dir(lonVal) = ',dir(lonVal))
+    new_tick_locations = [plotTimes[fullHourLSTIndex] for fullHourLSTIndex in fullHourLSTIndices]
+    ax2.set_xlim(ax1.get_xlim())
+    newTickLocations = [new_tick_locations[loc] for loc in xTickInd]
+    print('newTickLocations = ',newTickLocations)
+    fullLST = [fullHourLST[loc] for loc in xTickInd]
+    print('fullLST = ',fullLST)
+    ax2.set_xticks(newTickLocations)
+    ax2.set_xticklabels(fullLST)
+    ax2.set_xlabel(r"local sidereal time")
+
     plt.show()
 
 #observatoryName = "Siding Spring Observatory"

@@ -2,10 +2,10 @@ from astroplan import Observer
 #from astroplan import download_IERS_A
 import astropy.units as u
 from astropy.time import Time
-from astropy.coordinates import SkyCoord, EarthLocation, AltAz
+from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_moon
 import numpy as np
 
-run = False
+run = True
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -165,10 +165,32 @@ def takeOnlyWhatIsInBothInputLists(fileA, fileB, fileNameOut):
     print('found ',len(goodTargets),' in both files')
     return goodTargets
 
+def getDistanceToMoon(location, starCoord, time):
+#    print('dir(ICRS) = ',dir(ICRS))
+    moon = get_moon(time, location=location)
+#    print('moon = ',moon)
+#    moonICRS = moon.transform_to(ICRS)
+#    print('starCoord = ',starCoord)
+    frameNight = AltAz(obstime=time,#midnight+delta_midnight,
+                       location=location)
+#    print('type(frameNight) = ',type(frameNight))
+#    print('frameNight = ',frameNight)
+    targetaltazsNight = starCoord.transform_to(frameNight)
+    moonaltazsNight = moon.transform_to(frameNight)
+#    print('targetaltazsNight = ',targetaltazsNight)
+#    print('moonaltazsNight = ',moonaltazsNight)
+    separation = targetaltazsNight.separation(moonaltazsNight)
+#    print('separation = ',separation)
+#    print('dir(separation) = ',dir(separation))
+#    print('separation = ',separation.degree,' degrees')
+#    print('dir(separation.degree) = ',dir(separation.degree))
+#    STOP
+    return separation.degree
+
 if run:
-    for site in ['SAAO','SSO']:
+    for site in ['SAAO']:#,'SSO']:
         for noDiameterPN in [False, True]:
-            for priority in [True, False]:
+            for priority in [True, False]:#
 
                 if priority:
                     allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_truePN_MPA.csv'
@@ -195,7 +217,7 @@ if run:
                 saaoOutFileName += '.csv'
                 saaoMinimumAltitude = 30.
                 saaoMinimumMajorDiameter = 0.
-                saaoMaximumMajorDiameter = 9.999
+                saaoMaximumMajorDiameter = 30.
 
                 if site == 'SSO':
                     obs = ssoObs
@@ -220,7 +242,7 @@ if run:
                 if noDiameterPN:
                     outFileName = outFileName[0:outFileName.rfind('.')]+'_noDiamGiven.csv'
 
-                midnight = Time('2019-9-6 0:00:00') - utcoffset
+                midnight = Time('2019-9-10 0:00:00') - utcoffset
 
                 #print('astronomical twilight as Observatory: %s - %s' % (obs.twilight_evening_astronomical(midnight), obs.twilight_morning_astronomical(midnight)))
                 observationStartTime = obs.twilight_evening_astronomical(midnight)#Time('2019-9-5 19:10:00') - utcoffset
@@ -251,6 +273,7 @@ if run:
                 goodTargets = []
                 for line in catLines:
                     diamStr = line['MajDiam']
+                    print('diamStr = ',diamStr)
                     if (not noDiameterPN) and (diamStr != ''):
                         diam = float(diamStr)
                         if (diam >= minimumMajorDiameter) and (diam <= maximumMajorDiameter):
@@ -258,12 +281,17 @@ if run:
                             dec = float(line['DDECJ2000'])
 #                            print('ra = ',ra,', dec = ',dec)
                             targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+                            moonDistance = getDistanceToMoon(location, targetCoord, midnight)
+                            print('moonDistance = ',moonDistance)
                             nGoodHours = 0
                             altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
                             altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
                             #print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
                             maxAltitude = np.max(altitude)
+                            if line['Name'] == '':
+                                line.update({'Name': 'PNG'+line['PNG']})
                             line.update({'maxAlt':'%.1f'%maxAltitude})
+                            line.update({'moonDist':'%.0f'%moonDistance})
                 #            print('altitude = ',altitude)
                             print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': max(altitude) = ',maxAltitude)
                             whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
@@ -274,16 +302,23 @@ if run:
                                 goodTargets.append(line)
 #                                print('target is possible to observe')
                     elif noDiameterPN and (diamStr == ''):
+                        print('no diameter given')
+                        if line['MajDiam'] != '':
+                            STOP
                         ra = float(line['DRAJ2000'])
                         dec = float(line['DDECJ2000'])
 #                        print('ra = ',ra,', dec = ',dec)
                         targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+                        moonDistance = getDistanceToMoon(location, targetCoord, midnight)
                         nGoodHours = 0
                         altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
                         altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
-                        print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
+                        if line['Name'] == '':
+                            line.update({'Name': 'PNG'+line['PNG']})
                         maxAltitude = np.max(altitude)
                         line.update({'maxAlt':'%.1f'%maxAltitude})
+                        line.update({'moonDist':'%.0f'%moonDistance})
+                        print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',maxAltitude)
             #            print('altitude = ',altitude)
                         print('max(altitude) = ',maxAltitude)
                         whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
