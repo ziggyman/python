@@ -8,7 +8,13 @@ from shutil import copyfile
 
 overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
-workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
+workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190906/'
+#workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
+
+#refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/apvertical_trace'
+refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aprefVerticalTrace_spupnic_gr7_16_3'
+#refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
+refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aprefHorizontalTrace_spupnic_gr7_16_3_transposed'
 
 
 def readFileToArr(fname):
@@ -34,7 +40,7 @@ suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxf
 #    silentRemove(inList[:inList.rfind('/')+1]+'*.list')
 #    copyfile(inList+'bak', inList)
 exptypes = ['BIAS','FLAT','ARC','SCIENCE']
-objects = [['*'],['*','Domeflat','Skyflat'],['*'],['*','individual']]
+objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual']]
 separateFileList(inList, suffixes, exptypes, objects, True)
 
 objectFiles = os.path.join(workPath,'SCIENCE.list')
@@ -70,7 +76,7 @@ for inputList in ['ARC', 'FLAT', 'SCIENCE']:
 # create master DomeFlat
 combinedFlat = os.path.join(workPath,'combinedFlat.fits')
 print('creating combinedFlat <'+combinedFlat+'>')
-flat = combine(getListOfFiles(os.path.join(workPath,'FLATDomeflat_otz.list')),
+flat = combine(getListOfFiles(os.path.join(workPath,'FLATDOMEFLAT_otz.list')),
                combinerMethod='median',
                clippingMethod='sigma',
                clippingParameters={'niter':2,
@@ -90,40 +96,40 @@ makeMasterFlat(combinedFlat,
                outFileNameMasterFlatSmoothed=smoothedFlat)
 
 # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
-for inputList in ['ARC','SCIENCE','FLATSkyflat']:
+for inputList in ['ARC','SCIENCE','FLATSKYFLAT']:
     flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                 masterFlat,
                 norm_value = 1.,
                 fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
+if True:
+    # interpolate images to get straight dispersion and spectral features
+    for inputList in ['ARC', 'SCIENCE']:
+        interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')),
+                           refVerticalTraceDB,
+                           refHorizontalTraceDB)
 
-# interpolate images to get straight dispersion and spectral features
-for inputList in ['ARC', 'SCIENCE']:
-    interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')),
-                       os.path.join(workPath,'database/apvertical_trace'),
-                       os.path.join(workPath,'database/aphorizontal_tracer90flipl'))
+    # create master SkyFlat
+    combinedSkyFlat = os.path.join(workPath,'combinedSkyFlat.fits')
+    print('creating combinedSkyFlat <'+combinedSkyFlat+'>')
+    combine(getListOfFiles(os.path.join(workPath,'FLATSKYFLAT_otzf.list')),
+            combinerMethod='median',
+            clippingMethod='sigma',
+            clippingParameters={'niter':2,
+                                'low_thresh':-3.,
+                                'high_thresh':3.,
+                                'func':np.ma.median},
+            scaling=True,
+            minVal=0.0001,
+            fitsOutName=combinedSkyFlat)
 
-# create master SkyFlat
-combinedSkyFlat = os.path.join(workPath,'combinedSkyFlat.fits')
-print('creating combinedSkyFlat <'+combinedSkyFlat+'>')
-combine(getListOfFiles(os.path.join(workPath,'FLATSkyflat_otzf.list')),
-        combinerMethod='median',
-        clippingMethod='sigma',
-        clippingParameters={'niter':2,
-                            'low_thresh':-3.,
-                            'high_thresh':3.,
-                            'func':np.ma.median},
-        scaling=True,
-        minVal=0.0001,
-        fitsOutName=combinedSkyFlat)
+    interpolateTraceIm([combinedSkyFlat],
+                        refVerticalTraceDB,
+                        refHorizontalTraceDB)
 
-interpolateTraceIm([combinedSkyFlat],
-                    os.path.join(workPath,'database/apvertical_trace'),
-                    os.path.join(workPath,'database/aphorizontal_tracer90flipl'))
+    makeSkyFlat(os.path.join(workPath,'combinedSkyFlati.fits'),
+                os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
+                7)
 
-makeSkyFlat(os.path.join(workPath,'combinedSkyFlati.fits'),
-            os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
-            7)
-
-flatCorrect(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfi.list')),
-            os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
-            fitsFilesOut=getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))
+    flatCorrect(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfi.list')),
+                os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
+                fitsFilesOut=getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))

@@ -1,5 +1,6 @@
 import numpy as np
 import os
+from astropy.io import fits
 
 def readFileToArr(fname):
     text_file = open(fname, "r")
@@ -69,7 +70,29 @@ def readLeDu(fName='/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/LeDu2017_tabl
     print('catLines = ',len(catLines),': ',catLines)
     return catLines
 
-frenchAmateursCatalogue = readHASHSelection()
-leDuCatalogue = readLeDu()
-LAstrCatalogue = readHASHSelection('/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/2017LAstr131b46L.txt')
+#frenchAmateursCatalogue = readHASHSelection()
+#leDuCatalogue = readLeDu()
+#LAstrCatalogue = readHASHSelection('/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/2017LAstr131b46L.txt')
+
+def renameFRAFits(fName):
+    lines = readFileToArr(fName)
+    linesOut = []
+    for line in lines:
+        fitsNameIn = line[line.rfind('/')+1:]
+        fitsNameInTemp = fitsNameIn
+        fitsNameOut = line[0:line.rfind('/ENVO')+1]+'all/'
+        if fitsNameIn[0] == '_':
+            fitsNameInTemp = fitsNameIn[1:]
+        fitsNameOut += fitsNameInTemp[0:fitsNameInTemp.find('_')+1].upper()+'HP'
+#            date = fitsNameInTemp[fitsNameInTemp.find('_')+1:fitsNameInTemp.find('_')+9]
+        date = fitsNameInTemp[fitsNameInTemp.find('_20')+1:fitsNameInTemp.find('_20')+9]
+        fitsNameOut += date[6:]+date[4:6]+date[2:4]+'.fits'
+        linesOut.append(fitsNameOut)
+        print('fitsNameIn = <'+fitsNameIn+'>: date = <'+date+'>: fitsNameOut = <'+fitsNameOut+'>')
+        hdu_list = fits.open(line)
+        hdu_list.info()
+        image_data = fits.getdata(line)
+        print(image_data.shape)
+
+renameFRAFits('/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/allFits.list')
 

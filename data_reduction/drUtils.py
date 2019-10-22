@@ -953,6 +953,7 @@ def area(size): return size[0]*size[1]
 
 # NOTE that the horizontal trace needs to come from an image that was rotated by
 # 90 degrees and flipped along the long axis
+# WHICH IS equivalent to imtranspose
 def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, markCenters=False):
     # read imFile for dimensions
 
