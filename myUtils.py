@@ -392,6 +392,10 @@ def raDecToLonLat(ra, dec):
 #    print('c.galactic.l.value = ',type(c.galactic.l.value),': ',dir(c.galactic.l.value))
     return [float(c.galactic.l.value),float(c.galactic.b.value)]
 
+def lonLatToRaDec(l, b):
+    c = SkyCoord(l=l*u.degree, b=b*u.degree, frame='galactic')
+    return [float(c.icrs.ra.value),float(c.icrs.dec.value)]
+
 #def lonLatToRaDec(lon, lat):
 #    c = SkyCoord(frame="galactic", l="1h12m43.2s", b="+1d12m43s")
 #    return [float(c.ra.value),float(c.dec.value)]
@@ -424,6 +428,7 @@ def dmsToCoordStr(string):
     d, m, s = [i for i in string.split(':')]
     return d+'d'+m+'m'+s+'s'
 
+# all angles must be in degrees
 def angularDistancePyAsl(ra1, dec1, ra2, dec2):
     from PyAstronomy import pyasl
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
