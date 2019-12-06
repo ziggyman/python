@@ -2,13 +2,15 @@ import glob
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import math
 
 from astropy import units as u
 from astropy.coordinates import SkyCoord
+from astropy.stats import circstats
 
 import csvData
 import csvFree
-from galaxyMath import raDecToLB, parallaxToDistance
+from galaxyMath import raDecToLB, parallaxToDistance,degToRad,radToDeg
 from hammer import Pixel,XY,LonLat,Hammer
 from myUtils import getStarWithMinDist
 
@@ -16,6 +18,7 @@ path = '/Users/azuri/daten/uni/HKU/PN alignment'
 dataFileName = os.path.join(path, 'PN-alignments.csv')
 hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
 latexFileName = os.path.join(path, 'PN-alignments.tex')
+gaiaFileNameRoot = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f.csv'
 
 data = csvFree.readCSVFile(dataFileName)
 hashData = csvFree.readCSVFile(hashFileName)
@@ -23,12 +26,112 @@ hashData = csvFree.readCSVFile(hashFileName)
 ham = Hammer()
 pixels = ham.getPixels()
 lbxyGPA = [] #Glon, Glat, x, y, GPA, flag, csGlon, csGlat, [dist,...]
+hashIDs = []
 
 def findInHash(hashData, hashID):
     ids = hashData.getData('idPNMain')
     for iLine in np.arange(0,hashData.size(),1):
         if ids[iLine] == hashID:
             return iLine
+
+# @brief Calculate first 4 circular moments of angles
+# @param angles: np.array of angles in degrees
+# @return: [[first moment direction (degrees), first moment length],[second moment direction, second moment length],...]
+def calcMoments(angles):
+    anglesDouble = np.array([math.radians(angle * 2.0) for angle in angles])
+#    print('anglesDouble = ',anglesDouble)
+#    print('first moment = ',circstats.circmoment(anglesDouble))
+    moments = np.array([circstats.circmoment(anglesDouble,p=1),
+                        circstats.circmoment(anglesDouble,p=2),
+                        circstats.circmoment(anglesDouble,p=3),
+                        circstats.circmoment(anglesDouble,p=4)]) / 2.
+    return np.array([[math.degrees(moment[0]), moment[1]] for moment in moments])
+
+# FROM https://stackoverflow.com/questions/22562364/circular-histogram-for-python
+def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
+              start_zero=False, **param_dict):
+    """
+    Plot polar histogram of angles on ax. ax must have been created using
+    subplot_kw=dict(projection='polar'). Angles are expected in radians.
+    """
+    # Wrap angles to [-pi, pi)
+    angles = (angles + np.pi) % (2*np.pi) - np.pi
+
+    # Set bins symetrically around zero
+    if start_zero:
+        # To have a bin edge at zero use an even number of bins
+        if bins % 2:
+            bins += 1
+        bins = np.linspace(-np.pi, np.pi, num=bins+1)
+
+    # Bin data and record counts
+    count, bin = np.histogram(angles, bins=bins)
+
+    # Compute width of each bin
+    widths = np.diff(bin)
+
+    # By default plot density (frequency potentially misleading)
+    if density is None or density is True:
+        # Area to assign each bin
+        area = count / angles.size
+        # Calculate corresponding bin radius
+        radius = (area / np.pi)**.5
+    else:
+        radius = count
+
+    # Plot data on ax
+    ax.bar(bin[:-1], radius, zorder=1, align='edge', width=widths,
+           edgecolor='C0', fill=False, linewidth=1)
+
+    # Set the direction of the zero angle
+    ax.set_theta_offset(offset)
+
+    # Remove ylabels, they are mostly obstructive and not informative
+    ax.set_yticks([])
+
+    if lab_unit == "radians":
+        label = ['$0$', r'$\pi/4$', r'$\pi/2$', r'$3\pi/4$',
+                  r'$\pi$', r'$5\pi/4$', r'$3\pi/2$', r'$7\pi/4$']
+        ax.set_xticklabels(label)
+
+# @brief return input array lbxyGPA with values inside [x0,x1], [y0,y1]
+def selectXY(lbxyGPA_in, x0, x1, y0, y1):
+    l = np.array([i[0] for i in lbxyGPA_in])
+    b = np.array([i[1] for i in lbxyGPA_in])
+    x = np.array([i[2] for i in lbxyGPA_in])
+    y = np.array([i[3] for i in lbxyGPA_in])
+    GPA = np.array([i[4] for i in lbxyGPA_in])
+    flag = np.array([i[5] for i in lbxyGPA_in])
+
+    lbxyGPA_out = []
+    for i in np.arange(0,len(lbxyGPA_in),1):
+        if (x[i] >= x0) and (x[i] <= x1) and (y[i] >= y0) and (y[i] <= y1):
+            lbxyGPA_out.append(lbxyGPA_in[i])
+    return lbxyGPA_out
+
+# @brief plot l and b every x degrees
+def plotLBMarks(x):
+    lArr = np.arange(0,360.1,0.1)
+    bArr = np.arange(-90, 90.1, 0.1)
+    xArr = []
+    yArr = []
+    for l in lArr:
+        for b in np.arange(-90,91,x):
+            xy = ham.lonLatToXY(l,b)
+            xArr.append(xy.x)
+            yArr.append(xy.y)
+    for b in bArr:
+        for l in np.arange(0,361,x):
+            xy = ham.lonLatToXY(l,b)
+            xArr.append(xy.x)
+            yArr.append(xy.y)
+        l=180.0001
+        xy = ham.lonLatToXY(l,b)
+        xArr.append(xy.x)
+        yArr.append(xy.y)
+    plt.scatter(xArr,yArr,s=0.1)
+#    xy = ham.lonLatToXY(181.,0.)
+#    plt.scatter([xy.x],[xy.y],s=100)
 
 #print('data.getData("EPA") = ',data.getData('EPA'))
 with open(latexFileName,'w') as texFile:
@@ -47,6 +150,7 @@ with open(latexFileName,'w') as texFile:
     for iLine in np.arange(0,data.size(),1):
         if data.getData('EPA',iLine) != '':
             hashID = data.getData('HASH ID', iLine)
+            hashIDs.append(hashID)
             hashLine = findInHash(hashData, hashID)
             imageName = os.path.join(path, 'thumbnails/'+hashID+'.png')
 #            print('imageName = <'+imageName+'>')
@@ -98,7 +202,7 @@ with open(latexFileName,'w') as texFile:
 
             dist = None
             if (csGlon != '') and (csGlat != ''):
-                getStarWithMinDist(gaiaData, ra, dec, iStar=0)
+#                getStarWithMinDist(gaiaData, ra, dec, iStar=0)
 #                c = SkyCoord(ra=float(csRa)*u.degree, dec=float(csDec)*u.degree, frame='icrs')
 #                lb = c.galactic
 #                print('dir(lb) = ',dir(lb))
@@ -121,9 +225,57 @@ with open(latexFileName,'w') as texFile:
     y = np.array([i[3] for i in lbxyGPA])
     GPA = np.array([i[4] for i in lbxyGPA])
     flag = np.array([i[5] for i in lbxyGPA])
-    oneFlags = [f < 4 for f in flag]
+    oneFlags = [f < 3 for f in flag]
     print('oneFlags = ',oneFlags)
+
+    # plot Hammer projection
+    fig = plt.figure(figsize=(25,10))
     plt.scatter(x[oneFlags],y[oneFlags],c=GPA[oneFlags],s=20,cmap='viridis')
-    cbar = plt.colorbar()
+    plotLBMarks(10)
+    cbarTicks = np.arange(0.,1.0001,20./180.)
+    cbar = plt.colorbar(ticks=cbarTicks)
     cbar.set_label('Galactic Position Angle')
+    cbarTicks = cbarTicks*180.
+    cbarTicks = np.round(cbarTicks)
+    cbarTicks = [int(x) for x in cbarTicks]
+    cbar.ax.set_yticklabels(cbarTicks)
+    plt.tick_params(axis='x',          # changes apply to the x-axis
+                    which='both',      # both major and minor ticks are affected
+                    bottom=False,      # ticks along the bottom edge are off
+                    top=False,         # ticks along the top edge are off
+                    labelbottom=False) # labels along the bottom edge are off
+    plt.tick_params(axis='y',          # changes apply to the y-axis
+                    which='both',      # both major and minor ticks are affected
+                    left=False,      # ticks along the bottom edge are off
+                    right=False,         # ticks along the top edge are off
+                    labelleft=False) # labels along the bottom edge are off
+
+    fig.tight_layout()
     plt.show()
+
+    plt.hist(GPA[oneFlags], bins=36)
+    plt.show()
+
+    moments = calcMoments(GPA[oneFlags])
+    print('moments = ',moments)
+
+    print('np.max(GPA[oneFlags]) = ',np.max(GPA[oneFlags]))
+
+    pltArr = []
+    for angle in GPA[oneFlags]:
+        pltArr.append(math.radians(angle))
+        pltArr.append(math.radians(angle+180.))
+
+    fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection='polar'))
+    rose_plot(ax, np.array(pltArr), offset=np.pi/2., bins=36)
+    fig.tight_layout()
+    plt.show()
+
+    p = circstats.rayleightest(GPA[oneFlags] * 2.)
+    print('p(GPA*2) = ',p)
+
+    p = circstats.rayleightest(np.array(pltArr))
+    print('p(pltArr) = ',p)
+
+    lb = ham.xYToLonLat(-2.82703,0.0)
+    print('xyToLonLat(-2.82703,0.0) = ',lb.lon,lb.lat)
