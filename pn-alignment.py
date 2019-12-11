@@ -19,6 +19,7 @@ dataFileName = os.path.join(path, 'PN-alignments.csv')
 hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
 latexFileName = os.path.join(path, 'PN-alignments.tex')
 gaiaFileNameRoot = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f.csv'
+imOutPath = '/Users/azuri/entwicklung/tex/Poster/workplans2/images/'
 
 data = csvFree.readCSVFile(dataFileName)
 hashData = csvFree.readCSVFile(hashFileName)
@@ -27,6 +28,18 @@ ham = Hammer()
 pixels = ham.getPixels()
 lbxyGPA = [] #Glon, Glat, x, y, GPA, flag, csGlon, csGlat, [dist,...]
 hashIDs = []
+maxFlag = 1
+xRangeMax = [-2.83,2.83]
+yRangeMax = [-1.4143,1.4143]
+xRange = [-2.83,2.83]#[-0.236,0.261]
+yRange = [-0.0873,0.0873]
+fNameSuffix = '_flag_le_'+str(maxFlag)+'_'
+mainClass = ['B']#,'E'
+for c in mainClass:
+    fNameSuffix += c
+fNameSuffix += '_x=%.3f-%.3f_y=%.3f-%.3f' % (xRange[0], xRange[1], yRange[0], yRange[1])
+fNameSuffix += '_p=%.4f'
+fNameSuffix += '.eps'
 
 def findInHash(hashData, hashID):
     ids = hashData.getData('idPNMain')
@@ -49,7 +62,7 @@ def calcMoments(angles):
 
 # FROM https://stackoverflow.com/questions/22562364/circular-histogram-for-python
 def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
-              start_zero=False, **param_dict):
+              start_zero=False, fill=False, color='white', **param_dict):
     """
     Plot polar histogram of angles on ax. ax must have been created using
     subplot_kw=dict(projection='polar'). Angles are expected in radians.
@@ -81,7 +94,7 @@ def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
 
     # Plot data on ax
     ax.bar(bin[:-1], radius, zorder=1, align='edge', width=widths,
-           edgecolor='C0', fill=False, linewidth=1)
+           edgecolor='C0', fill=fill, linewidth=1, color=color)
 
     # Set the direction of the zero angle
     ax.set_theta_offset(offset)
@@ -183,31 +196,33 @@ with open(latexFileName,'w') as texFile:
             prevPrev = prev
             prev = hashID
 
-            l = float(hashData.getData('Glon', hashLine))
-            b = float(hashData.getData('Glat', hashLine))
-            xy = ham.lonLatToXY(l,b)
-            print('xy = ',xy)
-            x = xy.x
-            y = xy.y
-            print('x = ',x,', y = ',y)
+            if hashData.getData('mainClass', iLine) in mainClass:
+                l = float(hashData.getData('Glon', hashLine))
+                b = float(hashData.getData('Glat', hashLine))
+                xy = ham.lonLatToXY(l,b)
+                print('xy = ',xy)
+                x = xy.x
+                y = xy.y
+                print('x = ',x,', y = ',y)
 
-            gpa = float(data.getData('GPA', iLine))
-            if gpa < 0.:
-                gpa += 180
-            if gpa > 180:
-                gpa -= 180.
+                gpa = float(data.getData('GPA', iLine))
+                if gpa < 0.:
+                    gpa += 180
+                if gpa > 180:
+                    gpa -= 180.
 
-            csGlon = hashData.getData('CS_Glon', hashLine)
-            csGlat = hashData.getData('CS_Glat', hashLine)
+                csGlon = hashData.getData('CS_Glon', hashLine)
+                csGlat = hashData.getData('CS_Glat', hashLine)
 
-            dist = None
-            if (csGlon != '') and (csGlat != ''):
-#                getStarWithMinDist(gaiaData, ra, dec, iStar=0)
-#                c = SkyCoord(ra=float(csRa)*u.degree, dec=float(csDec)*u.degree, frame='icrs')
-#                lb = c.galactic
-#                print('dir(lb) = ',dir(lb))
-                print('l = ',l,', b = ',b)
-            lbxyGPA.append([l, b, x, y, gpa, int(data.getData('flag', iLine)), csGlon, csGlat, dist])
+                dist = None
+                if (csGlon != '') and (csGlat != ''):
+    #                getStarWithMinDist(gaiaData, ra, dec, iStar=0)
+    #                c = SkyCoord(ra=float(csRa)*u.degree, dec=float(csDec)*u.degree, frame='icrs')
+    #                lb = c.galactic
+    #                print('dir(lb) = ',dir(lb))
+                    print('l = ',l,', b = ',b)
+                if (x >= xRange[0]) and (x <= xRange[1]) and (y >= yRange[0]) and (y <= yRange[1]):
+                    lbxyGPA.append([l, b, x, y, gpa, int(data.getData('flag', iLine)), csGlon, csGlat, dist, hashData.getData('mainClass', iLine)])
 
     texFile.write('\\caption{Your caption here} % needs to go inside longtable environment\n')
     texFile.write('\\label{tab:myfirstlongtable}\n')
@@ -225,8 +240,12 @@ with open(latexFileName,'w') as texFile:
     y = np.array([i[3] for i in lbxyGPA])
     GPA = np.array([i[4] for i in lbxyGPA])
     flag = np.array([i[5] for i in lbxyGPA])
-    oneFlags = [f < 3 for f in flag]
-    print('oneFlags = ',oneFlags)
+    mClass = np.array([i[9] for i in lbxyGPA])
+    oneFlags = np.array([f <= maxFlag for f in flag])
+    print('oneFlags = ',type(oneFlags),': ',oneFlags)
+
+    p = circstats.rayleightest(GPA[oneFlags] * 2.)
+    print('p(GPA*2) = ',p)
 
     # plot Hammer projection
     fig = plt.figure(figsize=(25,10))
@@ -249,12 +268,19 @@ with open(latexFileName,'w') as texFile:
                     left=False,      # ticks along the bottom edge are off
                     right=False,         # ticks along the top edge are off
                     labelleft=False) # labels along the bottom edge are off
-
+    if (xRange[0] != xRangeMax[0]) or (xRange[1] != xRangeMax[1]) or (yRange[0] != yRangeMax[0]) or (yRange[1] != yRangeMax[1]):
+        plt.plot([xRange[0], xRange[0]], [yRange[0], yRange[1]], 'b-')
+        plt.plot([xRange[1], xRange[1]], [yRange[0], yRange[1]], 'b-')
+        plt.plot([xRange[0], xRange[1]], [yRange[0], yRange[0]], 'b-')
+        plt.plot([xRange[0], xRange[1]], [yRange[1], yRange[1]], 'b-')
     fig.tight_layout()
     plt.show()
+    fig.savefig(os.path.join(imOutPath,'all_pne'+fNameSuffix % (p)), bbox_inches='tight')
 
+    f = plt.figure()
     plt.hist(GPA[oneFlags], bins=36)
     plt.show()
+    f.savefig(os.path.join(imOutPath,'histogram'+fNameSuffix % (p)), bbox_inches='tight')
 
     moments = calcMoments(GPA[oneFlags])
     print('moments = ',moments)
@@ -262,20 +288,25 @@ with open(latexFileName,'w') as texFile:
     print('np.max(GPA[oneFlags]) = ',np.max(GPA[oneFlags]))
 
     pltArr = []
-    for angle in GPA[oneFlags]:
-        pltArr.append(math.radians(angle))
-        pltArr.append(math.radians(angle+180.))
+    pltMClass = []
+    for i in np.arange(0,len(oneFlags),1):
+        if oneFlags[i]:
+            pltArr.append(math.radians(GPA[i]))
+            pltArr.append(math.radians(GPA[i]+180.))
+            if mClass[i] == 'E':
+                pltMClass.append(True)
+                pltMClass.append(True)
+            else:
+                pltMClass.append(False)
+                pltMClass.append(False)
+    pltArr = np.array(pltArr)
 
     fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection='polar'))
-    rose_plot(ax, np.array(pltArr), offset=np.pi/2., bins=36)
+    rose_plot(ax, pltArr, offset=np.pi/2., bins=36, start_zero=True, color='blue', fill=True)
+    rose_plot(ax, pltArr[pltMClass], offset=np.pi/2., bins=36, start_zero=True, color='green', fill=True)
     fig.tight_layout()
     plt.show()
+    fig.savefig(os.path.join(imOutPath,'rose_plot'+fNameSuffix % (p)), bbox_inches='tight')
 
-    p = circstats.rayleightest(GPA[oneFlags] * 2.)
-    print('p(GPA*2) = ',p)
-
-    p = circstats.rayleightest(np.array(pltArr))
-    print('p(pltArr) = ',p)
-
-    lb = ham.xYToLonLat(-2.82703,0.0)
-    print('xyToLonLat(-2.82703,0.0) = ',lb.lon,lb.lat)
+    xyBulge = ham.lonLatToXY(-15., -5.)
+    print('xyBulge = ',xyBulge.x,xyBulge.y)
