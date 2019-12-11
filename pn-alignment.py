@@ -28,13 +28,13 @@ ham = Hammer()
 pixels = ham.getPixels()
 lbxyGPA = [] #Glon, Glat, x, y, GPA, flag, csGlon, csGlat, [dist,...]
 hashIDs = []
-maxFlag = 1
+maxFlag = 2
 xRangeMax = [-2.83,2.83]
 yRangeMax = [-1.4143,1.4143]
 xRange = [-2.83,2.83]#[-0.236,0.261]
-yRange = [-0.0873,0.0873]
+yRange = [-1.4143,1.4143]#[-0.0873,0.0873]
 fNameSuffix = '_flag_le_'+str(maxFlag)+'_'
-mainClass = ['B']#,'E'
+mainClass = ['B','E']#
 for c in mainClass:
     fNameSuffix += c
 fNameSuffix += '_x=%.3f-%.3f_y=%.3f-%.3f' % (xRange[0], xRange[1], yRange[0], yRange[1])
@@ -62,7 +62,8 @@ def calcMoments(angles):
 
 # FROM https://stackoverflow.com/questions/22562364/circular-histogram-for-python
 def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
-              start_zero=False, fill=False, color='white', **param_dict):
+              start_zero=False, fill=False, color='white', max_count=None,
+              max_size=None, **param_dict):
     """
     Plot polar histogram of angles on ax. ax must have been created using
     subplot_kw=dict(projection='polar'). Angles are expected in radians.
@@ -79,22 +80,39 @@ def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
 
     # Bin data and record counts
     count, bin = np.histogram(angles, bins=bins)
+    maxCount = np.max(count)
 
     # Compute width of each bin
     widths = np.diff(bin)
 
     # By default plot density (frequency potentially misleading)
+    maxArea = None
     if density is None or density is True:
         # Area to assign each bin
-        area = count / angles.size
+        if max_size:
+            area = count / max_size
+        else:
+            area = count / angles.size
         # Calculate corresponding bin radius
         radius = (area / np.pi)**.5
     else:
         radius = count
+    print('radius = ',radius)
+    print('max(radius) = ',np.max(radius))
+
+    print('maxArea = ',maxArea)
 
     # Plot data on ax
     ax.bar(bin[:-1], radius, zorder=1, align='edge', width=widths,
            edgecolor='C0', fill=fill, linewidth=1, color=color)
+    if max_count and max_size:
+        if density is None or density is True:
+            max_area = max_count / max_size
+            max_radius = (max_area / np.pi)**.5
+        else:
+            max_radius = max_count
+        print('plotting max_radius = ',max_radius)
+        ax.bar(0,max_radius,width=0.001)
 
     # Set the direction of the zero angle
     ax.set_theta_offset(offset)
@@ -106,6 +124,7 @@ def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
         label = ['$0$', r'$\pi/4$', r'$\pi/2$', r'$3\pi/4$',
                   r'$\pi$', r'$5\pi/4$', r'$3\pi/2$', r'$7\pi/4$']
         ax.set_xticklabels(label)
+    return maxCount,angles.size
 
 # @brief return input array lbxyGPA with values inside [x0,x1], [y0,y1]
 def selectXY(lbxyGPA_in, x0, x1, y0, y1):
@@ -289,6 +308,8 @@ with open(latexFileName,'w') as texFile:
 
     pltArr = []
     pltMClass = []
+    nEllipticals = 0
+    nBipolars = 0
     for i in np.arange(0,len(oneFlags),1):
         if oneFlags[i]:
             pltArr.append(math.radians(GPA[i]))
@@ -296,14 +317,17 @@ with open(latexFileName,'w') as texFile:
             if mClass[i] == 'E':
                 pltMClass.append(True)
                 pltMClass.append(True)
+                nEllipticals += 1
             else:
                 pltMClass.append(False)
                 pltMClass.append(False)
+                nBipolars += 1
+    print('found ',nEllipticals,' ellipticals and ',nBipolars,' bipolars')
     pltArr = np.array(pltArr)
 
     fig, ax = plt.subplots(1, 1, subplot_kw=dict(projection='polar'))
-    rose_plot(ax, pltArr, offset=np.pi/2., bins=36, start_zero=True, color='blue', fill=True)
-    rose_plot(ax, pltArr[pltMClass], offset=np.pi/2., bins=36, start_zero=True, color='green', fill=True)
+    max_count, max_size = rose_plot(ax, pltArr, offset=np.pi/2., bins=36, start_zero=True, color='blue', fill=True)
+    rose_plot(ax, pltArr[pltMClass], offset=np.pi/2., bins=36, start_zero=True, color='green', fill=True, max_count=max_count, max_size=max_size)
     fig.tight_layout()
     plt.show()
     fig.savefig(os.path.join(imOutPath,'rose_plot'+fNameSuffix % (p)), bbox_inches='tight')
