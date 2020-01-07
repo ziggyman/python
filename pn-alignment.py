@@ -31,10 +31,10 @@ hashIDs = []
 maxFlag = 2
 xRangeMax = [-2.83,2.83]
 yRangeMax = [-1.4143,1.4143]
-xRange = [-2.83,2.83]#[-0.236,0.261]
-yRange = [-1.4143,1.4143]#[-0.0873,0.0873]
+xRange = xRangeMax#[-0.236,0.261]
+yRange = yRangeMax#[-0.0873,0.0873]
 fNameSuffix = '_flag_le_'+str(maxFlag)+'_'
-mainClass = ['B','E']#
+mainClass = ['E','B']#
 for c in mainClass:
     fNameSuffix += c
 fNameSuffix += '_x=%.3f-%.3f_y=%.3f-%.3f' % (xRange[0], xRange[1], yRange[0], yRange[1])
@@ -86,10 +86,10 @@ def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
     widths = np.diff(bin)
 
     # By default plot density (frequency potentially misleading)
-    maxArea = None
+#    maxArea = None
     if density is None or density is True:
         # Area to assign each bin
-        if max_size:
+        if max_size and max_count:
             area = count / max_size
         else:
             area = count / angles.size
@@ -97,10 +97,10 @@ def rose_plot(ax, angles, bins=16, density=None, offset=0, lab_unit="degrees",
         radius = (area / np.pi)**.5
     else:
         radius = count
-    print('radius = ',radius)
-    print('max(radius) = ',np.max(radius))
+#    print('radius = ',radius)
+#    print('max(radius) = ',np.max(radius))
 
-    print('maxArea = ',maxArea)
+#    print('maxArea = ',maxArea)
 
     # Plot data on ax
     ax.bar(bin[:-1], radius, zorder=1, align='edge', width=widths,
