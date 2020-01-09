@@ -5,7 +5,10 @@ from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_moon
 import numpy as np
 
-run = True
+from astropy.utils.iers import conf
+conf.auto_max_age = None
+
+midnightTime = Time('2020-8-1 0:00:00')
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -129,7 +132,7 @@ def writeSAAOTargetList(fNameIn, fNameOut):
             lineOut = lineIn['Name'].replace(' ','_').replace('"','')+' '+lineIn['RAJ2000']+' '+lineIn['DECJ2000']+' J2000\n'
             f.write(lineOut)
 
-def findTargetsVisibleAt(targets, timeUTC):
+def findTargetsVisibleAt(targets, timeUTC, location, utcoffset, minimumAltitude):
     targetsOut = []
     for line in targets:
         ra = float(line['DRAJ2000'])
@@ -187,9 +190,10 @@ def getDistanceToMoon(location, starCoord, time):
 #    STOP
     return separation.degree
 
-if run:
+def main():
     for site in ['SAAO']:#,'SSO']:
-        for noDiameterPN in [False, True]:
+        location = None
+        for noDiameterPN in [False]:#, True]:
             for priority in [True, False]:#
 
                 if priority:
@@ -201,17 +205,19 @@ if run:
                 sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
                 sso_utcoffset = 10*u.hour # Australian Eastern Standard Time
                 ssoOutFileName = allPossibleTargets[0:allPossibleTargets.rfind('/')]+'/targets_SSO'
+                ssoOutFileName += '_'+str(midnightTime.datetime.date())
                 if priority:
                     ssoOutFileName += '_priority'
                 ssoOutFileName += '_new.csv'
                 ssoMinimumAltitude = 30.
-                ssoMinimumMajorDiameter = 10.
-                ssoMaximumMajorDiameter = 500.
+                ssoMinimumMajorDiameter = 0.
+                ssoMaximumMajorDiameter = 50.
 
                 saaoObs = Observer.at_site("Southern African Large Telescope")#, timezone='Eastern Daylight Time')
                 saao = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
                 saao_utcoffset = 2*u.hour  # Eastern Daylight Time
                 saaoOutFileName = allPossibleTargets[0:allPossibleTargets.rfind('/')]+'/targets_SAAO'
+                saaoOutFileName += '_'+str(midnightTime.datetime.date())
                 if priority:
                     saaoOutFileName += '_priority'
                 saaoOutFileName += '.csv'
@@ -242,7 +248,7 @@ if run:
                 if noDiameterPN:
                     outFileName = outFileName[0:outFileName.rfind('.')]+'_noDiamGiven.csv'
 
-                midnight = Time('2019-9-10 0:00:00') - utcoffset
+                midnight = midnightTime - utcoffset
 
                 #print('astronomical twilight as Observatory: %s - %s' % (obs.twilight_evening_astronomical(midnight), obs.twilight_morning_astronomical(midnight)))
                 observationStartTime = obs.twilight_evening_astronomical(midnight)#Time('2019-9-5 19:10:00') - utcoffset
@@ -266,7 +272,12 @@ if run:
                     time += 1*u.minute
 #                    print('time = ',time)
                     times.append(time)
-                    if time.strftime("%M") == '00':
+#                    print('time = ',time)
+#                    print('type(time) = ',type(time))
+#                    print('dir(time) = ',dir(time))
+#                    print('type(time.to_datetime()) = ',type(time.to_datetime()))
+#                    print('dir(time.to_datetime()) = ',dir(time.to_datetime()))
+                    if time.to_datetime().strftime("%M") == '00':
 #                        print('full hour found at ',time)
                         fullHours.append(time)
 
@@ -367,6 +378,9 @@ if run:
                 for fName in [goodFileName, outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv', outFileName[0:outFileName.rfind('.')]+'_MGE.csv']:
                     targets = readCSV(fName)
                     for time in fullHours:
-                        visibleAt = findTargetsVisibleAt(targets, time)
+                        visibleAt = findTargetsVisibleAt(targets, time, location, utcoffset, minimumAltitude)
                         localTime = time + utcoffset
                         writeCSV(visibleAt, fName[:fName.rfind('.')]+'_visible_at_'+localTime.strftime("%H-%M")+'.csv', 'DRAJ2000')
+
+if __name__ == "__main__":
+    main()
