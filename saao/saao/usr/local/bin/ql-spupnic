@@ -1,0 +1,10 @@
+#!/usr/bin/python
+# EASY-INSTALL-ENTRY-SCRIPT: 'qlgui==2.0','gui_scripts','ql-spupnic'
+__requires__ = 'qlgui==2.0'
+import sys
+from pkg_resources import load_entry_point
+
+if __name__ == '__main__':
+    sys.exit(
+        load_entry_point('qlgui==2.0', 'gui_scripts', 'ql-spupnic')()
+    )

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SpUpNIC QuickLook
+#Exec=/home/ccd/qlgui.bak/newMain.py
+Exec=ql-spupnic
+Terminal=False
+Icon=/home/ccd/Pictures/Spectral_lines_emission.png
+Type=Application
+

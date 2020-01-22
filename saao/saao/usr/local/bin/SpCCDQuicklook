@@ -1,0 +1,320 @@
+#!/usr/bin/env python
+
+#-----------------------------------------------------------
+# Code to provide a quicklook for SpCDD test files. Returns the following information:
+#  . mean and standard deviation for user-defined areas (typically pre- & post-overscan and active)
+#  . pixel values for any pixels that are X standard deviation above or below mean
+# . plots for charge transfer effeciency
+#
+# A.A.S. Gulbis
+#20150514ff
+#-----------------------------------------------------------
+# To run, cd into this file's directory and run
+#  $ python SpCCD.QuickLook.#.py
+# which will pop up a window for file entry and execution
+# (note that you need  to enter full path for data!)
+#
+#-----------------------------------------------------------
+
+import sys
+import os
+import pyfits
+import numpy as np
+from Tkinter import *
+import datetime
+import matplotlib.pyplot as plt
+
+class GV:
+    '''Class that holds the global variables'''
+    def __init__(self):
+        global filename
+        global prescanValues
+        global postscanValues
+        global activeValues
+        global ccdheader
+        global ccddata
+        global prescanStats
+        global postscanStats
+        global activeStats
+   
+def clearFcn():
+    # Clear the fields in the GUI.
+    for row in guirows:
+        varList=[]
+        for col in row:
+           varList.append(col.get())
+    for col in row:
+        col.delete(0, END)
+        col.insert(0,"")
+
+def getStatistics():
+    readInputs()
+    #Select out regions.
+    prescanData=GV.ccddata[GV.prescanValues[1]:GV.prescanValues[3],GV.prescanValues[0]:GV.prescanValues[2]]
+    postscanData=GV.ccddata[GV.postscanValues[1]:GV.postscanValues[3],GV.postscanValues[0]:GV.postscanValues[2]]
+    activeData=GV.ccddata[GV.activeValues[1]:GV.activeValues[3],GV.activeValues[0]:GV.activeValues[2]]
+    
+    #Calculate stats.
+    GV.prescanStats=Stats(prescanData)
+    GV.postscanStats=Stats(postscanData)
+    GV.activeStats= Stats(activeData)
+
+    #Display results.
+    print "Start pixel (x,y), End pixel (x,y), Mean (ADU), Standard Deviation (ADU), Maximum (ADU), Minimum (ADU)"#, 3-sigma pixels"
+    print "("+str(GV.prescanValues[0])+","+str(GV.prescanValues[1])+") "+"("+str(GV.prescanValues[2])+","+str(GV.prescanValues[3])+") "+str(GV.prescanStats[0])+"  "+str(GV.prescanStats[1])+"  "+str(GV.prescanStats[2])+"  "+str(GV.prescanStats[3])
+    print "("+str(GV.postscanValues[0])+","+str(GV.postscanValues[1])+") "+"("+str(GV.postscanValues[2])+","+str(GV.postscanValues[3])+") "+str(GV.postscanStats[0])+"  "+str(GV.postscanStats[1])+"  "+str(GV.postscanStats[2])+"  "+str(GV.postscanStats[3])
+    print "("+str(GV.activeValues[0])+","+str(GV.activeValues[1])+") "+"("+str(GV.activeValues[2])+","+str(GV.activeValues[3])+") "+str(GV.activeStats[0])+"  "+str(GV.activeStats[1])+"  "+str(GV.activeStats[2])+"  "+str(GV.activeStats[3])
+      
+def readInputs():
+    #Set default values.
+    GV.prescanValues=[]
+    GV.postscanValues=[]
+    GV.activeValues=[]
+    prescanDefaults=0,0,50,515
+    postcanDefaults=2100,0,2150,515
+    activeDefaults=52,0,2098,512
+    
+    # Read inputs from the GUI boxes
+    for row in guirows:
+        varList=[]
+        for col in row:
+           varList.append(col.get())
+
+    GV.filename=varList[0].lstrip()
+    #Comment out the line below when not wanting file default on Amanda's machine - used for testing!
+    #GV.filename= "/Remote/Instrumentation/SpUp/20150401ff/20150423/image34.005.fits"
+    
+    rawprescan=varList[1].lstrip(),varList[4].lstrip(),varList[7].lstrip(),varList[10].lstrip()
+    rawpostcan=varList[2].lstrip(),varList[5].lstrip(),varList[8].lstrip(),varList[11].lstrip()
+    rawactive=varList[3].lstrip(),varList[6].lstrip(),varList[9].lstrip(),varList[12].lstrip()
+    
+    # Set to defaults if boxes are blank, or convert to integer values for entries.
+    for i in [0,1,2,3]:
+       if rawprescan[i]=="" :
+           GV.prescanValues.append(prescanDefaults[i])
+       else:
+           GV.prescanValues.append(int(rawprescan[i]))
+       if rawpostcan[i]=="":
+           GV.postscanValues.append(postcanDefaults[i])
+       else:
+           GV.postscanValues.append(int(rawpostcan[i]))
+       if rawactive[i]=="":
+           GV.activeValues.append(activeDefaults[i])
+       else:
+           GV.activeValues.append(int(rawactive[i]))
+    
+    print "Opening "+ GV.filename
+    # Open file.
+    try:
+          inputFile1=pyfits.open(GV.filename)
+    except Exception, e:
+        print e
+        exit()
+        
+    # Read in data. Data are by row, column.  So data[0] will be a list of the values in the first row.  We typically think in x,y which is column row, and backwards from the dataset.
+    GV.ccdheader=inputFile1[0].header
+    GV.ccddata=inputFile1[0].data
+  
+def showCTEPlot():
+    readInputs()
+    #Select out data in the columns at the each of each row going into the postscan region. Sum in groups of 50 rows.
+    summedDataTotal=[]
+
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[1:51,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[51:101,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[101:151,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[151:201,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[201:251,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[251:301,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[301:351,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[351:401,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[401:451,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+    for i in range(2090,2120):
+        summedData.append(np.sum(GV.ccddata[451:501,i]))
+    summedDataTotal.append(summedData)
+    summedData=[] 
+
+    # Make plot.
+    plt.figure()
+    plt.subplot(111)
+    plt.plot(range(2090,2120),summedDataTotal[0],range(2090,2120),summedDataTotal[1],range(2090,2120),summedDataTotal[2],range(2090,2120),summedDataTotal[3],range(2090,2120),summedDataTotal[4],range(2090,2120),summedDataTotal[5],range(2090,2120),summedDataTotal[6],range(2090,2120),summedDataTotal[7],range(2090,2120),summedDataTotal[8],range(2090,2120),summedDataTotal[9])
+    plt.ylabel('Summed Counts (ADU)')
+    plt.xlabel('Column (each line is summed over 50 rows, from 1 to 501)')
+    
+    plt.show()
+        
+def showPlots():
+    readInputs()
+    #Select out regions.
+    prescanData=GV.ccddata[GV.prescanValues[1]:GV.prescanValues[3],GV.prescanValues[0]:GV.prescanValues[2]]
+    postscanData=GV.ccddata[GV.postscanValues[1]:GV.postscanValues[3],GV.postscanValues[0]:GV.postscanValues[2]]
+    activeData=GV.ccddata[GV.activeValues[1]:GV.activeValues[3],GV.activeValues[0]:GV.activeValues[2]]
+    
+    # Generate mean & std. deviation per column (for overscans) and standard deviation per row and column.
+    colMeansPre=[]
+    colStdsPre=[]
+    for column in prescanData.T:
+        colMeansPre.append(np.mean(column))
+        colStdsPre.append(np.std(column))
+        
+    colMeansPost=[]
+    colStdsPost=[]
+    for column in postscanData.T:
+        colMeansPost.append(np.mean(column))
+        colStdsPost.append(np.std(column))
+ 
+    rowMeans=[]
+    rowStds=[]
+    for row in activeData:
+        rowMeans.append(np.mean(row))
+        rowStds.append(np.std(row))
+    
+    colMeans=[]
+    colStds=[]
+    for column in activeData.T:
+        colMeans.append(np.mean(column))
+        colStds.append(np.std(column))
+
+    #Generate plots.
+    plt.figure(figsize=(7,8))
+    plt.subplot(411)
+    plt.subplots_adjust(hspace = .5)
+    plt.plot(range(prescanData.shape[1]),colMeansPre,range(postscanData.shape[1]),colMeansPost)
+    plt.ylabel('Mean (ADU)')
+    plt.xlabel('Overscan column (prescan blue; postscan green); Avg. = '+str(np.mean(colMeansPre+colMeansPost)))
+    
+    plt.subplot(412)
+    plt.plot(range(prescanData.shape[1]),colStdsPre,range(postscanData.shape[1]),colStdsPost)
+    plt.ylabel('Std. Deviation (ADU)')
+    plt.xlabel('Overscan column (prescan blue; postscan green); Avg. = '+str(np.mean(colStdsPre+colStdsPost)))
+    
+    plt.subplot(413)
+    plt.plot(range(activeData.shape[0]),rowMeans,range(activeData.shape[1]),colMeans)
+    plt.ylabel('Mean (ADU)')
+    plt.xlabel('Active Region (row blue, column green)')
+    
+    plt.subplot(414)
+    plt.plot(range(activeData.shape[0]),rowStds,range(activeData.shape[1]),colStds)
+    plt.ylabel('Std. Deviation (ADU)')
+    plt.xlabel('Active Region (row blue, column green)')
+
+    #   Show plot:
+    plt.show()
+    
+def saveData():
+    # If desired, save plot to the following path + filename:
+    #savefig('plot.pdf')
+    
+    # Get today's date so that each task can be date-stamped
+    textdate=str(datetime.datetime.now().year)+"-"+str(datetime.datetime.now().month)+"-"+str(datetime.datetime.now().day)+" "+str(datetime.datetime.now().hour)+":"+str(datetime.datetime.now().minute)+":"+str(datetime.datetime.now().second)
+    
+    # Save/export data.
+    outputFile=GV.filename+".out.tsv"
+    fout=open(outputFile,"a")
+    fout.write('This analysis was carried out on ' +textdate+"\n")
+    fout.write('Data file: '+GV.filename+'\n')
+    fout.write ("Start pixel (x,y) \t End pixel (x,y) \t Mean (ADU) \t Standard Deviation (ADU) \t Maximum pixel (ADU) \t Minimum pixel (ADU)"+"\n")
+    fout.write(str(GV.prescanValues[0])+","+str(GV.prescanValues[1])+" \t"+str(GV.prescanValues[2])+","+str(GV.prescanValues[3])+" \t"+str(GV.prescanStats[0])+" \t"+str(GV.prescanStats[1])+" \t"+str(GV.prescanStats[2])+" \t"+str(GV.prescanStats[3])+"\n")
+    fout.write(str(GV.postscanValues[0])+","+str(GV.postscanValues[1])+" \t"+str(GV.postscanValues[2])+","+str(GV.postscanValues[3])+" \t"+str(GV.postscanStats[0])+" \t"+str(GV.postscanStats[1])+" \t"+str(GV.postscanStats[2])+" \t"+str(GV.postscanStats[3])+"\n")
+    fout.write(str(GV.activeValues[0])+","+str(GV.activeValues[1])+" \t"+str(GV.activeValues[2])+","+str(GV.activeValues[3])+" \t"+str(GV.activeStats[0])+" \t"+str(GV.activeStats[1])+" \t"+str(GV.activeStats[2])+" \t"+str(GV.activeStats[3])+"\n")
+    fout.close()
+    
+    print 'Data have been exported to '+ outputFile
+
+def Stats(inputData):
+    #Use the Mean and Standard deviation of the active region as a comparison, since we are interested in which pixels are unusual within the active region.
+ 
+    # Check how many standard deviations each pixel is from the mean -- this section not finished.
+    # regionMean=np.mean(GV.ccddata[GV.activeValues[1]:GV.activeValues[3],GV.activeValues[0]:GV.activeValues[2]])
+    # regionStd= np.std(GV.ccddata[GV.activeValues[1]:GV.activeValues[3],GV.activeValues[0]:GV.activeValues[2]])
+    # deviantPixelList=[]
+    #Assume active region only here?  How else to offset the x & y start values?
+       # pixDiff=regionMean-inputData[i]
+       # pixDeviation=pixDiff/np.std(inputData)
+       #if pixDeviation > 3
+       #   deviantPixelList.append()
+        
+    return np.mean(inputData), np.std(inputData), np.max(inputData), np.min(inputData)
+
+# Create a  GUI.
+# Start by making the frame and then populate it.
+master=Tk()
+bkgrdColor="white smoke"
+master.configure(background=bkgrdColor)
+master.title('SpCCD quicklook')
+
+# Create labels for each of the required inputs in the GUI.
+gui=Label(master,pady=5, bg=bkgrdColor)
+gui.grid(row=0, column=0, sticky=NSEW)
+gui["text"]='Enter filename (full path):'
+
+gui=Label(master,pady=5, bg=bkgrdColor)
+gui.grid(row=1, column=0, sticky=NSEW)
+gui["text"]='Enter start and end pixel values for PRESCAN region  (x_start,y_start,x_end,y_end) [default 0,0,50,515]:'
+
+gui=Label(master,pady=5, bg=bkgrdColor)
+gui.grid(row=2, column=0, sticky=NSEW)
+gui["text"]='Enter start and end pixel values for POSTSCAN region (x_start,y_start,x_end,y_end) [default 2100,0,2150,515]:'
+
+gui=Label(master,pady=5, bg=bkgrdColor)
+gui.grid(row=3, column=0, sticky=NSEW)
+gui["text"]='Enter start and end pixel values for ACTIVE region (x_start,y_start,x_end,y_end) [default 52,0,2098,512]:'
+
+# Generate the input boxes for the GUI.
+guicols = []
+guirows = []
+
+gui = Entry(relief=RIDGE)
+gui.grid(row=0, column=1, columnspan=4,sticky=NSEW)
+gui.columnconfigure(0, weight=3)
+gui.insert(END, ' ')
+guicols.append(gui)
+guirows.append(guicols)
+
+for k in [1,2,3,4]:
+    for j in [1,2,3]:
+        gui = Entry(relief=RIDGE)
+        gui.columnconfigure(j, weight=0)
+        gui.grid(row=j, column=k, sticky=E)
+        gui.insert(END, ' ')
+        guicols.append(gui)
+guirows.append(guicols)
+
+# Create action buttons and set their functions.
+task=StringVar()
+Button(text='Show Statistics', fg="white", command=getStatistics).grid(row=0,column=5)
+Button(text='Show Plots', fg="white", command=showPlots).grid(row=1,column=5)
+Button(text='CTE Plot', fg="white", command=showCTEPlot).grid(row=2,column=5)
+Button(text='Save Data', fg="white", command=saveData).grid(row=3,column=5)
+Button(text='Clear Input', fg="white", command=clearFcn).grid(row=4,column=5)
+
+mainloop()
+

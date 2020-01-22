@@ -6,13 +6,19 @@ import astropy.modeling.tests.irafutil as iu
 from astropy.nddata import CCDData
 import ccdproc# import Combiner, subtract_overscan
 from collections import namedtuple
+import matplotlib.colorbar as cbar
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from numpy.polynomial.legendre import legval
 #import hammer
 #import numpy as np
 import os
+from pyraf import iraf
+from scipy.interpolate import CubicSpline
 from scipy.interpolate import interp1d
+from scipy.interpolate import make_lsq_spline, BSpline
 #from scipy import interpolate
 from scipy.interpolate import griddata
 from scipy.interpolate import UnivariateSpline
@@ -1061,3 +1067,138 @@ def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
 
     image.data = profileImage
     writeFits(image, skyFileIn, skyFlatOut, ['SKY_FLAT'], ['rowMedianSmoothSize = %d' % rowMedianSmoothSize], overwrite=True)
+
+def extractSum(imageFileIn, specOut):
+    image = CCDData.read(imageFileIn, unit="adu")
+    print('image.shape = ',image.shape)
+
+def lambdaCal(oneDImageFileIn):
+    print(oneDImageFileIn)
+
+def calcLineProfile(twoDImageFileIn, colNumber, halfWidth):
+    image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
+    print('image.shape = ',image.shape)
+
+    centerRowIdx = int(image.shape[0]/2)
+
+    tempFile = os.path.join(twoDImageFileIn[0:twoDImageFileIn.rfind('/')],'tmp'+twoDImageFileIn[twoDImageFileIn.rfind('/')+1:])
+    print('tempFile = <'+tempFile+'>')
+
+    copyfile(twoDImageFileIn,tempFile)
+
+#    iraf.noao()
+#    iraf.noao.twodspec()
+#    iraf.noao.twodspec.apextract()
+#    iraf.noao.twodspec.apextract.aptrace(input=tempFile,
+#                                         apertures="",
+#                                         references="",
+#                                         interactive="yes",
+#                                         find="no",
+#                                         recenter='no',
+#                                         resize='no',
+#                                         edit='yes',
+#                                         trace='yes',
+#                                         fittrace='yes',
+#                                         line=centerRowIdx,
+#                                         nsum=3,
+#                                         step=1,
+#                                         nlost=10,
+#                                         function='legendre',
+#                                         order=5,
+#                                         sample='*',
+#                                         naverage=1,
+#                                         niterate=1,
+#                                         low_reject=3.0,
+#                                         high_reject=3.0,
+#                                         grow=0.0)
+    centerRow = image[centerRowIdx,:]
+    maxPos = np.where(centerRow == np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]))[0][0]
+    print('maxPos = ',maxPos)
+    plt.plot(centerRow)
+    plt.plot([colNumber-halfWidth,colNumber+halfWidth],[0.,0.])
+    plt.show()
+
+    dbFile = os.path.join(tempFile[:tempFile.rfind('/')],'database')
+    dbFile = os.path.join(dbFile,'ap'+tempFile[tempFile.rfind('/')+1:tempFile.rfind('.')])
+    print('dbFile = <'+dbFile+'>')
+    row,center = calcTrace(dbFile, apNum=0, xRange = None)
+    markCenter(tempFile, [row, center], tempFile)
+    print('row = ',row)
+    print('center = ',center)
+    plt.plot(row,center)
+    plt.show()
+
+    profileDataX = []
+    profileDataY = []
+    xProfInt = np.arange(-halfWidth,halfWidth+1,1)
+    print('xProfInt = ',xProfInt)
+    rectangles = []
+    intensities = []
+    for row in np.arange(0,image.shape[0],1):
+        image[row,xProfInt+int(center[row])] = image[row,xProfInt+int(center[row])] / np.sum(image[row,xProfInt+int(center[row])])
+        print('row = ',row,': int(center[',row,']=',center[row],') - int(center[0]=',center[0],') = ',int(center[row]) - int(center[0]))
+        for x in xProfInt:
+#            print('x = ',x,': image[',row,',',x+int(center[row]),'] = ',image[row,x+int(center[row])])
+            profileDataX.append(x + 0.5 - center[row] + int(center[row]))
+            profileDataY.append(image[row,x+int(center[row])])
+
+#            rectangles.append((x, row))
+            rectangles.append((x+int(center[row]), row))
+            intensities.append(image[row,x+int(center[row])])
+#        print('np.sum(image[row,xProfInt+int(center[row])]) = ',np.sum(image[row,xProfInt+int(center[row])]))
+    sortedIndices = np.argsort(profileDataX)
+    print('sortedIndices = ',sortedIndices)
+    profileDataX = np.array(profileDataX)[sortedIndices]
+    profileDataY = np.array(profileDataY)[sortedIndices]
+    plt.scatter(profileDataX,profileDataY)
+
+    # interpolate Cubic Spline
+    print(xProfInt.shape, profileDataX.shape, profileDataY.shape)
+    print('profileDataX = ',profileDataX)
+    print('profileDataY = ',profileDataY)
+    cs = CubicSpline(profileDataX,profileDataY,bc_type=((1,0),(1,0)))
+    x = np.linspace(profileDataX[0],profileDataX[profileDataX.shape[0]-1], num=500)
+    plt.plot(x,cs(x),'b-', label='Cubic Spline')
+
+    #interpolate BSpline
+    t = xProfInt#[-1,-0.5,0,0.5,1]
+    k = 3
+    t = np.r_[(profileDataX[0],)*(k+1),
+              t,
+              (profileDataX[-1],)*(k+1)]
+    spl = make_lsq_spline(profileDataX, profileDataY, t, k)
+    plt.plot(x, spl(x), 'g-', lw=3, label='LSQ spline')
+
+    plt.show()
+
+
+    print('rectangles = ',rectangles)
+    print('intensities = ',intensities)
+    normal = plt.Normalize(np.array(intensities).min(), np.array(intensities).max())
+    print('normal = ',type(normal),': ',normal)
+    colors = plt.cm.Greys(normal(intensities))
+    print('colors = ',type(colors),': ',colors)
+    cmap=plt.cm.Greys
+    print('cmap = ',type(cmap),': ',cmap)
+    c = cmap((np.array(colors) - np.amin(colors))/(np.amax(colors) - np.amin(colors)))
+    print('c = ',type(c),': ',c)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for iRectangle in np.arange(0,len(rectangles),1):
+        rect = patches.Rectangle(rectangles[iRectangle], 1., 1., color=colors[iRectangle])
+        ax.add_patch(rect)
+    cax, _ = cbar.make_axes(ax)
+    cb2 = cbar.ColorbarBase(cax, cmap=cmap,norm=normal)
+    ax.set_xlim(49,68)
+    ax.set_ylim(0,image.shape[0])
+    ax.plot(center, np.arange(0,image.shape[0],1))
+    plt.show()
+
+    plt.imshow(image)
+    plt.show()
+
+    print('profileDataX = ',profileDataX)
+    print('profileDataY = ',profileDataY)
+    plt.scatter(profileDataX,profileDataY)
+    plt.show()

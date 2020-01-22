@@ -1,0 +1,10 @@
+#!/usr/bin/python
+# EASY-INSTALL-ENTRY-SCRIPT: 'cassspectr==1.0','console_scripts','cassspectr-detector'
+__requires__ = 'cassspectr==1.0'
+import sys
+from pkg_resources import load_entry_point
+
+if __name__ == '__main__':
+    sys.exit(
+        load_entry_point('cassspectr==1.0', 'console_scripts', 'cassspectr-detector')()
+    )

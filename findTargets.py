@@ -8,7 +8,7 @@ import numpy as np
 from astropy.utils.iers import conf
 conf.auto_max_age = None
 
-midnightTime = Time('2020-8-1 0:00:00')
+midnightTime = Time('2020-5-15 0:00:00')
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -199,7 +199,7 @@ def main():
                 if priority:
                     allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_truePN_MPA.csv'
                 else:
-                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_with_catalogue_without_DFrew_noTrue.csv'
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
 
                 ssoObs = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
                 sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
@@ -223,7 +223,7 @@ def main():
                 saaoOutFileName += '.csv'
                 saaoMinimumAltitude = 30.
                 saaoMinimumMajorDiameter = 0.
-                saaoMaximumMajorDiameter = 30.
+                saaoMaximumMajorDiameter = 900.
 
                 if site == 'SSO':
                     obs = ssoObs

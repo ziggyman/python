@@ -1,7 +1,7 @@
 from astropy.nddata import CCDData
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
-from drUtils import makeSkyFlat, makeMasterFlat, imDivide
+from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractSum, calcLineProfile
 import numpy as np
 import os
 from shutil import copyfile
@@ -490,47 +490,56 @@ def test_skyFlatCorrect(objectFiles = os.path.join(testPath,'SCIENCE.list')):
 
     return otzfifFiles
 
-if True:
-    test_separateFileList(os.path.join(testPath,'allFits.list'))
-    test_combine()
-    test_subtractOverscan()
-    test_subtractBias()
-#if False:
-    test_cleanCosmic()
-if True:
-    test_flatCorrect(os.path.join(testPath,'allFits.list'))
-    test_combineSkyFlats()
-    testInterpolateTraceIm()
-    testMakeSkyFlat()
-    test_skyFlatCorrect()
-if False:
-    test_skyFlatCorrect(os.path.join(testPath,'ARC.list'))
-    inFiles = readFileToArr(os.path.join(testPath,'SCIENCEWKK98_201_otzfif.list'))
-    wkk = combine(inFiles,
-                   combinerMethod='average',
-                   clippingMethod='sigma',
-                   clippingParameters={'niter':2,
-                                       'low_thresh':-3.,
-                                       'high_thresh':3.,
-                                       'func':np.ma.median},
-                   scaling=True,
-                   minVal=0.0001,
-                   fitsOutName=os.path.join(testPath,'SCIENCEWKK98_201_otzxfif_combined.fits'))
+def testExtractSum(oneDImageIn):
+    extractSum(oneDImageIn)
 
-if False:
-    cosmicParameters = {'sigclip':4.,
-                        'cleantype':'meanmask',
-                        'gain':0.219,
-                        'readnoise':3.4,
-                        'sepmed':False,
-                        'fsmode':'convolve',
-                        'psfmodel':'moffat',
-                        'verbose':True,
-                        'niter':1,
-                        'psfbeta':1.5}
-    inFiles = readFileToArr('/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/do_cosmics.list')
-    outFiles = [addSuffixToFileName(fileName, 'x') for fileName in inFiles]
-    outArrs = cleanCosmic(inFiles,
-                          cosmicParameters = cosmicParameters,
-                          fitsFilesOut=outFiles,
-                          overwrite=True)
+def main():
+    if False:
+        test_separateFileList(os.path.join(testPath,'allFits.list'))
+        test_combine()
+        test_subtractOverscan()
+        test_subtractBias()
+    #if False:
+        test_cleanCosmic()
+    if False:
+        test_flatCorrect(os.path.join(testPath,'allFits.list'))
+        test_combineSkyFlats()
+        testInterpolateTraceIm()
+        testMakeSkyFlat()
+        test_skyFlatCorrect()
+    if False:
+        test_skyFlatCorrect(os.path.join(testPath,'ARC.list'))
+        inFiles = readFileToArr(os.path.join(testPath,'SCIENCEWKK98_201_otzfif.list'))
+        wkk = combine(inFiles,
+                       combinerMethod='average',
+                       clippingMethod='sigma',
+                       clippingParameters={'niter':2,
+                                           'low_thresh':-3.,
+                                           'high_thresh':3.,
+                                           'func':np.ma.median},
+                       scaling=True,
+                       minVal=0.0001,
+                       fitsOutName=os.path.join(testPath,'SCIENCEWKK98_201_otzxfif_combined.fits'))
+
+    if False:
+        cosmicParameters = {'sigclip':4.,
+                            'cleantype':'meanmask',
+                            'gain':0.219,
+                            'readnoise':3.4,
+                            'sepmed':False,
+                            'fsmode':'convolve',
+                            'psfmodel':'moffat',
+                            'verbose':True,
+                            'niter':1,
+                            'psfbeta':1.5}
+        inFiles = readFileToArr('/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/do_cosmics.list')
+        outFiles = [addSuffixToFileName(fileName, 'x') for fileName in inFiles]
+        outArrs = cleanCosmic(inFiles,
+                              cosmicParameters = cosmicParameters,
+                              fitsFilesOut=outFiles,
+                              overwrite=True)
+
+    calcLineProfile('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfs.fits', 58, 9)
+
+if __name__ == "__main__":
+    main()

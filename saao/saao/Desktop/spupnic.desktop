@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SpUpNIC
+#Exec=cassspectr-ui >> /home/ccd/.spup/spup.log 2>&1
+Exec=cassspectr-ui
+Terminal=False
+Icon=/home/ccd/Pictures/Spectral_lines_absorption.png
+Type=Application
+

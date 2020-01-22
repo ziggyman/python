@@ -1,0 +1,10 @@
+#!/bin/bash
+echo "Starting all cassegrain spectrograph related services"
+sudo service cassspectr-detector stop
+sleep 1
+sudo service cassspectr-plc stop
+sleep 1
+sudo service tcsview stop
+sleep 1
+sudo service weather stop
+
