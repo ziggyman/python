@@ -16,6 +16,7 @@ from numpy.polynomial.legendre import legval
 #import numpy as np
 import os
 from pyraf import iraf
+from scipy.integrate import simps
 from scipy.interpolate import CubicSpline
 from scipy.interpolate import interp1d
 from scipy.interpolate import make_lsq_spline, BSpline
@@ -1068,14 +1069,34 @@ def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
     image.data = profileImage
     writeFits(image, skyFileIn, skyFlatOut, ['SKY_FLAT'], ['rowMedianSmoothSize = %d' % rowMedianSmoothSize], overwrite=True)
 
-def extractSum(imageFileIn, specOut):
+# simple sum extraction
+# imageFileIn: string: name of fits file to extract
+# dispAxis: string: [row, column]
+def extractSum(imageFileIn, dispAxis):
     image = CCDData.read(imageFileIn, unit="adu")
     print('image.shape = ',image.shape)
+
+    axis = 0
+    if dispAxis == 'row':
+        axis=0
+    elif dispAxis == 'column':
+        axis=1
+    else:
+        raise('dispAxis(=',dispAxis,' not valid, must be either "row" or "column"')
+    return np.sum(image, axis = axis)
+
 
 def lambdaCal(oneDImageFileIn):
     print(oneDImageFileIn)
 
-def calcLineProfile(twoDImageFileIn, colNumber, halfWidth):
+# @brief: calculate the emission line profile for aperture number 'apNumber'
+#         as provided in database/ap<twoDImageFileIn>
+# @param twoDImageFileIn: string: name of input fits file (ARC)
+# @param apNumber: int: number of aperture defined in database/ap<twoDImageFileIn>, starting with 0
+# @param halfWidth: int: half width of emission line
+# @param dxFit: float: dx for output fitted profile
+# @param plot: bool: plot debugging plots?
+def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('image.shape = ',image.shape)
 
@@ -1111,22 +1132,26 @@ def calcLineProfile(twoDImageFileIn, colNumber, halfWidth):
 #                                         low_reject=3.0,
 #                                         high_reject=3.0,
 #                                         grow=0.0)
-    centerRow = image[centerRowIdx,:]
-    maxPos = np.where(centerRow == np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]))[0][0]
-    print('maxPos = ',maxPos)
-    plt.plot(centerRow)
-    plt.plot([colNumber-halfWidth,colNumber+halfWidth],[0.,0.])
-    plt.show()
+
 
     dbFile = os.path.join(tempFile[:tempFile.rfind('/')],'database')
     dbFile = os.path.join(dbFile,'ap'+tempFile[tempFile.rfind('/')+1:tempFile.rfind('.')])
     print('dbFile = <'+dbFile+'>')
-    row,center = calcTrace(dbFile, apNum=0, xRange = None)
+    row,center = calcTrace(dbFile, apNum=apNumber, xRange = None)
     markCenter(tempFile, [row, center], tempFile)
     print('row = ',row)
     print('center = ',center)
-    plt.plot(row,center)
-    plt.show()
+#    plt.plot(row,center)
+#    plt.show()
+
+    colNumber = int(center[int(len(row)/2)])
+
+    centerRow = image[centerRowIdx,:]
+    maxPos = np.where(centerRow == np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]))[0][0]
+    print('maxPos = ',maxPos)
+#    plt.plot(centerRow)
+#    plt.plot([colNumber-halfWidth,colNumber+halfWidth],[0.,0.])
+#    plt.show()
 
     profileDataX = []
     profileDataY = []
@@ -1150,15 +1175,20 @@ def calcLineProfile(twoDImageFileIn, colNumber, halfWidth):
     print('sortedIndices = ',sortedIndices)
     profileDataX = np.array(profileDataX)[sortedIndices]
     profileDataY = np.array(profileDataY)[sortedIndices]
-    plt.scatter(profileDataX,profileDataY)
+    if plot:
+        plt.scatter(profileDataX,profileDataY)
 
     # interpolate Cubic Spline
-    print(xProfInt.shape, profileDataX.shape, profileDataY.shape)
-    print('profileDataX = ',profileDataX)
-    print('profileDataY = ',profileDataY)
-    cs = CubicSpline(profileDataX,profileDataY,bc_type=((1,0),(1,0)))
-    x = np.linspace(profileDataX[0],profileDataX[profileDataX.shape[0]-1], num=500)
-    plt.plot(x,cs(x),'b-', label='Cubic Spline')
+    #print(xProfInt.shape, profileDataX.shape, profileDataY.shape)
+    #print('profileDataX = ',profileDataX)
+    #print('profileDataY = ',profileDataY)
+    #cs = CubicSpline(profileDataX,profileDataY,bc_type=((1,0),(1,0)))
+    #print('profileDataX[0] = ',profileDataX[0])
+    #print('profileDataX[profileDataX.shape[0]-1]+dxFit = ',profileDataX[profileDataX.shape[0]-1]+dxFit)
+    x = np.arange(profileDataX[0],profileDataX[profileDataX.shape[0]-1]+dxFit, dxFit)
+    #print('x = ',x)
+
+    #plt.plot(x,cs(x),'b-', label='Cubic Spline')
 
     #interpolate BSpline
     t = xProfInt#[-1,-0.5,0,0.5,1]
@@ -1167,9 +1197,11 @@ def calcLineProfile(twoDImageFileIn, colNumber, halfWidth):
               t,
               (profileDataX[-1],)*(k+1)]
     spl = make_lsq_spline(profileDataX, profileDataY, t, k)
-    plt.plot(x, spl(x), 'g-', lw=3, label='LSQ spline')
+    yFit = spl(x)
+    if plot:
+        plt.plot(x, yFit, 'y-', lw=3, label='LSQ spline')
 
-    plt.show()
+        plt.show()
 
 
     print('rectangles = ',rectangles)
@@ -1183,22 +1215,108 @@ def calcLineProfile(twoDImageFileIn, colNumber, halfWidth):
     c = cmap((np.array(colors) - np.amin(colors))/(np.amax(colors) - np.amin(colors)))
     print('c = ',type(c),': ',c)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    for iRectangle in np.arange(0,len(rectangles),1):
-        rect = patches.Rectangle(rectangles[iRectangle], 1., 1., color=colors[iRectangle])
-        ax.add_patch(rect)
-    cax, _ = cbar.make_axes(ax)
-    cb2 = cbar.ColorbarBase(cax, cmap=cmap,norm=normal)
-    ax.set_xlim(49,68)
-    ax.set_ylim(0,image.shape[0])
-    ax.plot(center, np.arange(0,image.shape[0],1))
-    plt.show()
+    if plot:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        for iRectangle in np.arange(0,len(rectangles),1):
+            rect = patches.Rectangle(rectangles[iRectangle], 1., 1., color=colors[iRectangle])
+            ax.add_patch(rect)
+        cax, _ = cbar.make_axes(ax)
+        cb2 = cbar.ColorbarBase(cax, cmap=cmap,norm=normal)
+        ax.set_xlim(np.amin(center)-halfWidth,np.amax(center)+halfWidth)
+        ax.set_ylim(0,image.shape[0])
+        ax.plot(center, np.arange(0,image.shape[0],1))
+        plt.show()
 
-    plt.imshow(image)
-    plt.show()
+#    plt.imshow(image)
+#    plt.show()
 
-    print('profileDataX = ',profileDataX)
-    print('profileDataY = ',profileDataY)
-    plt.scatter(profileDataX,profileDataY)
+    # cut off last half pixel on both sides as they are sometimes bad
+#    print('x = ',x)
+#    print('0.5/dxFit = ',0.5/dxFit)
+    x = x[int(0.5/dxFit):x.shape[0]-int(0.5/dxFit)]
+    yFit = yFit[int(0.5/dxFit):yFit.shape[0]-int(0.5/dxFit)]
+#    print('x trimmed = ',x)
+
+    # subtract background and re-normalize to an integral of 1
+    yFit = yFit - np.amin(yFit)
+    yFit = yFit / simps(yFit,dx=x[1]-x[0])
+
+    return [x, yFit]
+
+# @brief: return x and y inside xRange
+def getInsideRange(x,y,xRange):
+    xInsideRange = x[np.where(x >= xRange[0])]
+    yInsideRange = y[np.where(x >= xRange[0])]
+    yInsideRange = yInsideRange[np.where(xInsideRange <= xRange[1])]
+    xInsideRange = xInsideRange[np.where(xInsideRange <= xRange[1])]
+    return xInsideRange, yInsideRange
+
+# @brief: Return interpolated y at xAt
+def getYAt(x,y,xAt):
+    yOut = []
+    xArr = np.array(x)
+    yArr = np.array(y)
+    if xArr.shape[0] != yArr.shape[0]:
+        raise Exception('getYAt(x,y,xAt): ERROR: x and y must have same size')
+    for xXAt in xAt:
+        if xXAt < x[0]:
+            yOut.append(yArr[0])
+        elif xXAt > xArr[xArr.shape[0]-1]:
+            yOut.append(yArr[xArr.shape[0]-1])
+        else:
+            for iX in np.arange(1,xArr.shape[0],1):
+                if (xArr[iX-1] <= xXAt) and (xArr[iX] >= xXAt):
+                    yOut.append(yArr[iX-1] + ((yArr[iX]-yArr[iX-1]) * (xXAt - xArr[iX])/(xArr[iX]-xArr[iX-1])))
+    yOut = np.array(yOut)
+    if np.array(xAt).shape[0] != yOut.shape[0]:
+        raise Exception('getYAt(x,y,xAt): ERROR: xAt.shape[0](=',xAt.shape[0],'] != yOut.shape[0](=',yOut.shape[0],']')
+    return yOut
+
+# @brief: cross-correlate 2D arrays static and moving
+# @param static: 2D array not moving [x,y]
+# @param moving: 2D moving array, must be smaller than static [x,y], x=0 in center
+def xCor(static, moving):
+    xCorVals = []
+    dxMoving = moving[0][1]-moving[0][0]
+    print('dx = ',dxMoving)
+    print('xMoving = ',moving[0])
+    print('xStatic = ',static[0])
+    xMovingStart = 0. - moving[0][0]#(moving[0][moving[0].shape[0]-1]-moving[0][0])/2.
+    print('xMovingStart = ',xMovingStart)
+    print('xMoving at half = ',moving[0][int(moving[0].shape[0]/2)])
+    xMovingEnd = static[0][static[0].shape[0]-1]-moving[0][moving[0].shape[0]-1]
+    print('xMovingEnd = ',xMovingEnd)
+    xXCor = np.arange(xMovingStart,xMovingEnd,dxMoving)
+    print('xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
+    for iX in np.arange(0,xXCor.shape[0],1):
+        xMovingPlot = moving[0]+xXCor[iX]
+        print('xMovingPlot = ',xMovingPlot)
+#        plt.plot(xMovingPlot,moving[1])
+        xStaticPlot,yStaticPlot = getInsideRange(static[0],static[1], [xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1]])
+        yStaticPlot = yStaticPlot - np.amin(yStaticPlot)
+        print('xStaticPlot = ',xStaticPlot)
+        print('yStaticPlot = ',yStaticPlot)
+#        plt.plot(xStaticPlot,yStaticPlot/simps(yStaticPlot,xStaticPlot))
+#        plt.xlim(xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1])
+        yAt = getYAt(xMovingPlot,moving[1],xStaticPlot)
+        yAt = yAt * np.amax(yStaticPlot) / np.amax(yAt)
+        #yStaticPlot = yStaticPlot / np.amax(yStaticPlot)
+#        plt.plot(xStaticPlot,yAt)
+#        plt.show()
+        xCorVals.append(np.sum(np.square(yStaticPlot - yAt)) / yAt.shape[0])
+    print('xXCor = ',xXCor.shape,': ',xXCor)
+    print('static[0] = ',static[0].shape,': ',static[0])
+    yAtXCor = getYAt(xXCor,xCorVals,static[0])
+
+#    print('xCorVals = ',xCorVals)
+    plt.plot(xXCor,xCorVals/np.amax(xCorVals), label='xCor')
+    plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
+    print('static[1].shape = ',static[1].shape)
+    print('yAtXCor.shape = ',yAtXCor.shape)
+    print('yAtXCor = ',yAtXCor)
+    yPlot = static[1] / yAtXCor
+    yPlot = yPlot / np.amax(yPlot)
+    plt.plot(static[0], yPlot, label='static/xCor')
+    plt.legend()
     plt.show()

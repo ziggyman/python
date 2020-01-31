@@ -1,7 +1,8 @@
 from astropy.nddata import CCDData
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
-from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractSum, calcLineProfile
+from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractSum, calcLineProfile,xCor
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 from shutil import copyfile
@@ -539,7 +540,31 @@ def main():
                               fitsFilesOut=outFiles,
                               overwrite=True)
 
-    calcLineProfile('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfs.fits', 58, 9)
+    lineProfiles = []
+    for apNumber in np.arange(0,7,1):
+        lineProfiles.append(calcLineProfile('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfs.fits', apNumber, 7, 0.1))
+
+    for lineProfile in lineProfiles:
+        plt.plot(lineProfile[0],lineProfile[1])
+    plt.show()
+    bestLineProfileIdx = 0
+    maxValue = np.amax(lineProfiles[0][1])
+    for lineProfileIdx in np.arange(1,len(lineProfiles),1):
+        if np.amax(lineProfiles[lineProfileIdx][1]) > maxValue:
+            bestLineProfileIdx = lineProfileIdx
+    print('best line profile found at index ',bestLineProfileIdx)
+
+    oneDSpec = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzf.fits','row')
+    oneDSpecInterp = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfi.fits','row')
+    plt.plot(oneDSpec,label='raw')
+    plt.plot(oneDSpecInterp,label='interpolated')
+    plt.legend()
+    plt.show()
+
+    xSpec = np.arange(0,oneDSpecInterp.shape[0],1.)
+    print('xSpec = ',xSpec)
+#    xCor([xSpec,oneDSpecInterp],lineProfiles[bestLineProfileIdx])
+    xCor([xSpec,oneDSpecInterp],lineProfiles[bestLineProfileIdx])
 
 if __name__ == "__main__":
     main()
