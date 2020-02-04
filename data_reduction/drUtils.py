@@ -1190,7 +1190,7 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
 
     #plt.plot(x,cs(x),'b-', label='Cubic Spline')
 
-    #interpolate BSpline
+    #interpolate lsq spline
     t = xProfInt#[-1,-0.5,0,0.5,1]
     k = 3
     t = np.r_[(profileDataX[0],)*(k+1),
@@ -1320,3 +1320,48 @@ def xCor(static, moving):
     plt.plot(static[0], yPlot, label='static/xCor')
     plt.legend()
     plt.show()
+
+# @brief : fit background and subtract from y
+# @param x : 1D array of x-values
+# @param y : 1D array of y-values
+# @param deg : int: degree for Legendre Polynomial
+# @param indicesToIgnore : 1D array of indices to ignore for fitting the background
+def subtractBackground(x,y,deg,indicesToIgnore=None):
+    print('x = ',x)
+    print('y = ',y)
+    xArr = np.array(x)
+    yArr = np.array(y)
+    xFit = []
+    yToFit = []
+    for iX in np.arange(0,xArr.shape[0],1):
+        if (not indicesToIgnore) or (iX not in indicesToIgnore):
+            xFit.append(x[iX])
+            yToFit.append(y[iX])
+    xFit = np.array(xFit)
+    yToFit = np.array(yToFit)
+    print('xFit = ',xFit.shape,': ',xFit)
+    print('yToFit = ',yToFit.shape,': ',yToFit)
+
+    #interpolate lsq spline
+#    xKnots = xFit[1::3]
+#    print('xKnots = ',xKnots.shape,': ',xKnots)
+
+#    t = xKnots#[-1,-0.5,0,0.5,1]
+#    k = 3
+#    t = np.r_[(xFit[0],)*(k+1),
+#              t,
+#              (xFit[-1],)*(k+1)]
+#    print('t = ',t.shape,': ',t)
+#    spl = make_lsq_spline(xFit, yToFit, t, k)
+    nx = 2*xFit/xFit[-1] - 1
+    coeffs = np.polynomial.legendre.legfit(nx, yToFit, deg)
+    nx = 2*xArr/xArr[-1] - 1
+    yFit = np.polynomial.legendre.legval(nx, coeffs)
+#    plt.plot(x,y,label='y(x)')
+#    plt.plot(xFit,yToFit,label='yToFit(xFit)')
+#    plt.plot(x,yFit,label='yFit(x)')
+#    plt.legend()
+#    plt.show()
+
+    return yArr-yFit
+
