@@ -194,6 +194,7 @@ def findPixGT(pixels, threshold):
 
 def doFromPdf():
     pdfFileName = "/Users/azuri/daten/uni/HKU/line_ratios/ApJ95PLATExii001.pdf"
+    path = pdfFileName[0:pdfFileName.rfind('/')]
     imFiles = extractImagesFromPdf(pdfFileName)
     print('imFiles = ',imFiles)
     imXRange = None
@@ -243,14 +244,33 @@ def doFromPdf():
         for row in np.arange(imYRange[0],imYRange[1],1):
             for col in np.arange(imXRange[0],imXRange[1],1):
                 greyPix[col-imXRange[0], row-imYRange[0]] = np.sum(pix[int(col),int(row)])
-        plt.imshow(greyPix)
+        plt.imshow(np.transpose(greyPix), cmap='gray', vmin=0, vmax=255*3)
+        plt.colorbar()
+        plt.xlabel('column - %d' % (imXRange[0]))
+        plt.ylabel('row - %d' % (imYRange[0]))
+        plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+        plotName += '_grey.png'
+        plt.savefig(os.path.join(path,plotName))
         plt.show()
 
         greyPixFiltered = cv2.blur(greyPix,(5,5))
-        plt.imshow(greyPixFiltered)
+        plt.imshow(np.transpose(greyPixFiltered), cmap='gray', vmin=0, vmax=255*3)
+        plt.colorbar()
+        plt.xlabel('column - %d' % (imXRange[0]))
+        plt.ylabel('row - %d' % (imYRange[0]))
+        plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+        plotName += '_smoothed.png'
+        plt.savefig(os.path.join(path,plotName))
         plt.show()
+
         greyPixFiltered = cv2.blur(greyPixFiltered,(5,5))
-        plt.imshow(greyPixFiltered)
+        plt.imshow(np.transpose(greyPixFiltered), cmap='gray', vmin=0, vmax=255*3)
+        plt.colorbar()
+        plt.xlabel('column - %d' % (imXRange[0]))
+        plt.ylabel('row - %d' % (imYRange[0]))
+        plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+        plotName += '_smoothed_twice.png'
+        plt.savefig(os.path.join(path,plotName))
         plt.show()
 
         pixelsAboveThreshold5007 = []
@@ -273,11 +293,17 @@ def doFromPdf():
             pixelsAboveThreshold4959.append(findPixGT(rmb[ignoreColsB-imXRange[0]], 50.))
             print('rmb.size = ',rmb.size)
             plt.plot(np.arange(0,rmb.size,1)+imXRange[0],rmb, label='row '+str(row+imYRange[0]))
-            if (row % 10) == 9:
+            if ((row % 10) == 9) or (row == imYRange[1]-imYRange[0]-1):
                 plt.xlabel('column')
                 plt.ylabel('counts')
                 plt.title('Plate XII' if iIm == 0 else 'Plate XIII')
-                plt.legend()
+                if iIm == 0:
+                    plt.legend(loc='lower left', bbox_to_anchor=(0.35, 0.25))
+                else:
+                    plt.legend(loc='lower left', bbox_to_anchor=(0.2, 0.33))
+                plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+                plotName += '_row%d-%d.png' % (imYRange[0]+row-9,imYRange[0]+row)
+                plt.savefig(os.path.join(path,plotName))
                 plt.show()
             if (np.amax(r[ignoreColsC-imXRange[0]]) < 3*254) and (np.amax(r[ignoreColsA-imXRange[0]]) < 3*254):
                 ratio5007Hbeta.append(np.amax(rmb[ignoreColsC-imXRange[0]]) / np.amax(rmb[ignoreColsA-imXRange[0]]))
@@ -292,17 +318,14 @@ def doFromPdf():
             print('row = ',row,': 4959 = ',rmb[ignoreColsB-imXRange[0]])
 #            STOP
 
-        plt.xlabel('column')
-        plt.ylabel('counts')
-        plt.title('Plate XII' if iIm == 0 else 'Plate XIII')
-        plt.legend()
-        plt.show()
-
         plt.plot(np.arange(0,len(ratio5007Hbeta),1)+imYRange[0],ratio5007Hbeta,label='5007/Hbeta')
         #plt.legend()
         plt.xlabel('row')
         plt.ylabel('5007/Hbeta')
         plt.title('Plate XII' if iIm == 0 else 'Plate XIII')
+        plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+        plotName += '_5007-Ratio-Hbeta.png'
+        plt.savefig(os.path.join(path,plotName))
         plt.show()
 
         plt.plot(np.arange(0,len(ratio50074959),1)+imYRange[0],ratio50074959,label='5007/4959')
@@ -310,6 +333,9 @@ def doFromPdf():
         plt.xlabel('row')
         plt.ylabel('5007/4959')
         plt.title('Plate XII' if iIm == 0 else 'Plate XIII')
+        plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+        plotName += '_5007-Ratio-4959.png'
+        plt.savefig(os.path.join(path,plotName))
         plt.show()
 
         ratio5007HbetaNPix = []
@@ -326,12 +352,18 @@ def doFromPdf():
         plt.xlabel('row')
         plt.ylabel('nPix(5007)/nPix(Hbeta)')
         plt.title('Plate XII' if iIm == 0 else 'Plate XIII')
+        plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+        plotName += '_nPix5007-Ratio-nPixHbeta.png'
+        plt.savefig(os.path.join(path,plotName))
         plt.show()
 
         plt.plot(np.arange(imYRange[0],imYRange[1],1),ratio50074959NPix)
         plt.xlabel('row')
         plt.ylabel('nPix(5007)/nPix(4959)')
         plt.title('Plate XII' if iIm == 0 else 'Plate XIII')
+        plotName = 'PlateXII' if iIm == 0 else 'PlateXIII'
+        plotName += '_nPix5007-Ratio-nPix4959.png'
+        plt.savefig(os.path.join(path,plotName))
         plt.show()
 
 def main():

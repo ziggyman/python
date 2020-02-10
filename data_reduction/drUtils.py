@@ -16,6 +16,7 @@ from numpy.polynomial.legendre import legval
 #import numpy as np
 import os
 from pyraf import iraf
+from scipy import exp,ndimage
 from scipy.integrate import simps
 from scipy.interpolate import CubicSpline
 from scipy.interpolate import interp1d
@@ -23,7 +24,8 @@ from scipy.interpolate import make_lsq_spline, BSpline
 #from scipy import interpolate
 from scipy.interpolate import griddata
 from scipy.interpolate import UnivariateSpline
-from scipy import ndimage
+from scipy.optimize import curve_fit
+from scipy.signal import find_peaks
 #from scipy.signal import medfilt
 from shutil import copyfile
 #from sklearn import linear_model
@@ -1242,6 +1244,12 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     yFit = yFit - np.amin(yFit)
     yFit = yFit / simps(yFit,dx=x[1]-x[0])
 
+    # center to maximum
+    maxPos = np.where(yFit == np.amax(yFit))
+    print('maxPos = ',maxPos)
+    print('x[maxPos] = ',x[maxPos[0]])
+    x = x-x[maxPos[0]]
+
     return [x, yFit]
 
 # @brief: return x and y inside xRange
@@ -1307,19 +1315,117 @@ def xCor(static, moving):
         xCorVals.append(np.sum(np.square(yStaticPlot - yAt)) / yAt.shape[0])
     print('xXCor = ',xXCor.shape,': ',xXCor)
     print('static[0] = ',static[0].shape,': ',static[0])
-    yAtXCor = getYAt(xXCor,xCorVals,static[0])
+#    yAtXCor = getYAt(xXCor,xCorVals,static[0])
 
 #    print('xCorVals = ',xCorVals)
     plt.plot(xXCor,xCorVals/np.amax(xCorVals), label='xCor')
     plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
-    print('static[1].shape = ',static[1].shape)
-    print('yAtXCor.shape = ',yAtXCor.shape)
-    print('yAtXCor = ',yAtXCor)
-    yPlot = static[1] / yAtXCor
-    yPlot = yPlot / np.amax(yPlot)
-    plt.plot(static[0], yPlot, label='static/xCor')
+#    print('static[1].shape = ',static[1].shape)
+#    print('yAtXCor.shape = ',yAtXCor.shape)
+#    print('yAtXCor = ',yAtXCor)
+#    yPlot = yAtXCor / static[1]
+#    yPlot = yPlot / np.amax(yPlot)
+#    plt.plot(static[0], yPlot, label='xCor/static')
     plt.legend()
     plt.show()
+    return np.array(xXCor), np.array(xCorVals)
+
+def gauss(x,a,x0,sigma,yBackground=0.):
+    return a*exp(-(x-x0)**2/(2*sigma**2))+yBackground
+
+# @brief: fit Gaussians every <step> pixels and identify line positions
+# @param spec: 1D np.array:
+# @param xCorX: 1D np.array: x values (output from xCor)
+# @param xCorY: 1D np.array: y values (output from xCor)
+# @param sigma: sigma of Gaussians to fit
+# @param peakHeight: float: minimum peak height in spec for find_peaks
+# @param peakWidth: float: minimum peak width in spec for find_peaks
+def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None):
+    peaks,properties = find_peaks(spec, height = peakHeight, width=peakWidth)#, threshold=100)#
+    plt.plot(spec)
+    plt.scatter(peaks,spec[peaks])
+    plt.show()
+    print('peaks = ',peaks)
+    print('properties = ',properties)
+    print('spec.shape = ',spec.shape)
+    print('xCorX.shape = ',xCorX.shape)
+    print('xCorX = ',xCorX)
+
+    yNorm = xCorY / np.amax(xCorY)
+#    peaks,properties = find_peaks(0.-yNorm)#, height = -0.05, width=[30,120], threshold=0.00001)
+#    print('peaks = ',peaks)
+    plt.plot(xCorX,yNorm)
+    xCorPeaks = []
+    for peak in peaks:
+        xCorPeaks.append(np.where(np.absolute(xCorX - peak) < (xCorX[1]-xCorX[0])/2.)[0])
+        print('peak = ',peak,': xCorPeaks[',len(xCorPeaks)-1,'] = ',xCorPeaks[len(xCorPeaks)-1])
+    xCorPeaks = np.array(xCorPeaks)
+    plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
+    plt.show()
+
+    xDiff = []
+    yDiff = []
+    xYFitParams = []
+    plt.plot(xCorX,yNorm)
+    plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
+    for i in np.arange(0,xCorPeaks.shape[0],1):
+        indices = np.where((xCorX > (xCorX[xCorPeaks[i]]-sigma)) & (xCorX < (xCorX[xCorPeaks[i]]+sigma)))
+#            print('indices = ',indices)
+        xi = xCorX[indices]
+#            print('xi = ',xi)
+        yi = yNorm[indices]
+#            print('yi = ',yi)
+        xCenter = xi[int(xi.shape[0]/2)]
+        print('xCenter = ',xCenter,', xCorX[xCorPeaks[',i,']] = ',xCorX[xCorPeaks[i]])
+        try:
+            popt,pcov = curve_fit(gauss,xi,yi,p0=[-np.amax(yi),xCenter,sigma,np.amax(yi)])
+        except:
+            continue
+        print('popt = ',popt)
+        maxAmp = -0.00001
+        if ((popt[0] < maxAmp)
+            and (np.absolute(xCenter - popt[1]) < 0.67)
+            and (np.absolute(sigma - popt[2]) < (sigma / 2.))
+           ):
+            xDiff.append(xi[int(xi.shape[0]/2)])
+            yFit = gauss(xi,*popt)
+            plt.plot(xi,yi)
+            plt.plot(xi,yFit)
+            plt.scatter(xCorX[xCorPeaks[i]],yNorm[xCorPeaks[i]])
+            yDiff.append(np.sum(((yi-yFit) / np.amax(yi))**2) / yi.shape[0])
+            xYFitParams.append([xi,yi,yFit,popt,i])
+        else:
+            print('rejected fit for line at ',xCorX[xCorPeaks[i]],', fitted parameters = [a=',popt[0],', x0=',popt[1],', sigma=',popt[2],', background=',popt[3],']')
+            if popt[0] >= maxAmp:
+                print('amplitude >= ',maxAmp)
+            if np.absolute(xCenter - popt[1]) >= 0.67:
+                print('np.absolute(xCenter - popt[1]) >= 0.67')
+            if np.absolute(sigma - popt[2]) >= (sigma / 2.):
+                print('np.absolute(sigma - popt[2]) >= (sigma / 2.)')
+            xDiff.append(xi[int(xi.shape[0]/2)])
+            yFit = gauss(xi,*popt)
+            plt.plot(xi,yi)
+            plt.plot(xi,yFit)
+            plt.scatter(xCorX[xCorPeaks[i]],yNorm[xCorPeaks[i]])
+            yDiff.append(np.sum(((yi-yFit) / np.amax(yi))**2) / yi.shape[0])
+            plt.show()
+    plt.show()
+
+    plt.plot(xDiff,yDiff)
+    plt.show()
+    sigmas = [par[3][2] for par in xYFitParams]
+    print('good sigmas = ',sigmas)
+
+    plt.plot(spec/np.amax(spec))
+    plt.plot(xCorX,yNorm)
+    plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
+    for iGoodFit in np.arange(0,len(xYFitParams),1):
+        plt.plot(xYFitParams[iGoodFit][0],xYFitParams[iGoodFit][1])
+        plt.plot(xYFitParams[iGoodFit][0],xYFitParams[iGoodFit][2])
+        #plt.scatter(xCorX[xCorPeaks[xYFitParams[iGoodFit][3]]],yNorm[xCorPeaks[xYFitParams[iGoodFit][3]]])
+    plt.show()
+
+    return [par[3][1] for par in xYFitParams]
 
 # @brief : fit background and subtract from y
 # @param x : 1D array of x-values
