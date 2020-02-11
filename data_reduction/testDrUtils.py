@@ -2,7 +2,7 @@ from astropy.nddata import CCDData
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractSum, calcLineProfile,xCor
-from drUtils import findLines, getYAt
+from drUtils import findLines, getYAt, calcDispersion, normalizeX
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -541,76 +541,84 @@ def main():
                               fitsFilesOut=outFiles,
                               overwrite=True)
 
-    lineProfiles = []
-    for apNumber in np.arange(0,7,1):
-        lineProfiles.append(calcLineProfile('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfs.fits', apNumber, 7, 0.1))
+    if True:
+        lineProfiles = []
+        for apNumber in np.arange(0,7,1):
+            lineProfiles.append(calcLineProfile('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfs.fits', apNumber, 7, 0.1))
 
-    for lineProfile in lineProfiles:
-        plt.plot(lineProfile[0],lineProfile[1])
-    plt.show()
-    bestLineProfileIdx = 0
-    maxValue = np.amax(lineProfiles[0][1])
-    for lineProfileIdx in np.arange(1,len(lineProfiles),1):
-        if np.amax(lineProfiles[lineProfileIdx][1]) > maxValue:
-            bestLineProfileIdx = lineProfileIdx
-    print('best line profile found at index ',bestLineProfileIdx)
+        for lineProfile in lineProfiles:
+            plt.plot(lineProfile[0],lineProfile[1])
+        plt.show()
+        bestLineProfileIdx = 0
+        maxValue = np.amax(lineProfiles[0][1])
+        for lineProfileIdx in np.arange(1,len(lineProfiles),1):
+            if np.amax(lineProfiles[lineProfileIdx][1]) > maxValue:
+                bestLineProfileIdx = lineProfileIdx
+        print('best line profile found at index ',bestLineProfileIdx)
 
-    oneDSpec = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzf.fits','row')
-    oneDSpecInterp = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfi.fits','row')
-    plt.plot(oneDSpec,label='raw')
-    plt.plot(oneDSpecInterp,label='interpolated')
-    plt.legend()
-    plt.show()
+        oneDSpec = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzf.fits','row')
+        oneDSpecInterp = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfi.fits','row')
+        plt.plot(oneDSpec,label='raw')
+        plt.plot(oneDSpecInterp,label='interpolated')
+        plt.legend()
+        plt.show()
 
-    xSpec = np.arange(0,oneDSpecInterp.shape[0],1.)
-    print('xSpec = ',xSpec)
-#    xCor([xSpec,oneDSpecInterp],lineProfiles[bestLineProfileIdx])
-    xXCor, xCorVals = xCor([xSpec,oneDSpecInterp],lineProfiles[bestLineProfileIdx])
-    linesX = findLines(oneDSpecInterp,
-                       xXCor,
-                       xCorVals,
-                       3.,
-                       peakHeight=14000.,
-                       peakWidth=3.,
-                      )
-    print('linesX = ',linesX)
+        xSpec = np.arange(0,oneDSpecInterp.shape[0],1.)
+        print('xSpec = ',xSpec)
+    if False:
+    #    xCor([xSpec,oneDSpecInterp],lineProfiles[bestLineProfileIdx])
+        xXCor, xCorVals = xCor([xSpec,oneDSpecInterp],lineProfiles[bestLineProfileIdx])
+        linesX = findLines(oneDSpecInterp,
+                           xXCor,
+                           xCorVals,
+                           3.,
+                           peakHeight=14000.,
+                           peakWidth=3.,
+                          )
+        print('linesX = ',linesX)
 
-    plt.plot(oneDSpecInterp)
-    chiSquares = []
-    chiSquareLimit = 0.16
-    for line in linesX:
-#        print('line = ',line)
-#        print('lineProfiles[bestLineProfileIdx][0]+line = ',lineProfiles[bestLineProfileIdx][0]+line)
-#        print('np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1) = ',np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1))
-#        print('oneDSpecInterp[np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1)] = ',oneDSpecInterp[np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1)])
-#        print('np.amax(lineProfiles[bestLineProfileIdx][1]) = ',np.amax(lineProfiles[bestLineProfileIdx][1]))
-        xs = np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),
-                                                    int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),
-                                                    1)
-        background = np.amin(oneDSpecInterp[xs])
-        top = np.amax(oneDSpecInterp[xs])
-        plt.plot(lineProfiles[bestLineProfileIdx][0]+line,
-                 lineProfiles[bestLineProfileIdx][1]
-                 * (top-background)
-                 / np.amax(lineProfiles[bestLineProfileIdx][1])
-                 + background)
-        profYatX = getYAt(lineProfiles[lineProfileIdx][0]+line,lineProfiles[lineProfileIdx][1],xs)
-        profYatX = profYatX / np.amax(profYatX)
-        lineY = oneDSpecInterp[xs]
-        lineY = lineY - np.amin(lineY)
-        lineY = lineY / np.amax(lineY)
-        chiSquares.append(np.sum((profYatX - lineY) ** 2))
-    plt.show()
+        plt.plot(oneDSpecInterp)
+        chiSquares = []
+        chiSquareLimit = 0.16
+        for line in linesX:
+    #        print('line = ',line)
+    #        print('lineProfiles[bestLineProfileIdx][0]+line = ',lineProfiles[bestLineProfileIdx][0]+line)
+    #        print('np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1) = ',np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1))
+    #        print('oneDSpecInterp[np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1)] = ',oneDSpecInterp[np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1)])
+    #        print('np.amax(lineProfiles[bestLineProfileIdx][1]) = ',np.amax(lineProfiles[bestLineProfileIdx][1]))
+            xs = np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),
+                                                        int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),
+                                                        1)
+            background = np.amin(oneDSpecInterp[xs])
+            top = np.amax(oneDSpecInterp[xs])
+            plt.plot(lineProfiles[bestLineProfileIdx][0]+line,
+                     lineProfiles[bestLineProfileIdx][1]
+                     * (top-background)
+                     / np.amax(lineProfiles[bestLineProfileIdx][1])
+                     + background)
+            profYatX = getYAt(lineProfiles[lineProfileIdx][0]+line,lineProfiles[lineProfileIdx][1],xs)
+            profYatX = profYatX / np.amax(profYatX)
+            lineY = oneDSpecInterp[xs]
+            lineY = lineY - np.amin(lineY)
+            lineY = lineY / np.amax(lineY)
+            chiSquares.append(np.sum((profYatX - lineY) ** 2))
+        plt.show()
 
-    plt.scatter(linesX,chiSquares)
-    plt.show()
-    with open('/Volumes/work/azuri/spectra/saao/saao_refSpec_lines.dat','w') as f:
-        for i in range(len(linesX)):
-            f.write('%.5f \n' % (linesX[i]))
-    with open('/Volumes/work/azuri/spectra/saao/saao_refSpec_lines_good.dat','w') as f:
-        for i in range(len(linesX)):
-            if chiSquares[i] < chiSquareLimit:
+        plt.scatter(linesX,chiSquares)
+        plt.show()
+        with open('/Volumes/work/azuri/spectra/saao/saao_refSpec_lines.dat','w') as f:
+            for i in range(len(linesX)):
                 f.write('%.5f \n' % (linesX[i]))
+        with open('/Volumes/work/azuri/spectra/saao/saao_refSpec_lines_good.dat','w') as f:
+            for i in range(len(linesX)):
+                if chiSquares[i] < chiSquareLimit:
+                    f.write('%.5f \n' % (linesX[i]))
+
+    coeffs = calcDispersion('/Volumes/work/azuri/spectra/saao/saao_refspec_lines_identified_good.dat', xRange=[0,xSpec[xSpec.shape[0]-1]], degree=3)
+    xSpecNorm = normalizeX(xSpec)
+    wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
+    plt.plot(wLenSpec,oneDSpecInterp)
+    plt.show()
 
 if __name__ == "__main__":
     main()

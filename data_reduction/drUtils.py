@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.polynomial.chebyshev import chebval
 from numpy.polynomial.legendre import legval
+from numpy.polynomial import Legendre as L
 #import hammer
 #import numpy as np
 import os
@@ -1340,11 +1341,12 @@ def gauss(x,a,x0,sigma,yBackground=0.):
 # @param sigma: sigma of Gaussians to fit
 # @param peakHeight: float: minimum peak height in spec for find_peaks
 # @param peakWidth: float: minimum peak width in spec for find_peaks
-def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None):
+def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False):
     peaks,properties = find_peaks(spec, height = peakHeight, width=peakWidth)#, threshold=100)#
-    plt.plot(spec)
-    plt.scatter(peaks,spec[peaks])
-    plt.show()
+    if plot:
+        plt.plot(spec)
+        plt.scatter(peaks,spec[peaks])
+        plt.show()
     print('peaks = ',peaks)
     print('properties = ',properties)
     print('spec.shape = ',spec.shape)
@@ -1354,20 +1356,23 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None):
     yNorm = xCorY / np.amax(xCorY)
 #    peaks,properties = find_peaks(0.-yNorm)#, height = -0.05, width=[30,120], threshold=0.00001)
 #    print('peaks = ',peaks)
-    plt.plot(xCorX,yNorm)
+    if plot:
+        plt.plot(xCorX,yNorm)
     xCorPeaks = []
     for peak in peaks:
         xCorPeaks.append(np.where(np.absolute(xCorX - peak) < (xCorX[1]-xCorX[0])/2.)[0])
         print('peak = ',peak,': xCorPeaks[',len(xCorPeaks)-1,'] = ',xCorPeaks[len(xCorPeaks)-1])
     xCorPeaks = np.array(xCorPeaks)
-    plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
-    plt.show()
+    if plot:
+        plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
+        plt.show()
 
     xDiff = []
     yDiff = []
     xYFitParams = []
-    plt.plot(xCorX,yNorm)
-    plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
+    if plot:
+        plt.plot(xCorX,yNorm)
+        plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
     for i in np.arange(0,xCorPeaks.shape[0],1):
         indices = np.where((xCorX > (xCorX[xCorPeaks[i]]-sigma)) & (xCorX < (xCorX[xCorPeaks[i]]+sigma)))
 #            print('indices = ',indices)
@@ -1389,9 +1394,10 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None):
            ):
             xDiff.append(xi[int(xi.shape[0]/2)])
             yFit = gauss(xi,*popt)
-            plt.plot(xi,yi)
-            plt.plot(xi,yFit)
-            plt.scatter(xCorX[xCorPeaks[i]],yNorm[xCorPeaks[i]])
+            if plot:
+                plt.plot(xi,yi)
+                plt.plot(xi,yFit)
+                plt.scatter(xCorX[xCorPeaks[i]],yNorm[xCorPeaks[i]])
             yDiff.append(np.sum(((yi-yFit) / np.amax(yi))**2) / yi.shape[0])
             xYFitParams.append([xi,yi,yFit,popt,i])
         else:
@@ -1404,15 +1410,17 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None):
                 print('np.absolute(sigma - popt[2]) >= (sigma / 2.)')
             xDiff.append(xi[int(xi.shape[0]/2)])
             yFit = gauss(xi,*popt)
-            plt.plot(xi,yi)
-            plt.plot(xi,yFit)
-            plt.scatter(xCorX[xCorPeaks[i]],yNorm[xCorPeaks[i]])
+            if plot:
+                plt.plot(xi,yi)
+                plt.plot(xi,yFit)
+                plt.scatter(xCorX[xCorPeaks[i]],yNorm[xCorPeaks[i]])
+                plt.show()
             yDiff.append(np.sum(((yi-yFit) / np.amax(yi))**2) / yi.shape[0])
-            plt.show()
-    plt.show()
+    if plot:
+        plt.show()
 
-    plt.plot(xDiff,yDiff)
-    plt.show()
+        plt.plot(xDiff,yDiff)
+        plt.show()
     sigmas = [par[3][2] for par in xYFitParams]
     print('good sigmas = ',sigmas)
 
@@ -1426,6 +1434,9 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None):
     plt.show()
 
     return [par[3][1] for par in xYFitParams]
+
+def normalizeX(x):
+    return 2*x/x[-1] - 1
 
 # @brief : fit background and subtract from y
 # @param x : 1D array of x-values
@@ -1459,9 +1470,9 @@ def subtractBackground(x,y,deg,indicesToIgnore=None):
 #              (xFit[-1],)*(k+1)]
 #    print('t = ',t.shape,': ',t)
 #    spl = make_lsq_spline(xFit, yToFit, t, k)
-    nx = 2*xFit/xFit[-1] - 1
+    nx = normalizeX(xFit)
     coeffs = np.polynomial.legendre.legfit(nx, yToFit, deg)
-    nx = 2*xArr/xArr[-1] - 1
+    nx = normalizeX(xArr)
     yFit = np.polynomial.legendre.legval(nx, coeffs)
 #    plt.plot(x,y,label='y(x)')
 #    plt.plot(xFit,yToFit,label='yToFit(xFit)')
@@ -1471,3 +1482,45 @@ def subtractBackground(x,y,deg,indicesToIgnore=None):
 
     return yArr-yFit
 
+def calcDispersion(fNameLineList, xRange, degree=3,delimiter=' '):
+    with open(fNameLineList,'r') as f:
+        lines = f.readlines()
+    print('lines = ',lines)
+
+    pixels = [xRange[0]]
+    wLens = [-1]
+    for line in lines:
+        line = line.rstrip()
+        line = line.split(delimiter)
+        pixels.append(float(line[0]))
+        wLens.append(float(line[1]))
+    pixels.append(xRange[1])
+    wLens.append(-1)
+
+    pixels = np.array(pixels)
+    wLens = np.array(wLens)
+
+    #normalize x to [-1,1]
+    nx = np.array(normalizeX(pixels))
+
+    #fit Legendre polynomial
+    coeffs = np.polynomial.legendre.legfit(nx[1:nx.shape[0]-1], wLens[1:nx.shape[0]-1], degree)
+
+    # calculate fitted values
+    yFit = np.polynomial.legendre.legval(nx[1:nx.shape[0]-1], coeffs)
+    differences = wLens[1:nx.shape[0]-1] - yFit
+    errors = (differences) ** 2
+    rms = np.sqrt(np.sum(errors) / (wLens.shape[0]-2))
+    for i in range(len(pixels)-2):
+        print(pixels[i+1],wLens[i+1],differences[i],errors[i])
+    print('RMS = ',rms)
+
+    # plot original values and fit
+    plt.scatter(pixels[1:nx.shape[0]-1],wLens[1:nx.shape[0]-1])
+    plt.errorbar(pixels[1:nx.shape[0]-1],wLens[1:nx.shape[0]-1],yerr=errors)
+    plt.plot(pixels[1:nx.shape[0]-1],yFit)
+    plt.show()
+
+    #p = L.fit(pixels, wLens, 3)
+    #print('p = ',p)
+    return coeffs
