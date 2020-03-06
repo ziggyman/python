@@ -1,0 +1,2 @@
+rm mpFit.so
+g++ -g -shared -std=c++11 -undefined dynamic_lookup `python3 -m pybind11 --includes` myMPFit.cc ../stella/ses-pipeline/c/cmpfit-1.2/MyFit.cpp -I/opt/local/include -L/usr/local/lib -l mgl -Wno-c++11-extensions -o mpFit.so -fext-numeric-literals

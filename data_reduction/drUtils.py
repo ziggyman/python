@@ -1444,8 +1444,8 @@ def normalizeX(x):
 # @param deg : int: degree for Legendre Polynomial
 # @param indicesToIgnore : 1D array of indices to ignore for fitting the background
 def subtractBackground(x,y,deg,indicesToIgnore=None):
-    print('x = ',x)
-    print('y = ',y)
+#    print('x = ',x)
+#    print('y = ',y)
     xArr = np.array(x)
     yArr = np.array(y)
     xFit = []
@@ -1456,8 +1456,8 @@ def subtractBackground(x,y,deg,indicesToIgnore=None):
             yToFit.append(y[iX])
     xFit = np.array(xFit)
     yToFit = np.array(yToFit)
-    print('xFit = ',xFit.shape,': ',xFit)
-    print('yToFit = ',yToFit.shape,': ',yToFit)
+#    print('xFit = ',xFit.shape,': ',xFit)
+#    print('yToFit = ',yToFit.shape,': ',yToFit)
 
     #interpolate lsq spline
 #    xKnots = xFit[1::3]
