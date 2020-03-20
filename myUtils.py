@@ -300,7 +300,8 @@ def getWavelength(header, axis=2):
 #    lam = np.ndarray(nPix, dtype=np.float32)
 #    lam[0] =
 #    for i in np.arange(1,nPix):
-    lam = np.arange(crVal, crVal + ((nPix-0.5)*cDelt), cDelt, dtype=np.float32)
+    lam = ((np.arange(nPix)+1.0)-crPix)*cDelt+crVal
+#    lam = np.arange(crVal, crVal + ((nPix-0.5)*cDelt), cDelt, dtype=np.float32)
 #    print 'getWavelength: lam = ',len(lam),': ',lam
     return lam
 
