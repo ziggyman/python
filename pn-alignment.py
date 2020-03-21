@@ -1,4 +1,4 @@
-import glob
+#import glob
 import numpy as np
 import os
 import matplotlib
@@ -6,23 +6,56 @@ import matplotlib.pyplot as plt
 import math
 
 from astropy import units as u
-from astropy.coordinates import SkyCoord
+#from astropy.coordinates import SkyCoord
 from astropy.stats import circstats
+import pycircstat
 
 import csvData
 import csvFree
-from galaxyMath import raDecToLB, parallaxToDistance,degToRad,radToDeg
+#from galaxyMath import raDecToLB, parallaxToDistance,degToRad,radToDeg
 from hammer import Pixel,XY,LonLat,Hammer
-from myUtils import getStarWithMinDist
+#from myUtils import getStarWithMinDist
+
+reesZijlstra = False
 
 path = '/Users/azuri/daten/uni/HKU/PN alignment'
-#dataFileName = os.path.join(path, 'PN-alignments.csv')
-#hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
-dataFileName = os.path.join(path, 'Rees_Zijlstra_table_with_HASH-ID.csv')
-hashFileName = os.path.join(path, 'HASH_true_PNe+004.2-05.9+005.9-02.6.csv')
-latexFileName = os.path.join(path, 'PN-alignments_Rees+Zijlstra.tex')
-#gaiaFileNameRoot = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f.csv'
-imOutPath = '/Users/azuri/daten/uni/HKU/PN alignment/images/Rees+Zijlstra/'
+xRangeMax = [-2.83,2.83]
+yRangeMax = [-1.4143,1.4143]
+
+if reesZijlstra:
+    #Rees+Zijlstra
+    dataFileName = os.path.join(path, 'Rees_Zijlstra_table_with_HASH-ID.csv')
+    hashFileName = os.path.join(path, 'HASH_true_PNe+004.2-05.9+005.9-02.6.csv')
+    #bulge:
+    xRange = [-0.172482,0.172482]
+    yRange = [-0.174476,0.174476]
+
+    nBins = 40
+
+    mainClasses = [['B','E','I','S']]
+    latexFileName = os.path.join(path, 'PN-alignments_Rees+Zijlstra.tex')
+    #gaiaFileNameRoot = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f.csv'
+    imOutPath = '/Users/azuri/daten/uni/HKU/PN alignment/images/Rees+Zijlstra/'
+
+else:
+    #my data:
+    dataFileName = os.path.join(path, 'PN-alignments.csv')
+    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
+    #xRange = [-0.236,0.261]
+    #yRange = [-0.0873,0.0873]#yRangeMax#
+    xRange = xRangeMax
+    yRange = yRangeMax
+
+    nBins = 36
+
+    mainClasses = [['E'],['B'],['B','E']]
+    latexFileName = os.path.join(path, 'PN-alignments.tex')
+    #gaiaFileNameRoot = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f.csv'
+    imOutPath = '/Users/azuri/daten/uni/HKU/PN alignment/images/wholeSky/'
+
+
+if not os.path.exists(imOutPath):
+    os.makedirs(imOutPath)
 
 data = csvFree.readCSVFile(dataFileName)
 flags = data.getData('flag')
@@ -44,18 +77,6 @@ show = False
 
 ham = Hammer()
 pixels = ham.getPixels()
-xRangeMax = [-2.83,2.83]
-yRangeMax = [-1.4143,1.4143]
-
-#bulge:
-xRange = [-0.172482,0.172482]
-yRange = [-0.174476,0.174476]
-#xRange = [-0.236,0.261]
-#yRange = [-0.0873,0.0873]#yRangeMax#
-xRange = xRangeMax
-yRange = yRangeMax
-
-nBins = 40#36
 
 def findInHash(hashData, hashID):
     ids = hashData.getData('idPNMain')
@@ -355,11 +376,11 @@ def plotLBMarks(x):
 if __name__ == "__main__":
     #print('data.getData("EPA") = ',data.getData('EPA'))
     with open(os.path.join(path,'numbers.txt'),'w') as numbers:
-        for maxFlag in [2]:#np.arange(1,4,1):
-            for mainClass in [['B','E','I','S']]:#['E'],['B'],['B','E']]:
-                for rosePlotArea in [False]:#True]:#,False]:
-                    for rosePlotSmooth in [False]:#True,False]:
-                        if True:#False:#(maxFlag == 2) and (mainClass == ['B']) and (not rosePlotSmooth):
+        for maxFlag in np.arange(1,4,1):
+            for mainClass in mainClasses:
+                for rosePlotArea in [False,True]:#,False]:
+                    for rosePlotSmooth in [True,False]:
+                        if False:#False:#(maxFlag == 2) and (mainClass == ['B']) and (not rosePlotSmooth):
     #                        print('show = ',show)
     #                        STOP
                             show = True
@@ -491,10 +512,6 @@ if __name__ == "__main__":
                             ids = np.array([i[10] for i in lbxyGPA])
     #                        print('oneFlags = ',type(oneFlags),': ',oneFlags)
 
-                            # calculate Rayleigh probability that the distribution is uniform
-                            p = circstats.rayleightest(GPA[oneFlags] * 2.)
-                            print('p(GPA*2) = ',p)
-
                             # calculate moments
                             moments = calcMoments(GPA[oneFlags])
                             if moments[0][0] < 0.:
@@ -505,6 +522,52 @@ if __name__ == "__main__":
                             dev = (GPA[oneFlags].shape[0]-mean[1]) / 2.
                             print('oneFlags.shape[0] = ',oneFlags.shape[0])
                             print('GPA[oneFlags].shape[0] = ',GPA[oneFlags].shape[0])
+
+                            # calculate Rayleigh probability that the distribution is uniform
+                            gpaRad = np.array([np.radians(2.*g) for g in GPA[oneFlags]])
+                            pRad = circstats.rayleightest(gpaRad)
+                            print('pRad = ',pRad)
+                            print('length of R = ',mean[1])
+                            print('dev = ',dev)
+                            print('fNameSuffix = <'+fNameSuffix+'>')
+                            fNameSuffix = fNameSuffix % (pRad, mean[0], dev)
+                            statsFile = os.path.join(imOutPath,fNameSuffix[1:-3]+'dat')
+                            print('statsFile = <'+statsFile+'>')
+                            with open(statsFile,'w') as sFile:
+                                sFile.write('pRayleigh = %.10f\n' % pRad)
+                                pPyCircRad = pycircstat.rayleigh(gpaRad)
+                                print('pPyCircRad = ',pPyCircRad)
+
+                                pOmnibus = pycircstat.omnibus(gpaRad)
+                                print('Omnibus = ',pOmnibus)
+                                print('Omnibus[0] = ',pOmnibus[0])
+                                print('Omnibus[1] = ',pOmnibus[1])
+                                sFile.write('Omnibus = (%.10f, %.10f)\n' % (pOmnibus[0], pOmnibus[1][0]))
+
+                                pRaoSpacing = pycircstat.raospacing(gpaRad)
+                                print('pRaoSpacing = ',pRaoSpacing)
+                                print('pRaoSpacing[0] = ',pRaoSpacing[0])
+                                print('pRaoSpacing[1] = ',pRaoSpacing[1])
+                                print('pRaoSpacing[2] = ',pRaoSpacing[2])
+                                sFile.write('pRaoSpacing = (%.10f, %.10f, %.10f)\n' % (pRaoSpacing[0], pRaoSpacing[1], pRaoSpacing[2]))
+
+                                pVTest = pycircstat.vtest(gpaRad, np.radians(mean))
+                                print('pVTest = ',pVTest)
+                                sFile.write('pVTest = ([%.10f, %.10f], [%.10f, %.10f]\n' % (pVTest[0][0], pVTest[0][1], pVTest[1][0], pVTest[1][1]))
+
+                                pSymTest = pycircstat.symtest(gpaRad, axis=None)
+                                print('pSymTest = ',pSymTest)
+                                sFile.write('pSymTest = (%.10f, %.10f)\n' % (pSymTest[0], pSymTest[1]))
+
+                                try:
+                                    pMTest = pycircstat.mtest(gpaRad, np.radians(mean))
+                                    print('pMTest = ',pMTest)
+                                    sFile.write('pMTest = [%r, %r], %.10f, confidence interval(lower=%.10f, upper=%.10f)\n' % (pMTest[0][0], pMTest[0][1], pMTest[1], pMTest[2].lower, pMTest[2].upper))
+                                except:
+                                    sFile.write('pMTest failed\n')
+                                    pass
+                                p = pRad
+
                             uni = np.unique(ids)
                             print('unique ids = ',uni)
                             uni = np.unique(ids[oneFlags])
@@ -518,10 +581,6 @@ if __name__ == "__main__":
                                 for u in uni[1:]:
                                     tf.write(',%d' % int(u))
                             numbers.write('%d EPAs from %d PNe\n' % (GPA[oneFlags].shape[0],uni.shape[0]))
-                            print('length of R = ',mean[1])
-                            print('dev = ',dev)
-                            print('fNameSuffix = <'+fNameSuffix+'>')
-                            fNameSuffix = fNameSuffix % (p, mean[0], dev)
 
                             # plot number of PNe per quadrant
                             nStarsPerQuadrant = np.zeros(4)
