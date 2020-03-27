@@ -17,6 +17,7 @@ from hammer import Pixel,XY,LonLat,Hammer
 #from myUtils import getStarWithMinDist
 
 reesZijlstra = False
+bulge = False
 
 path = '/Users/azuri/daten/uni/HKU/PN alignment'
 xRangeMax = [-2.83,2.83]
@@ -40,18 +41,39 @@ if reesZijlstra:
 else:
     #my data:
     dataFileName = os.path.join(path, 'PN-alignments.csv')
-    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
-    #xRange = [-0.236,0.261]
+#    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
+    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe_withPA_mock_mean90.0_sdev1.0.csv')
+
+    #xRange = [-0.263,0.263]
     #yRange = [-0.0873,0.0873]#yRangeMax#
     xRange = xRangeMax
     yRange = yRangeMax
+#    xRange = [0.,xRangeMax[1]]
+#    yRange = [0.,yRangeMax[1]]
+#    xRange = [xRangeMax[0],0]
+#    yRange = [0.,yRangeMax[1]]
+#    xRange = [0.,xRangeMax[1]]
+#    yRange = [yRangeMax[0],0.]
+#    xRange = [xRangeMax[0],0]
+#    yRange = [yRangeMax[0],0.]
+#    xRange = [-0.172482,0.]
+#    yRange = [-0.174476,0.]
+#    xRange = [0.,0.172482]
+#    yRange = [0.,0.174476]
+#    xRange = [-0.172482,0.]
+#    yRange = [0.,0.174476]
+#    xRange = [0.,0.172482]
+#    yRange = [-0.174476,0.]
+    if bulge:
+        xRange = [-0.172482,0.172482]
+        yRange = [-0.174476,0.174476]
+    imOutPath = '/Users/azuri/daten/uni/HKU/PN alignment/mock/'+hashFileName[:-4]+'/x=%.5f-%.5f_y=%.5f-%.5f/' % (xRange[0],xRange[1],yRange[0],yRange[1])
 
     nBins = 36
 
     mainClasses = [['E'],['B'],['B','E']]
     latexFileName = os.path.join(path, 'PN-alignments.tex')
     #gaiaFileNameRoot = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f.csv'
-    imOutPath = '/Users/azuri/daten/uni/HKU/PN alignment/images/wholeSky/'
 
 
 if not os.path.exists(imOutPath):
@@ -456,10 +478,6 @@ if __name__ == "__main__":
                                     prevPrev = prev
                                     prev = hashID
 
-                                    if True:#hashData.getData('mainClass', iLine) in mainClass:
-                                        print("hashData.getData('mainClass', iLine=",iLine,") = ",hashData.getData('mainClass', iLine))
-                                        print("hashData.getData('mainClass', hashLine=",hashLine,") = ",hashData.getData('mainClass', hashLine))
-
                                     if hashData.getData('mainClass', hashLine) in mainClass:
                                         l = float(hashData.getData('Glon', hashLine))
                                         b = float(hashData.getData('Glat', hashLine))
@@ -544,12 +562,16 @@ if __name__ == "__main__":
                                 print('Omnibus[1] = ',pOmnibus[1])
                                 sFile.write('Omnibus = (%.10f, %.10f)\n' % (pOmnibus[0], pOmnibus[1][0]))
 
-                                pRaoSpacing = pycircstat.raospacing(gpaRad)
-                                print('pRaoSpacing = ',pRaoSpacing)
-                                print('pRaoSpacing[0] = ',pRaoSpacing[0])
-                                print('pRaoSpacing[1] = ',pRaoSpacing[1])
-                                print('pRaoSpacing[2] = ',pRaoSpacing[2])
-                                sFile.write('pRaoSpacing = (%.10f, %.10f, %.10f)\n' % (pRaoSpacing[0], pRaoSpacing[1], pRaoSpacing[2]))
+                                try:
+                                    pRaoSpacing = pycircstat.raospacing(gpaRad)
+                                    print('pRaoSpacing = ',pRaoSpacing)
+                                    print('pRaoSpacing[0] = ',pRaoSpacing[0])
+                                    print('pRaoSpacing[1] = ',pRaoSpacing[1])
+                                    print('pRaoSpacing[2] = ',pRaoSpacing[2])
+                                    sFile.write('pRaoSpacing = (%.10f, %.10f, %.10f)\n' % (pRaoSpacing[0], pRaoSpacing[1], pRaoSpacing[2]))
+                                except:
+                                    sFile.write('pRaoSpacingTest failed\n')
+                                    pass
 
                                 pVTest = pycircstat.vtest(gpaRad, np.radians(mean))
                                 print('pVTest = ',pVTest)
@@ -632,7 +654,7 @@ if __name__ == "__main__":
                             plotHammerProjection(x,y,GPA,oneFlags,eFlags,bFlags,os.path.join(imOutPath,'all_pne'+fNameSuffix))
 
                             fig = plt.figure(figsize=(5,4.7))
-                            plt.hist(GPA[oneFlags], bins=nBins)
+                            plt.hist(GPA[oneFlags], bins=int(nBins/2))
                             plt.xlabel('GPA [degrees]',fontsize=14)
                             plt.ylabel('Number of PNe',fontsize=14)
                             plt.xticks(fontsize=14)
