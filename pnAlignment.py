@@ -18,6 +18,7 @@ from hammer import Pixel,XY,LonLat,Hammer
 
 reesZijlstra = False
 bulge = False
+mockSample = True
 
 path = '/Users/azuri/daten/uni/HKU/PN alignment'
 xRangeMax = [-2.83,2.83]
@@ -42,7 +43,11 @@ else:
     #my data:
     dataFileName = os.path.join(path, 'PN-alignments.csv')
 #    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
-    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe_withPA_mock_mean90.0_sdev1.0.csv')
+    if mockSample:
+#        hashFileName = os.path.join(path, 'mock/HASH_bipolar+elliptical_true_PNe_withPA_Bmean45_sdev10_Emean135_sdev20.csv')
+        hashFileName = os.path.join(path, 'mock/HASH_bipolar+elliptical_true_PNe_withPA_Bmean15_sdev10_Emean135_sdev20.csv')
+    else:
+        hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
 
     #xRange = [-0.263,0.263]
     #yRange = [-0.0873,0.0873]#yRangeMax#
@@ -67,7 +72,7 @@ else:
     if bulge:
         xRange = [-0.172482,0.172482]
         yRange = [-0.174476,0.174476]
-    imOutPath = '/Users/azuri/daten/uni/HKU/PN alignment/mock/'+hashFileName[:-4]+'/x=%.5f-%.5f_y=%.5f-%.5f/' % (xRange[0],xRange[1],yRange[0],yRange[1])
+    imOutPath = hashFileName[:-4]+'/x=%.5f-%.5f_y=%.5f-%.5f/' % (xRange[0],xRange[1],yRange[0],yRange[1])
 
     nBins = 36
 
@@ -79,19 +84,19 @@ else:
 if not os.path.exists(imOutPath):
     os.makedirs(imOutPath)
 
-data = csvFree.readCSVFile(dataFileName)
-flags = data.getData('flag')
-flags = np.array([int(a) for a in flags])
-wh = np.where(flags==1,True,False)
-ones = flags[wh]
-print('found ',ones.shape[0],' flag 1')
-wh = np.where(flags==2,True,False)
-twos = flags[wh]
-print('found ',twos.shape[0],' flag 2')
-wh = np.where(flags==3,True,False)
-threes = flags[wh]
-print('found ',threes.shape[0],' flag 3')
-hashData = csvFree.readCSVFile(hashFileName)
+#data = csvFree.readCSVFile(dataFileName)
+#flags = data.getData('flag')
+#flags = np.array([int(a) for a in flags])
+#wh = np.where(flags==1,True,False)
+#ones = flags[wh]
+#print('found ',ones.shape[0],' flag 1')
+#wh = np.where(flags==2,True,False)
+#twos = flags[wh]
+#print('found ',twos.shape[0],' flag 2')
+#wh = np.where(flags==3,True,False)
+#threes = flags[wh]
+#print('found ',threes.shape[0],' flag 3')
+#hashData = csvFree.readCSVFile(hashFileName)
 
 show = False
 # Turn interactive plotting off
@@ -106,6 +111,84 @@ def findInHash(hashData, hashID):
         if ids[iLine] == hashID:
             return iLine
     return -1
+
+def findPNeWithPAinHASH(inFileNamePAs, inFileNameHASH, outFileName):
+    csvPAs = csvFree.readCSVFile(inFileNamePAs)
+    print('csvPAs.header = ',csvPAs.header)
+    print('csvPAs.size() = ',csvPAs.size())
+
+    csvHASH = csvFree.readCSVFile(inFileNameHASH)
+    print('csvHASH.header = ',csvHASH.header)
+    print('csvHASH.size() = ',csvHASH.size())
+
+    idsWithPA = csvPAs.getData('HASH ID')
+    allIDs = csvHASH.getData('idPNMain')
+
+    csvOut = csvData.CSVData()
+    csvOut.header = csvHASH.header
+    print('csvOut.header = ',csvOut.header)
+    csvOut.addColumn('flag')
+    csvOut.addColumn('source')
+    print('csvOut.header = ',csvOut.header)
+    print('csvOut.size() = ',csvOut.size())
+
+    for iPA in np.arange(0,csvPAs.size(),1):
+        found = False
+        previouslyFound = False
+        for iHASH in np.arange(0,csvHASH.size(),1):
+            if (not found) and (idsWithPA[iPA] == allIDs[iHASH]):
+                if previouslyFound:
+                    print('ERROR: previouslyFound')
+                    STOP
+                newLine = csvHASH.getData(iHASH)
+                if len(newLine) < len(csvOut.header):
+                    newLine.append(csvPAs.getData('flag',iPA))
+                    newLine.append(csvPAs.getData('source',iPA))
+                print('newLine = ',len(newLine),': ',newLine)
+                print('len(csvOut.header) = ',len(csvOut.header))
+                csvOut.append(newLine)
+                csvOut.setData('EPA',csvOut.size()-1,csvPAs.getData('EPA',iPA))
+                csvOut.setData('GPA',csvOut.size()-1,csvPAs.getData('GPA',iPA))
+                if len(newLine) == len(csvOut.header):
+                    csvOut.setData('flag',csvOut.size()-1,csvPAs.getData('flag',iPA))
+                    csvOut.setData('source',csvOut.size()-1,csvPAs.getData('source',iPA))
+
+                print('iPA = ',iPA,', csvOut.size()-1 = ',csvOut.size()-1)
+                print('csvPAs.getData(',iPA,') = ',csvPAs.getData(iPA))
+                print('csvHASH.getData(',iHASH,') = ',csvHASH.getData(iHASH))
+                print('csvOut.getData(',iPA,') = ',csvOut.getData(iPA))
+                if iPA != csvOut.size()-1:
+                    print('iPA(=',iPA,') != csvOut.size()-1(=',csvOut.size()-1,')')
+                    print('csvPAs.getData(',iPA,') = ',csvPAs.getData(iPA))
+                    print('csvOut.getData(',iPA,') = ',csvOut.getData(iPA))
+                    print('csvOut.getData(',csvOut.size()-1,') = ',csvOut.getData(iPA))
+                    STOP
+                if csvPAs.getData('GPA',iPA) != csvOut.getData('GPA',iPA):
+                    print('ERROR with GPAs at iPA = ',iPA)
+                    print("csvPAs.getData('GPA',",iPA,") = ",csvPAs.getData('GPA',iPA),", csvOut.getData('GPA',",iPA,") = ",csvOut.getData('GPA',iPA))
+                    STOP
+                if csvPAs.getData('EPA',iPA) != csvOut.getData('EPA',iPA):
+                    print('ERROR with EPAs at iPA = ',iPA)
+                    print("csvPAs.getData('EPA',",iPA,") = ",csvPAs.getData('EPA',iPA),", csvOut.getData('EPA',",iPA,") = ",csvOut.getData('EPA',iPA))
+                    STOP
+                if csvPAs.getData('flag',iPA) != csvOut.getData('flag',iPA):
+                    print('ERROR with flags at iPA = ',iPA)
+                    print("csvPAs.getData('flag',",iPA,") = ",csvPAs.getData('flag',iPA),", csvOut.getData('flag',",iPA,") = ",csvOut.getData('flag',iPA))
+                    STOP
+                if csvPAs.getData('source',iPA) != csvOut.getData('source',iPA):
+                    print('ERROR with sources at iPA = ',iPA)
+                    print("csvPAs.getData('source',",iPA,") = ",csvPAs.getData('source',iPA),", csvOut.getData('source',",iPA,") = ",csvOut.getData('source',iPA))
+                    STOP
+
+                found = True
+                previouslyFound = True
+                print(' ')
+        if not found:
+            print('ERROR: ID ',idsWithPA[iPA],' not found in HASH data')
+            STOP
+
+    csvFree.writeCSVFile(csvOut,outFileName)
+
 
 # @brief Calculate first 4 circular moments of angles
 # @param angles: np.array of angles in degrees
@@ -397,12 +480,20 @@ def plotLBMarks(x):
 
 if __name__ == "__main__":
     #print('data.getData("EPA") = ',data.getData('EPA'))
+    hashData = None
+    if mockSample:
+        hashData = csvFree.readCSVFile(hashFileName)
+    else:
+        newHashFileName = hashFileName[:-4]+'_withGPA.csv'
+        findPNeWithPAinHASH(dataFileName, hashFileName, newHashFileName)
+        hashData = csvFree.readCSVFile(newHashFileName)
+
     with open(os.path.join(path,'numbers.txt'),'w') as numbers:
-        for maxFlag in np.arange(1,4,1):
+        for maxFlag in [3]:#np.arange(1,4,1):
             for mainClass in mainClasses:
-                for rosePlotArea in [False,True]:#,False]:
-                    for rosePlotSmooth in [True,False]:
-                        if False:#False:#(maxFlag == 2) and (mainClass == ['B']) and (not rosePlotSmooth):
+                for rosePlotArea in [True,]:#False,True]:#,False]:
+                    for rosePlotSmooth in [False,]:#True,False]:
+                        if True:#False:#(maxFlag == 2) and (mainClass == ['B']) and (not rosePlotSmooth):
     #                        print('show = ',show)
     #                        STOP
                             show = True
@@ -425,7 +516,7 @@ if __name__ == "__main__":
                         fNameSuffix += '.pdf'
 
                         lbxyGPA = [] #Glon, Glat, x, y, GPA, flag, csGlon, csGlat, [dist,...]
-                        hashIDs = []
+#                        hashIDs = []
 
                         with open(latexFileName,'w') as texFile:
                             texFile.write('\\documentclass{article}\n')
@@ -440,73 +531,83 @@ if __name__ == "__main__":
                             texFile.write('\\hline\n')
                             prev = -1
                             prevPrev = -1
-                            for iLine in np.arange(0,data.size(),1):
-                                if data.getData('EPA',iLine) != '':
-                                    hashID = data.getData('HASH ID', iLine)
-                                    hashIDs.append(hashID)
-                                    hashLine = findInHash(hashData, hashID)
-                                    if hashLine == -1:
-                                        STOP
-                                    imageName = os.path.join(path, 'thumbnails/'+hashID+'.png')
-                        #            print('imageName = <'+imageName+'>')
+                            for iLine in np.arange(0,hashData.size(),1):
+                                hashID = hashData.getData('idPNMain', iLine)
+#                                hashIDs.append(hashID)
+#                                hashLine = hashData.getData('idPNMain', iLine)
+#                                if hashLine == -1:
+#                                    STOP
+                                imageName = os.path.join(path, 'thumbnails/'+hashID+'.png')
+                    #            print('imageName = <'+imageName+'>')
+                                if not os.path.isfile(imageName):
+                                    print('file <'+imageName+'> not found')
+                    #                files = glob.glob(os.path.join(path,'thumbnails/'+str(hashID)+'[a-z].png'))
+                    #                print('files = ',files)
+                                    if prevPrev == hashID:
+                                        imageName = os.path.join(path, 'thumbnails/'+hashID+'c.png')
+                                    elif prev == hashID:
+                                        imageName = os.path.join(path, 'thumbnails/'+hashID+'b.png')
+                                    else:
+                                        imageName = os.path.join(path, 'thumbnails/'+hashID+'a.png')
                                     if not os.path.isfile(imageName):
                                         print('file <'+imageName+'> not found')
-                        #                files = glob.glob(os.path.join(path,'thumbnails/'+str(hashID)+'[a-z].png'))
-                        #                print('files = ',files)
-                                        if prevPrev == hashID:
-                                            imageName = os.path.join(path, 'thumbnails/'+hashID+'c.png')
-                                        elif prev == hashID:
-                                            imageName = os.path.join(path, 'thumbnails/'+hashID+'b.png')
-                                        else:
-                                            imageName = os.path.join(path, 'thumbnails/'+hashID+'a.png')
-                                        if not os.path.isfile(imageName):
-                                            print('file <'+imageName+'> not found')
-                                    texFile.write(hashID+' & ')
-                                    texFile.write(data.getData('DRAJ2000', iLine)+' & ')
-                                    texFile.write(data.getData('DDECJ2000', iLine)+' & ')
-                                    texFile.write(data.getData('l', iLine)+' & ')
-                                    texFile.write(data.getData('b', iLine) + ' & ')
-                                    texFile.write(data.getData('EPA', iLine)+' & ')
-                                    texFile.write(data.getData('flag', iLine)+' & ')
-                                    texFile.write(data.getData('GPA', iLine)+' & ')
-                                    texFile.write(hashData.getData('mainClass', hashLine) + hashData.getData('subClass', hashLine) + ' & ')
-                                    texFile.write(hashData.getData('MajDiam', hashLine) + ' & ')
-                                    texFile.write(data.getData('source', iLine)+' & ')
-                                    if os.path.isfile(imageName):
-                                        texFile.write('\\centerline{\\includegraphics[height=0.3\\textheight]{'+imageName+'}}\n')
-                                    texFile.write('\\\\ \\hline\n')
-                                    prevPrev = prev
-                                    prev = hashID
+                                texFile.write(hashID+' & ')
+                                texFile.write(hashData.getData('DRAJ2000', iLine)+' & ')
+                                texFile.write(hashData.getData('DDECJ2000', iLine)+' & ')
+                                texFile.write(hashData.getData('Glon', iLine)+' & ')
+                                texFile.write(hashData.getData('Glat', iLine) + ' & ')
+                                texFile.write(hashData.getData('EPA', iLine)+' & ')
+                                texFile.write(hashData.getData('flag', iLine)+' & ')
+                                texFile.write(hashData.getData('GPA', iLine)+' & ')
+                                texFile.write(hashData.getData('mainClass', iLine) + hashData.getData('subClass', iLine) + ' & ')
+                                texFile.write(hashData.getData('MajDiam', iLine) + ' & ')
+                                texFile.write(hashData.getData('source', iLine)+' & ')
+                                if os.path.isfile(imageName):
+                                    texFile.write('\\centerline{\\includegraphics[height=0.3\\textheight]{'+imageName+'}}\n')
+                                texFile.write('\\\\ \\hline\n')
+                                prevPrev = prev
+                                prev = hashID
 
-                                    if hashData.getData('mainClass', hashLine) in mainClass:
-                                        l = float(hashData.getData('Glon', hashLine))
-                                        b = float(hashData.getData('Glat', hashLine))
-                                        xy = ham.lonLatToXY(l,b)
-    #                                    print('xy = ',xy)
-                                        x = xy.x
-                                        y = xy.y
-    #                                    print('x = ',x,', y = ',y)
+                                if hashData.getData('mainClass', iLine) in mainClass:
+                                    l = float(hashData.getData('Glon', iLine))
+                                    b = float(hashData.getData('Glat', iLine))
+                                    xy = ham.lonLatToXY(l,b)
+#                                    print('xy = ',xy)
+                                    x = xy.x
+                                    y = xy.y
+#                                    print('x = ',x,', y = ',y)
 
-                                        gpa = float(data.getData('GPA', iLine))
-                                        if gpa < 0.:
-                                            gpa += 180
-                                        if gpa > 180:
-                                            gpa -= 180.
+                                    gpa = float(hashData.getData('GPA', iLine))
+                                    if gpa < 0.:
+                                        gpa += 180
+                                    if gpa > 180:
+                                        gpa -= 180.
 
-                                        csGlon = hashData.getData('CS_Glon', hashLine)
-                                        csGlat = hashData.getData('CS_Glat', hashLine)
+                                    csGlon = hashData.getData('CS_Glon', iLine)
+                                    csGlat = hashData.getData('CS_Glat', iLine)
 
-                                        dist = None
-    #                                    if (csGlon != '') and (csGlat != ''):
-                            #                getStarWithMinDist(gaiaData, ra, dec, iStar=0)
-                            #                c = SkyCoord(ra=float(csRa)*u.degree, dec=float(csDec)*u.degree, frame='icrs')
-                            #                lb = c.galactic
-                            #                print('dir(lb) = ',dir(lb))
-    #                                        print('l = ',l,', b = ',b)
-                                        if (x >= xRange[0]) and (x <= xRange[1]) and (y >= yRange[0]) and (y <= yRange[1]):
-                                            lbxyGPA.append([l, b, x, y, gpa, int(data.getData('flag', iLine)), csGlon, csGlat, dist, hashData.getData('mainClass', hashLine), hashID])
-                                        if hashID == '113':
-                                            print(lbxyGPA)
+                                    dist = None
+#                                    if (csGlon != '') and (csGlat != ''):
+                        #                getStarWithMinDist(gaiaData, ra, dec, iStar=0)
+                        #                c = SkyCoord(ra=float(csRa)*u.degree, dec=float(csDec)*u.degree, frame='icrs')
+                        #                lb = c.galactic
+                        #                print('dir(lb) = ',dir(lb))
+#                                        print('l = ',l,', b = ',b)
+                                    if (x >= xRange[0]) and (x <= xRange[1]) and (y >= yRange[0]) and (y <= yRange[1]):
+                                        lbxyGPA.append({'l':l,# 0
+                                                        'b':b,# 1
+                                                        'x':x,# 2
+                                                        'y':y,# 3
+                                                        'gpa':gpa,# 4
+                                                        'flag':int(hashData.getData('flag', iLine)),# 5
+                                                        'csGlon':csGlon,# 6
+                                                        'csGlat':csGlat,# 7
+                                                        'dist':dist,# 8
+                                                        'mainClass':hashData.getData('mainClass', iLine),# 9
+                                                        'ID':hashID,# 10
+                                        })
+                                    if hashID == '113':
+                                        print(lbxyGPA)
 #                                            STOP
 
                             texFile.write('\\caption{Your caption here} % needs to go inside longtable environment\n')
@@ -519,15 +620,15 @@ if __name__ == "__main__":
 
     #                        print('len(lbxyGPA) = ',len(lbxyGPA))
     #                        print('lbxyGPA[:][0] = ',lbxyGPA[:][0])
-                            l = np.array([i[0] for i in lbxyGPA])
-                            b = np.array([i[1] for i in lbxyGPA])
-                            x = np.array([i[2] for i in lbxyGPA])
-                            y = np.array([i[3] for i in lbxyGPA])
-                            GPA = np.array([i[4] for i in lbxyGPA])
-                            flag = np.array([i[5] for i in lbxyGPA])
-                            mClass = np.array([i[9] for i in lbxyGPA])
+                            l = np.array([i['l'] for i in lbxyGPA])
+                            b = np.array([i['b'] for i in lbxyGPA])
+                            x = np.array([i['x'] for i in lbxyGPA])
+                            y = np.array([i['y'] for i in lbxyGPA])
+                            GPA = np.array([i['gpa'] for i in lbxyGPA])
+                            flag = np.array([i['flag'] for i in lbxyGPA])
+                            mClass = np.array([i['mainClass'] for i in lbxyGPA])
                             oneFlags = np.array([f <= maxFlag for f in flag])
-                            ids = np.array([i[10] for i in lbxyGPA])
+                            ids = np.array([i['ID'] for i in lbxyGPA])
     #                        print('oneFlags = ',type(oneFlags),': ',oneFlags)
 
                             # calculate moments
