@@ -137,13 +137,13 @@ def findTargetsVisibleAt(targets, timeUTC, location, utcoffset, minimumAltitude)
     for line in targets:
         ra = float(line['DRAJ2000'])
         dec = float(line['DDECJ2000'])
-        raHMS = line['RAJ2000']
-        decDMS = line['DECJ2000']
+#        raHMS = line['RAJ2000']
+#        decDMS = line['DECJ2000']
 #        print(line['Name']+': ra = ',raHMS,', dec = ',decDMS)
         targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
         altaz = targetCoord.transform_to(AltAz(obstime=timeUTC,location=location))
         altitude = float('{0.alt:.2}'.format(altaz).split(' ')[0])
-        localTime = timeUTC+utcoffset
+#        localTime = timeUTC+utcoffset
 #        print('altitude of '+line['Name']+' at '+localTime.strftime("%H:%M")+' is '+str(altitude))
         if altitude > minimumAltitude:
             line.update({'Altitude': '%d' % int(altitude)})

@@ -275,12 +275,13 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
 
     plt.show()
 
-#observatoryName = "Siding Spring Observatory"
-#observatoryLocation = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
-observatoryName = "SAAO"
-observatoryLocation = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
-utcoffset = 2*u.hour
-date = '2019-09-05'
-targetCoord = SkyCoord(ra=130.74928*u.deg, dec=-46.69036*u.deg, frame='icrs')
+if __name__ == '__main__':
+    #observatoryName = "Siding Spring Observatory"
+    #observatoryLocation = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
+    observatoryName = "SAAO"
+    observatoryLocation = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
+    utcoffset = 2*u.hour
+    date = '2019-09-05'
+    targetCoord = SkyCoord(ra=130.74928*u.deg, dec=-46.69036*u.deg, frame='icrs')
 
-plot_target(targetCoord, observatoryLocation, observatoryName, utcoffset, date, False)
+    plot_target(targetCoord, observatoryLocation, observatoryName, utcoffset, date, False)
