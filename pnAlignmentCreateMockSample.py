@@ -1,6 +1,6 @@
 import numpy as np
 import os
-from random import randint
+from random import randint, random, seed, choice, shuffle
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 
@@ -8,6 +8,7 @@ import csvData,csvFree
 from pnAlignment import findPNeWithPAinHASH
 
 path = '/Users/azuri/daten/uni/HKU/PN alignment'
+doRandom = True
 
 # @brief: change the GPAs for a certain percentage of a certain morphological class
 #@param inFileName: string: name of input csvFile
@@ -60,27 +61,38 @@ def changePAs(inFileNameData,morphClassHeader,morphClass,GPAHeader,angleMean,ang
             print('i = ',i,': HASH ID = ',csv.getData("idPNMain",pNeWithMorphClass[randomIDs[i]]),', mainClass=',csv.getData(morphClassHeader, pNeWithMorphClass[randomIDs[i]]),', GPA = ',csv.getData(GPAHeader,pNeWithMorphClass[randomIDs[i]]))
     csvFree.writeCSVFile(csv,outFileName)
 
+def randomizePAs(inFileNameData,GPAHeader,outFileName):
+    seed(1)
+    csv = csvFree.readCSVFile(inFileNameData)
+    sequence = [i for i in range(180)]
+    shuffle(sequence)
+    for i in range(csv.size()):
+        rand = choice(sequence)#random()
+        print('rand = ',rand)
+        csv.setData(GPAHeader, i, str(int(rand)))
+    csvFree.writeCSVFile(csv,outFileName)
+
 
 if __name__ == '__main__':
     paFileName = os.path.join(path, 'PN-alignments.csv')
     hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
-
     newHashFileName = hashFileName[:-4]+'_withPA.csv'
     findPNeWithPAinHASH(paFileName,hashFileName,newHashFileName)
 
     hashFileName = newHashFileName
     hashOutFileName = hashFileName[:hashFileName.rfind('/')]+'/mock'+hashFileName[hashFileName.rfind('/'):-4]
-    print('hashOutFileName = <'+hashOutFileName+'>')
 
-    mainClasses = ['B','E']
-    mean = [15.,135]
-    sdev = [10.,20.]
-    for i in range(len(mainClasses)):
-        hashOutFileName = hashOutFileName+'_'+mainClasses[i]+'mean%d_sdev%d' % (mean[i],sdev[i])
-        print('hashOutFileName = <'+hashOutFileName+'>')
+    if doRandom:
+        hashOutFileName = hashOutFileName + '_random.csv'
+        randomizePAs(hashFileName, 'GPA', hashOutFileName)
 
-    hashOutFileName += '.csv'
-    print('hashOutFileName = <'+hashOutFileName+'>')
+    else:
+        mainClasses = ['B','E']
+        mean = [15.,135]
+        sdev = [10.,20.]
+        for i in range(len(mainClasses)):
+            hashOutFileName = hashOutFileName+'_'+mainClasses[i]+'mean%d_sdev%d' % (mean[i],sdev[i])
+        hashOutFileName += '.csv'
 
-    changePAs(hashFileName,'mainClass',['B','E'],'GPA',mean,sdev,100,hashOutFileName)
+        changePAs(hashFileName,'mainClass',['B','E'],'GPA',mean,sdev,100,hashOutFileName)
     print('finished writing <'+hashOutFileName+'>')
