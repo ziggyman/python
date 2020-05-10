@@ -430,6 +430,7 @@ def dmsToCoordStr(string):
     return d+'d'+m+'m'+s+'s'
 
 # all angles must be in degrees
+#@return: angular distance in arc degrees
 def angularDistancePyAsl(ra1, dec1, ra2, dec2):
     from PyAstronomy import pyasl
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
@@ -452,6 +453,11 @@ def angularDistanceFromXYPyAsl(fitsName, x1, y1, x2, y2):
 #    print('ra2 = ',ra2,', dec2 = ',dec2)
     return angularDistance(ra1, dec1, ra2, dec2)
 
+#@param ra1: RA in degrees
+#@param dec1: DEC in degrees
+#@param ra2: RA in degrees
+#@param dec2: DEC in degrees
+#@return: angular distance in arc seconds
 def angularDistance(ra1, dec1, ra2, dec2):
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
     mm1 = SkyCoord(ra=ra1, dec=dec1, frame='icrs')
@@ -488,6 +494,9 @@ def getArcsecDistance(fitsName, x1, y1, x2, y2):
     mm1 = SkyCoord(ra=raHMS1, dec=decHMS1, unit=(u.hourangle, u.deg))
     mm2 = SkyCoord(ra=raHMS2, dec=decHMS2, unit=(u.hourangle, u.deg))
     return mm1.separation(mm2).arcsecond
+
+def degToArcsec(deg):
+    return deg * 3600.
 
 # offset < 0: fitsName2 shifted left relative to fitsName1
 # offset > 0: fitsName2 shifted right relative to fitsName1 (spectrum appears further left)

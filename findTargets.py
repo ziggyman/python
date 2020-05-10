@@ -4,11 +4,16 @@ import astropy.units as u
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_moon
 import numpy as np
-
+from astroplan import download_IERS_A
 from astropy.utils.iers import conf
+
+import csvFree,csvData
+
 conf.auto_max_age = None
+#download_IERS_A()
 
 midnightTime = Time('2020-5-15 0:00:00')
+doCalc = False
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -85,18 +90,18 @@ def writeCSV(data, fName, sortKey = None):
             f.write('sorry no targets found')
     print('wrote ',fName,' with ',len(data),' data lines')
 
-def removeAlreadyObserved(data, fName='/Users/azuri/daten/uni/HKU/observing/already_observed.list'):
+def removeAlreadyObserved(data, fName='/Users/azuri/daten/uni/HKU/observing/already_observed_May062020.list'):
     alreadyObserved = readFileToArr(fName)
+    print('alreadyObserved = ',alreadyObserved)
     dataOut = []
     nRemoved=0
     for line in data:
-        targetName = line['Name'].strip('"')
-        found = False
-        for name in alreadyObserved:
-            if name == targetName:
-                nRemoved += 1
-                found = True
-#                print('found name <'+name+'> in targetName = <'+targetName+'>')
+        targetName = line['Name'].strip('"').replace(' ','')
+        print('checking for targetName <'+targetName+'>')
+        found = targetName in alreadyObserved
+        if found:
+            nRemoved += 1
+            print('found targetName = <'+targetName+'> in alreadyObserved')
         if not found:
             dataOut.append(line)
     print('removed ',nRemoved,' targets which have already been observed but the spectra have not yet been ingested into the HASH database')
@@ -190,16 +195,66 @@ def getDistanceToMoon(location, starCoord, time):
 #    STOP
     return separation.degree
 
+def findInCSV(csvIn,key,val,keyB=None,valB=None):
+    for i in range(csvIn.size()):
+        if csvIn.getData(key,i) == val:
+            if keyB is None:
+                return i
+            else:
+                if csvIn.getData(keyB,i) == valB:
+                    print('found '+key+'='+val+', '+keyB+'='+valB+' at position ',i)
+                    print('data = ',csvIn.getData(i))
+                    #STOP
+                    return i
+    return -1
+
+def writeCopyImagesComands(csvInFName, outFileName):
+    csvIn = csvFree.readCSVFile(csvInFName)
+    print('csvIn.header = ',csvIn.header)
+    altKey = ' Altitude'
+    if altKey not in csvIn.header:
+        altKey = ' maxAlt'
+
+    csvIphas = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_iphas_images_in_use.csv')
+#    csvIquot = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_iquotHaSr_images.csv')
+    csvSHS = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_shs_images.csv')
+#    csvQuot = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_quotHaSr_images.csv')
+
+    with open(outFileName,'w') as f:
+        picDir = outFileName[outFileName.rfind('/')+1:outFileName.rfind('_')]
+        f.write('mkdir '+picDir+'\n')
+        for i in range(csvIn.size()):
+            idPNMain = csvIn.getData('idPNMain',i).replace(' ','')
+
+            posIphas = findInCSV(csvIphas,'idPNMain',idPNMain,'band','Ha')
+            print('idPNMain = ',idPNMain,': posIphas = ',posIphas)
+#            posIquot = findInCSV(csvIquot,'idPNMain',idPNMain)
+            posSHS = findInCSV(csvSHS,'idPNMain',idPNMain)
+            print('idPNMain = ',idPNMain,': posSHS = ',posSHS)
+#            posQuot = findInCSV(csvQuot,'idPNMain',idPNMain)
+
+            if posIphas >= 0:
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iphas3colour.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iphas3colour.png\n')
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iphas3colour_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iphas3colour_centroid.png\n')
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int.png\n')
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int_centroid.png\n')
+            if posSHS >= 0:
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb.png\n')
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb_centroid.png\n')
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int.png\n')
+                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int_centroid.png\n')
+
+
 def main():
     for site in ['SAAO']:#,'SSO']:
         location = None
         for noDiameterPN in [False]:#, True]:
-            for priority in [True, False]:#
+            for priority in [False]:#True, False]:#
 
                 if priority:
                     allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_truePN_MPA.csv'
                 else:
-                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_PLc.csv'#'/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
 
                 ssoObs = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
                 sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
@@ -248,6 +303,8 @@ def main():
                 if noDiameterPN:
                     outFileName = outFileName[0:outFileName.rfind('.')]+'_noDiamGiven.csv'
 
+                goodFileName = outFileName[0:outFileName.rfind('.')]+'_good.csv'
+
                 midnight = midnightTime - utcoffset
 
                 #print('astronomical twilight as Observatory: %s - %s' % (obs.twilight_evening_astronomical(midnight), obs.twilight_morning_astronomical(midnight)))
@@ -281,106 +338,114 @@ def main():
 #                        print('full hour found at ',time)
                         fullHours.append(time)
 
-                goodTargets = []
-                for line in catLines:
-                    diamStr = line['MajDiam']
-                    print('diamStr = ',diamStr)
-                    if (not noDiameterPN) and (diamStr != ''):
-                        diam = float(diamStr)
-                        if (diam >= minimumMajorDiameter) and (diam <= maximumMajorDiameter):
+                if doCalc:
+                    goodTargets = []
+                    for line in catLines:
+                        diamStr = line['MajDiam']
+                        print('diamStr = ',diamStr)
+                        if (not noDiameterPN) and (diamStr != ''):
+                            diam = float(diamStr)
+                            if (diam >= minimumMajorDiameter) and (diam <= maximumMajorDiameter):
+                                ra = float(line['DRAJ2000'])
+                                dec = float(line['DDECJ2000'])
+    #                            print('ra = ',ra,', dec = ',dec)
+                                targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+                                moonDistance = getDistanceToMoon(location, targetCoord, midnight)
+                                print('moonDistance = ',moonDistance)
+                                nGoodHours = 0
+                                altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
+                                altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
+                                #print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
+                                maxAltitude = np.max(altitude)
+                                if line['Name'] == '':
+                                    line.update({'Name': 'PNG'+line['PNG']})
+                                line.update({'maxAlt':'%.1f'%maxAltitude})
+                                line.update({'moonDist':'%.0f'%moonDistance})
+                    #            print('altitude = ',altitude)
+                                print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': max(altitude) = ',maxAltitude)
+                                whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
+                    #            print('whereGTminAlt = ',whereGTminAlt)
+                                nGoodHours = len(whereGTminAlt) / 60.
+                                print('object can be observed for ',nGoodHours,' hours')
+                                if nGoodHours > 1.5:
+                                    goodTargets.append(line)
+    #                                print('target is possible to observe')
+                        elif noDiameterPN and (diamStr == ''):
+                            print('no diameter given')
+                            if line['MajDiam'] != '':
+                                STOP
                             ra = float(line['DRAJ2000'])
                             dec = float(line['DDECJ2000'])
-#                            print('ra = ',ra,', dec = ',dec)
+    #                        print('ra = ',ra,', dec = ',dec)
                             targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
                             moonDistance = getDistanceToMoon(location, targetCoord, midnight)
-                            print('moonDistance = ',moonDistance)
                             nGoodHours = 0
                             altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
                             altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
-                            #print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',altitude)
-                            maxAltitude = np.max(altitude)
                             if line['Name'] == '':
                                 line.update({'Name': 'PNG'+line['PNG']})
+                            maxAltitude = np.max(altitude)
                             line.update({'maxAlt':'%.1f'%maxAltitude})
                             line.update({'moonDist':'%.0f'%moonDistance})
+                            print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',maxAltitude)
                 #            print('altitude = ',altitude)
-                            print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': max(altitude) = ',maxAltitude)
+                            print('max(altitude) = ',maxAltitude)
                             whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
                 #            print('whereGTminAlt = ',whereGTminAlt)
                             nGoodHours = len(whereGTminAlt) / 60.
                             print('object can be observed for ',nGoodHours,' hours')
                             if nGoodHours > 1.5:
                                 goodTargets.append(line)
-#                                print('target is possible to observe')
-                    elif noDiameterPN and (diamStr == ''):
-                        print('no diameter given')
-                        if line['MajDiam'] != '':
-                            STOP
-                        ra = float(line['DRAJ2000'])
-                        dec = float(line['DDECJ2000'])
-#                        print('ra = ',ra,', dec = ',dec)
-                        targetCoord = SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
-                        moonDistance = getDistanceToMoon(location, targetCoord, midnight)
-                        nGoodHours = 0
-                        altaz = targetCoord.transform_to(AltAz(obstime=np.array(times),location=location))
-                        altitude = [float('{0.alt:.2}'.format(alt).split(' ')[0]) for alt in altaz]
-                        if line['Name'] == '':
-                            line.update({'Name': 'PNG'+line['PNG']})
-                        maxAltitude = np.max(altitude)
-                        line.update({'maxAlt':'%.1f'%maxAltitude})
-                        line.update({'moonDist':'%.0f'%moonDistance})
-                        print(line['Name']+': RA = '+line['RAJ2000']+', DEC = '+line['DECJ2000']+': altitude = ',maxAltitude)
-            #            print('altitude = ',altitude)
-                        print('max(altitude) = ',maxAltitude)
-                        whereGTminAlt = np.where(np.array(altitude) > minimumAltitude)[0]
-            #            print('whereGTminAlt = ',whereGTminAlt)
-                        nGoodHours = len(whereGTminAlt) / 60.
-                        print('object can be observed for ',nGoodHours,' hours')
-                        if nGoodHours > 1.5:
-                            goodTargets.append(line)
-#                            print('target is possible to observe')
+    #                            print('target is possible to observe')
 
-                #            if float(line['DRAJ2000']) < 199:
-                #                STOP
-                goodLength = len(goodTargets)
-                print('found ',len(goodTargets),' good targets')
+                    #            if float(line['DRAJ2000']) < 199:
+                    #                STOP
+                    goodLength = len(goodTargets)
+                    print('found ',len(goodTargets),' good targets')
 
-                goodTargets = removeAlreadyObserved(goodTargets)
-                print('removed ',goodLength - len(goodTargets),' targets already observed')
-                writeCSV(goodTargets,outFileName,'DRAJ2000')
+                    goodTargets = removeAlreadyObserved(goodTargets)
+                    print('removed ',goodLength - len(goodTargets),' targets already observed')
+                    writeCSV(goodTargets,outFileName,'DRAJ2000')
 
-                goodFileName = outFileName[0:outFileName.rfind('.')]+'_good.csv'
+                    moveTargetsStartingWithToNewList(outFileName,
+                                                     'DeGaPe',
+                                                     goodFileName,
+                                                     outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv',
+                                                     append=False)
 
-                moveTargetsStartingWithToNewList(outFileName,
-                                                 'DeGaPe',
-                                                 goodFileName,
-                                                 outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv',
-                                                 append=False)
+                    moveTargetsStartingWithToNewList(goodFileName,
+                                                     'MGE',
+                                                     goodFileName,
+                                                     outFileName[0:outFileName.rfind('.')]+'_MGE.csv',
+                                                     append=False)
 
-                moveTargetsStartingWithToNewList(goodFileName,
-                                                 'MGE',
-                                                 goodFileName,
-                                                 outFileName[0:outFileName.rfind('.')]+'_MGE.csv',
-                                                 append=False)
+                    moveTargetsStartingWithToNewList(goodFileName,
+                                                     'MPA',
+                                                     goodFileName,
+                                                     outFileName[0:outFileName.rfind('.')]+'_MPA.csv',
+                                                     append=False)
 
-                if (not noDiameterPN) and (obs == ssoObs):
-                    fileA = goodFileName
-                    fileB = outFileName[:outFileName.rfind('_')]+'_good.csv'
+                    if (not noDiameterPN) and (obs == ssoObs):
+                        fileA = goodFileName
+                        fileB = outFileName[:outFileName.rfind('_')]+'_good.csv'
 
-                    goodFileName = fileB[:fileB.rfind('.')]+'_new.csv'
-                    print('fileA = <'+fileA+'>, fileB = <'+fileB+'>, goodFileName = <'+goodFileName+'>')
-                    takeOnlyWhatIsInBothInputLists(fileA, fileB, goodFileName)
+                        goodFileName = fileB[:fileB.rfind('.')]+'_new.csv'
+                        print('fileA = <'+fileA+'>, fileB = <'+fileB+'>, goodFileName = <'+goodFileName+'>')
+                        takeOnlyWhatIsInBothInputLists(fileA, fileB, goodFileName)
 
 
-                writeSAAOTargetList(goodFileName,goodFileName[0:goodFileName.rfind('.')]+'.dat')
+                    writeSAAOTargetList(goodFileName,goodFileName[0:goodFileName.rfind('.')]+'.dat')
 
                 print('fullHours = ',fullHours)
-                for fName in [goodFileName, outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv', outFileName[0:outFileName.rfind('.')]+'_MGE.csv']:
+                for fName in [goodFileName, outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv', outFileName[0:outFileName.rfind('.')]+'_MGE.csv', outFileName[0:outFileName.rfind('.')]+'_MPA.csv']:
                     targets = readCSV(fName)
+                    writeCopyImagesComands(fName, fName[:-4]+'_commands')
                     for time in fullHours:
                         visibleAt = findTargetsVisibleAt(targets, time, location, utcoffset, minimumAltitude)
                         localTime = time + utcoffset
-                        writeCSV(visibleAt, fName[:fName.rfind('.')]+'_visible_at_'+localTime.strftime("%H-%M")+'.csv', 'DRAJ2000')
+                        visFileName = fName[:fName.rfind('.')]+'_visible_at_'+localTime.strftime("%H-%M")+'.csv'
+                        writeCSV(visibleAt, visFileName, 'DRAJ2000')
+                        #writeCopyImagesComands(visFileName, visFileName[:-4]+'_commands')
 
 if __name__ == "__main__":
     main()

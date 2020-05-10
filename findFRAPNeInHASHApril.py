@@ -4,25 +4,26 @@ import csvData
 import csvFree
 from myUtils import hmsToDeg,dmsToDeg,raDecToLonLat
 
-longList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2020/TableI_507PNG_08122019_JaunePasDansHASH.csv'
-shortList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2020/TableI_105objets_20112019_JaunePasDansHASH.csv'
+longList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/TableI_569PNG_10042020_HASH.csv'
+shortList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/TableI I_ 120objets_25032020.csv'
 
-outList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2020/FRA_all.csv'
-hashOutList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2020/FRAall_HASHoutput.csv'
+outList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/FRA_all.csv'
+hashOutList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/FRAall_HASHoutput.csv'
 
-idPNMainStart = 32253
-idtbCNamesStart = 121174
-idtbAngDiamStart = 38994
+idPNMainStart = 32490
+idtbCNamesStart = 121425
+idtbAngDiamStart = 39235
 hashIDs = []
 
 def readFRAFile(fname):
     csv = csvFree.readCSVFile(fname,',',False)
-    if csv.header[0] == '\ufeffNOM':
-        csv.renameColumn('\ufeffNOM','NOM')
-        print('renamed column "\ufeffNOM" to <'+csv.header[0]+'>')
-    if csv.header[len(csv.header)-1] == 'HASH ID\r':
-        csv.renameColumn('HASH ID\r','HASH ID')
-        print('renamed column "HASH ID\r" to <'+csv.header[len(csv.header)-1]+'>')
+    print('csv.header[0] = <'+csv.header[0]+'>')
+#    if csv.header[0] == '\ufeffNOM':
+#        csv.renameColumn('\ufeffNOM','NOM')
+#        print('renamed column "\ufeffNOM" to <'+csv.header[0]+'>')
+#    if csv.header[len(csv.header)-1] == 'HASH ID\r':
+#        csv.renameColumn('HASH ID\r','HASH ID')
+#        print('renamed column "HASH ID\r" to <'+csv.header[len(csv.header)-1]+'>')
     print('csv = ',csv)
     print('csv.header = ',csv.header)
     return csv
@@ -33,6 +34,9 @@ def combineLists():
     csvAll = None
     for iList in [longList, shortList]:
         csv = readFRAFile(iList)
+        print('csv.header = ',csv.header)
+#        print('csv.data = ',csv.data)
+#        STOP
         for keyword in csv.header:
             print('checking keyword <'+keyword+'>')
             if keyword not in keepColumns:
@@ -96,11 +100,30 @@ def findPNeNotInHASH():
             csv.addColumn("Coordonnées galactiques")
         for i in np.arange(0,csv.size(),1):
             lon, lat = raDecToLonLat(hmsToDeg(csv.getData("AD:(J2000)",i)),dmsToDeg(csv.getData("DEC (J2000)",i)))
-            strin = '%03.1f'
-            if lat > 0.:
-                strin += '+'
-            strin += '%02.1f'
-            csv.setData("Coordonnées galactiques",i,strin % (float(str(round(lon,1))), float(str(round(lat,1)))))
+            print('lon=',lon,', lat=',lat)
+            png = ''
+            if lon < 100:
+                png += '0'
+            if lon < 10:
+                png += '0'
+            png += str(lon)
+            png = png[:png.rfind('.')+2]
+#            print('png = <'+png+'>')
+            if lat >= 0.:
+                png += '+'
+#                print('png = <'+png+'>')
+            png += str(lat)
+#            print('png = <'+png+'>')
+            png = png[:png.rfind('.')+2]
+#            print('png = <'+png+'>')
+
+            if (lat < 10.) and (lat >= 0.):
+                png = png[:png.rfind('+')+1]+'0'+png[png.rfind('+')+1:]
+            if (lat  > -10.) and (lat < 0.):
+                png = png[:png.rfind('-')+1]+'0'+png[png.rfind('-')+1:]
+#                print('png = <'+png+'>')
+            print('PNG '+png)
+            csv.setData("Coordonnées galactiques",i,png)
         if not csvOut:
             csvOut = csv
         else:
@@ -124,6 +147,7 @@ def findPNeNotInHASH():
 
 def createMySQLCommands():
     csv = csvFree.readCSVFile(hashOutList[:hashOutList.rfind('.')]+'_not_in_HASH.csv')
+    print('csv.header = ',csv.header)
     with open(hashOutList[:hashOutList.rfind('.')]+'_not_in_HASH.sql','w') as f:
         f.write("USE `MainGPN`;\n")
         for i in np.arange(0,csv.size(),1):
@@ -132,7 +156,7 @@ def createMySQLCommands():
             f.write("INSERT INTO `PNMain`(`idPNMain`,`PNG`,`refPNG`,`RAJ2000`,`DECJ2000`,`DRAJ2000`,`DDecJ2000`,")
             f.write("`Glon`,`Glat`,`refCoord`,`Catalogue`,`refCatalogue`,`userRecord`,`domain`,`refDomain`,`PNstat`,`refPNstat`,`refSimbadID`,`show`) ")
             f.write("VALUES (%d,'%s','%s','%s','%s',%.5f,%.5f,%.5f,%.5f,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');\n" % (idPNMainStart+i,
-                                                                                                                                  csv.getData('Coordonnées galactiques',i),
+                                                                                                                                  csv.getData('Coordonnes galactiques',i),
                                                                                                                                   'sys',
                                                                                                                                   csv.getData("AD:(J2000)",i),
                                                                                                                                   csv.getData("DEC (J2000)",i),
@@ -200,6 +224,7 @@ def createMySQLCommands():
 
 
 def main():
+#    combineLists()
     findPNeNotInHASH()
     createMySQLCommands()
 
