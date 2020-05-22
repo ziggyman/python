@@ -37,6 +37,17 @@ from shutil import copyfile
 
 Info = namedtuple('Info', 'start height')
 
+
+def readFileToArr(fname):
+    text_file = open(fname, "r")
+    lines = text_file.readlines()
+
+    """remove empty lines"""
+    lines = list(filter(len, lines))
+
+    linesOut = [line.strip() for line in lines]
+    return linesOut
+
 # remove file <fileName> (including directory) if it exists
 # also works for </dir/start"*"ending>
 def silentRemove(fileName):
@@ -118,6 +129,7 @@ def addSuffixToFileName(fileName, suffix):
 # <changeNames>: if True copy each <file> in <inList> to <EXPTYPE_OBJECT_><file>
 def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=False):
     def createLists(exptype, object, lines, suffix):
+        print('createLists: exptype = <'+exptype+'>, object = <'+object+'>, suffix = <'+suffix+'>')
         listMiddleName = object
         if (object == '*'):
             listMiddleName = ''
@@ -147,7 +159,7 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                     print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
                     isNames.append(line)
                 else:
-                    if objectName == object:
+                    if objectName.lower() == object.lower():
                         print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
                         isNames.append(line)
                     else:
@@ -156,9 +168,11 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
             else:
                 print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
                 isntNames.append(line)
+        print('writing isList <'+isList+'>')
         with open(isList,'w') as f:
             for name in isNames:
                 f.write(addSuffixToFileName(name,suffix)+'\n')
+        print('writing isntList <'+isntList+'>')
         with open(isntList,'w') as f:
             for name in isntNames:
                 f.write(addSuffixToFileName(name,suffix)+'\n')
@@ -1073,10 +1087,13 @@ def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
     writeFits(image, skyFileIn, skyFlatOut, ['SKY_FLAT'], ['rowMedianSmoothSize = %d' % rowMedianSmoothSize], overwrite=True)
 
 # simple sum extraction
-# imageFileIn: string: name of fits file to extract
+# imageFileIn: string or ndarray: str: name of fits file to extract; ndarray:image to extract
 # dispAxis: string: [row, column]
 def extractSum(imageFileIn, dispAxis):
-    image = CCDData.read(imageFileIn, unit="adu")
+    if isinstance(imageFileIn,str):
+        image = CCDData.read(imageFileIn, unit="adu")
+    else:
+        image = imageFileIn
     print('image.shape = ',image.shape)
 
     axis = 0
@@ -1089,8 +1106,15 @@ def extractSum(imageFileIn, dispAxis):
     return np.sum(image, axis = axis)
 
 
-def lambdaCal(oneDImageFileIn):
-    print(oneDImageFileIn)
+def lambdaCal(oneDImageFileIn, specOutName, func, coeffs):
+    spec = np.array(CCDData.read(oneDImageFileIn, unit="adu"))
+    print('spec.shape = ',spec.shape)
+    xSpec = range(spec.shape[0])
+    xSpecNorm = normalizeX(xSpec)
+    wLenSpec = func(xSpecNorm, coeffs)
+    with open(specOutName,'w') as f:
+        for i in xSpec:
+            f.write('%.5f %d' % (wLenSpec[i], spec[i]))
 
 # @brief: calculate the emission line profile for aperture number 'apNumber'
 #         as provided in database/ap<twoDImageFileIn>
@@ -1524,3 +1548,41 @@ def calcDispersion(fNameLineList, xRange, degree=3,delimiter=' '):
     #p = L.fit(pixels, wLens, 3)
     #print('p = ',p)
     return coeffs
+
+def extract(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis):
+    image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
+    print('image.shape')
+
+    profile = extractSum(image,'column' if dispAxis == 'row' else 'row')
+    plt.plot(profile)
+    plt.show()
+
+    if dispAxis == 'row':
+        objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
+        skyAboveSpec = extractSum(image[skyAbove[0]:skyAbove[1]+1,:],dispAxis)
+        skyBelowSpec = extractSum(image[skyAbove[0]:skyAbove[1]+1,:],dispAxis)
+    else:
+        objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
+        skyAboveSpec = extractSum(image[:,skyAbove[0]:skyAbove[1]+1],dispAxis)
+        skyBelowSpec = extractSum(image[:,skyAbove[0]:skyAbove[1]+1],dispAxis)
+
+    skyAboveSpec = skyAboveSpec * (yRange[1] - yRange[0] + 1) / (skyAbove[1] - skyAbove[0] + 1)
+    skyBelowSpec = skyBelowSpec * (yRange[1] - yRange[0] + 1) / (skyBelow[1] - skyBelow[0] + 1)
+
+    plt.plot(objectSpec,'b-')
+
+    skyAbovePos = skyAbove[0] + ((skyAbove[1]-skyAbove[0]) / 2.)
+    skyBelowPos = skyBelow[0] + ((skyBelow[1]-skyBelow[0]) / 2.)
+    specPos = yRange[0] + ((yRange[1]-yRange[0]) / 2.)
+    print('skyBelow = ',skyBelow,', yRange = ',yRange,', skyAbove = ',skyAbove)
+    print('skyBelowPos = ',skyBelowPos,', specPos = ',specPos,', skyAbovePos = ',skyAbovePos)
+
+    plt.plot(skyBelowSpec,'y-')
+    plt.plot(skyAboveSpec,'c-')
+    print('skyAboveSpec = ',skyAboveSpec)
+    sky = skyBelowSpec + ((skyAboveSpec - skyBelowSpec) * (specPos - skyBelowPos) / (skyAbovePos - skyBelowPos))
+    plt.plot(sky,'r-')
+    objectSpec -= sky
+    plt.plot(objectSpec,'g-')
+
+    plt.show()

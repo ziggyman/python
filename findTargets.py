@@ -13,7 +13,7 @@ conf.auto_max_age = None
 #download_IERS_A()
 
 midnightTime = Time('2020-5-15 0:00:00')
-doCalc = False
+doCalc = True
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -406,7 +406,8 @@ def main():
                     goodTargets = removeAlreadyObserved(goodTargets)
                     print('removed ',goodLength - len(goodTargets),' targets already observed')
                     writeCSV(goodTargets,outFileName,'DRAJ2000')
-
+                    print('wrote goodTargets to file <'+outFileName+'>')
+                    STOP
                     moveTargetsStartingWithToNewList(outFileName,
                                                      'DeGaPe',
                                                      goodFileName,

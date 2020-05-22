@@ -65,7 +65,7 @@ from localTimeToLST import ltToLST
 #utcoffset = -4*u.hour
 #date = '2019-09-05'
 
-def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, plotAirmass=False):
+def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, plotAirmass=False, outFileName=None):
     midnight = Time(date+' 00:00:00') - utcoffset
     observatory = observatoryLocation
     obs = Observer.at_site(observatoryName)#, timezone='Eastern Standard Time')
@@ -113,8 +113,8 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
             fullHours.append(time)
             fullHourIndices.append(ind)
         ind += 1
-    print('fullHours = ',fullHours)
-    print('fullHourIndices = ',fullHourIndices)
+#    print('fullHours = ',fullHours)
+#    print('fullHourIndices = ',fullHourIndices)
 #    STOP
 #    print('type(times) = ',type(times))
 #    print('type(times[0]) = ',type(times[0]))
@@ -140,12 +140,13 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     plotTimesTmp = [timeX+utcoffset for timeX in times]
     plotTimes = [timeX.to_datetime() for timeX in plotTimesTmp]
     if plotAirmass:
-
+        fig = plt.figure(figsize=(25,10))
         plt.plot(np.array(plotTimes), np.array(targetairmasssNight))
         plt.xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
         plt.ylim(1, 4)
         plt.xlabel('local time')
         plt.ylabel('Airmass [Sec(z)]')
+        plt.tight_layout()
         plt.show()
 
     ##############################################################################
@@ -191,6 +192,23 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     # Find the alt,az coordinates of target at those same times:
 
     targetaltazs = target.transform_to(frames)
+#    print('targetaltazs = ',targetaltazs)
+#    allMethods = dir(targetaltazs)
+#    for method in allMethods:
+#        print(method)
+#    print('targetaltazs.alt = ',targetaltazs.alt)
+#    print('type(targetaltazs.alt) = ',type(targetaltazs.alt))
+#    allMethods = dir(targetaltazs.alt)
+#    for method in allMethods:
+#        print(method)
+#    print('targetaltazs.alt.to_value() = ',targetaltazs.alt.to_value())
+    altitudes = targetaltazs.alt.to_value()
+    maxAlt = np.argmax(altitudes)
+#    print('maxAlt = ',maxAlt)
+    print('maxAlt = ',altitudes[maxAlt])
+    maxAltTime = plotTimes[maxAlt]
+    print('maxAltTime = ',maxAltTime)
+#    STOP
 
     ##############################################################################
     # Make a beautiful figure illustrating nighttime and the altitudes of target and
@@ -210,7 +228,10 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
 #    ax1.fill_between(delta_midnight.to('hr').value, 0, 90,
 #                     sunaltazs_July12_to_13.alt < -0*u.deg, color='0.5', zorder=0)
 
-    timeHours = [timeX.hour for timeX in plotTimes]
+#    timeHours = [timeX.hour for timeX in plotTimes]
+#    print('timeHours = ',timeHours)
+#    print('unique timeHours = ',np.unique(timeHours))
+#    STOP
 #    print('type(timeHours) = ',type(timeHours))
 #    print('len(timeHours) = ',len(timeHours))
 #    print('len(sunaltazs.alt) = ',len(sunaltazs.alt))
@@ -224,7 +245,7 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
                      sunaltazs.alt < -18*u.deg, color='k', zorder=0)
     fig.colorbar(im, ax=ax1).set_label('Azimuth [deg]')
     ax1.legend(loc='upper left')
-    print('plotTimes[0] = ',plotTimes[0],', plotTimes[len(plotTimes)-1] = ',plotTimes[len(plotTimes)-1])
+    #print('plotTimes[0] = ',plotTimes[0],', plotTimes[len(plotTimes)-1] = ',plotTimes[len(plotTimes)-1])
     ax1.set_xlim(plotTimes[0], plotTimes[len(plotTimes)-1])
 
     lonVal = observatory.lon.value
@@ -239,14 +260,14 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
             fullHourLST.append(siderealTime.strftime("%H:%M"))
         siderealTimes.append(siderealTime)
 #    print('siderealTimes = ',siderealTimes)
-    print('fullHourLSTIndices = ',fullHourLSTIndices)
+#    print('fullHourLSTIndices = ',fullHourLSTIndices)
 
     xTicks = 0
     xTickInd = []
     while xTicks < len(fullHourLSTIndices):
         xTickInd.append(xTicks)
         xTicks += 2
-    print('xTickInd = ',xTickInd)
+#    print('xTickInd = ',xTickInd)
 
     xTickLabels = []
     xTickTimes = []
@@ -266,14 +287,19 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     new_tick_locations = [plotTimes[fullHourLSTIndex] for fullHourLSTIndex in fullHourLSTIndices]
     ax2.set_xlim(ax1.get_xlim())
     newTickLocations = [new_tick_locations[loc] for loc in xTickInd]
-    print('newTickLocations = ',newTickLocations)
+#    print('newTickLocations = ',newTickLocations)
     fullLST = [fullHourLST[loc] for loc in xTickInd]
-    print('fullLST = ',fullLST)
+#    print('fullLST = ',fullLST)
     ax2.set_xticks(newTickLocations)
     ax2.set_xticklabels(fullLST)
     ax2.set_xlabel(r"local sidereal time")
 
-    plt.show()
+    if outFileName is None:
+        plt.show()
+    else:
+        plt.savefig(outFileName)
+        plt.close(fig)
+    return maxAltTime
 
 if __name__ == '__main__':
     #observatoryName = "Siding Spring Observatory"

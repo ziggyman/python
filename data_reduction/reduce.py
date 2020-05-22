@@ -8,7 +8,7 @@ from shutil import copyfile
 
 overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
-workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190906/'
+workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
 #refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/apvertical_trace'

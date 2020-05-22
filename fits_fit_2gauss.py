@@ -53,14 +53,18 @@ if __name__ == "__main__":
     plt.plot(x,imageData)
     plt.show()
 
+    areas = getAreas2Gauss(x,imageData,565,2891,6548.7,6563.7,4.5,4.5)
+
+def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True):
     # fit 2 Gaussians
     try:
-        popt,pcov = curve_fit(gauss2,x,imageData,p0=[565,   #a1
-                                                     2891,  #a2
-                                                     6548.7,  #x01
-                                                     6563.7,  #x02
-                                                     4.5,     #sigma1
-                                                     4.5])    #sigma2
+        popt,pcov = curve_fit(gauss2,x,imageData,p0=[a1,
+                                                     a2,
+                                                     x01,
+                                                     x02,
+                                                     sigma1,
+                                                     sigma2,
+                                                     ])
     except Exception as e:
         print(e)
         STOP
@@ -83,10 +87,12 @@ if __name__ == "__main__":
     print('areaUnderCurve2 = ',areaUnderCurve2)
 
     plt.plot(x,imageData)
-    plt.plot(x,yGauss1)
-    plt.plot(x,yGauss2)
+#    plt.plot(x,yGauss1)
+#    plt.plot(x,yGauss2)
 
     gauss12 = gauss2(x,*popt)
     plt.plot(x,gauss12)
-    plt.show()
+    if show:
+        plt.show()
 
+    return [areaUnderCurve1,areaUnderCurve2,popt]

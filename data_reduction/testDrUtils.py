@@ -2,7 +2,7 @@ from astropy.nddata import CCDData
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractSum, calcLineProfile,xCor
-from drUtils import findLines, getYAt, calcDispersion, normalizeX
+from drUtils import findLines, getYAt, calcDispersion, normalizeX, extract,readFileToArr
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -12,18 +12,9 @@ from shutil import copyfile
 overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 #testPath = '/Users/azuri/spupnik/data/20190501/'
-testPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
+testPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
+#testPath = '/Volumes/work/azuri/spectra/saao/saao_may2020/20200517/'
 
-
-def readFileToArr(fname):
-    text_file = open(fname, "r")
-    lines = text_file.readlines()
-
-    """remove empty lines"""
-    lines = list(filter(len, lines))
-
-    linesOut = [line.strip() for line in lines]
-    return linesOut
 
 def test_separateFileList(inList='/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/allFits.list'):
     suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxfif']
@@ -305,6 +296,7 @@ def test_flatCorrect(objectFiles = os.path.join(testPath,'SCIENCE.list')):
 
     combinedFlat = os.path.join(path,'combinedFlat.fits')
     print('creating combinedFlat <'+combinedFlat+'>')
+    print('otzFilesDomeflats = ',otzFilesDomeflats)
     flat = combine(otzFilesDomeflats,
                    combinerMethod='median',
                    clippingMethod='sigma',
@@ -496,14 +488,15 @@ def testExtractSum(oneDImageIn):
     extractSum(oneDImageIn)
 
 def main():
-    if False:
+    if True:
         test_separateFileList(os.path.join(testPath,'allFits.list'))
+    if True:
         test_combine()
         test_subtractOverscan()
         test_subtractBias()
-    #if False:
-        test_cleanCosmic()
     if False:
+        test_cleanCosmic()
+    if True:
         test_flatCorrect(os.path.join(testPath,'allFits.list'))
         test_combineSkyFlats()
         testInterpolateTraceIm()
@@ -541,10 +534,12 @@ def main():
                               fitsFilesOut=outFiles,
                               overwrite=True)
 
-    if True:
+    if False:
         lineProfiles = []
         for apNumber in np.arange(0,7,1):
-            lineProfiles.append(calcLineProfile('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfs.fits', apNumber, 7, 0.1))
+            arc = 'ARC_MPA_J1354-6337_a1171127_otzfs.fits'
+            arc = 'refArc_SPUPNIC_gr7_15_85s.fits'
+            lineProfiles.append(calcLineProfile(os.path.join(testPath,arc), apNumber, 7, 0.1))
 
         for lineProfile in lineProfiles:
             plt.plot(lineProfile[0],lineProfile[1])
@@ -556,8 +551,11 @@ def main():
                 bestLineProfileIdx = lineProfileIdx
         print('best line profile found at index ',bestLineProfileIdx)
 
-        oneDSpec = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzf.fits','row')
-        oneDSpecInterp = extractSum('/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzfi.fits','row')
+        arc = 'ARC_MPA_J1354-6337_a1171127_otzf.fits'
+        #arc =
+        arcInterp = arc[:,-5]+'i.fits'
+        oneDSpec = extractSum(os.path.join(testPath,arc),'row')
+        oneDSpecInterp = extractSum(os.path.join(testPath,arcInterp),'row')
         plt.plot(oneDSpec,label='raw')
         plt.plot(oneDSpecInterp,label='interpolated')
         plt.legend()
@@ -587,8 +585,8 @@ def main():
     #        print('oneDSpecInterp[np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1)] = ',oneDSpecInterp[np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),1)])
     #        print('np.amax(lineProfiles[bestLineProfileIdx][1]) = ',np.amax(lineProfiles[bestLineProfileIdx][1]))
             xs = np.arange(int(np.amin(lineProfiles[bestLineProfileIdx][0]+line)),
-                                                        int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),
-                                                        1)
+                                                    int(np.amax(lineProfiles[bestLineProfileIdx][0]+line)),
+                                                    1)
             background = np.amin(oneDSpecInterp[xs])
             top = np.amax(oneDSpecInterp[xs])
             plt.plot(lineProfiles[bestLineProfileIdx][0]+line,
@@ -613,12 +611,19 @@ def main():
             for i in range(len(linesX)):
                 if chiSquares[i] < chiSquareLimit:
                     f.write('%.5f \n' % (linesX[i]))
+    if False:
+        coeffs = calcDispersion('/Volumes/work/azuri/spectra/saao/saao_refspec_lines_identified_good.dat', xRange=[0,xSpec[xSpec.shape[0]-1]], degree=3)
+        xSpecNorm = normalizeX(xSpec)
+        wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
+        plt.plot(wLenSpec,oneDSpecInterp)
+        plt.show()
 
-    coeffs = calcDispersion('/Volumes/work/azuri/spectra/saao/saao_refspec_lines_identified_good.dat', xRange=[0,xSpec[xSpec.shape[0]-1]], degree=3)
-    xSpecNorm = normalizeX(xSpec)
-    wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
-    plt.plot(wLenSpec,oneDSpecInterp)
-    plt.show()
+        extractList = [['SCIENCE_CTI173557.97-271213.963_a1061524_otzfif.fits', [20,29], [30,35], [16,18]]]
+        extractList.append(['SCIENCE_Pre_22_a1061516_otzfif.fits', [25,32], [18,24],[33,41]])
+        twoDSpec = os.path.join(testPath,extractList[1][0])
+        specOut = twoDSpec[:-5]+'Ec.dat'
+
+        extract(twoDSpec, specOut, extractList[1][1], extractList[1][2], extractList[1][3], 'row')
 
 if __name__ == "__main__":
     main()

@@ -1,19 +1,94 @@
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, EarthLocation, Angle, ICRS, LSR
 import astropy.io.fits as pyfits
+from astropy.time import Time
+from specutils import Spectrum1D
+from specutils.manipulation.resample import FluxConservingResampler
 import astropy.units as u
 import numpy as np
 #from scipy.optimize import leastsq
 import matplotlib.pyplot as plt
+import pyneb as pn
 import re
+from scipy import interpolate
 from scipy.optimize import curve_fit
 import subprocess
+
+import csvFree
+import csvData
+from myUtils import hmsToDeg,dmsToDeg,raDecToLonLat
+import hammer as ham
+from fits_fit_2gauss import getAreas2Gauss
+
+#sum = Spectrum1D( flux=np.zeros(10) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+#                  spectral_axis = [1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] * u.AA)
+#print('sum[0] = ',sum[0])
+#print('sum.data[0] = ',sum.data[0])
+#sum.data[0] = 2.
+#print('sum[0] = ',sum[0])
+#print('sum.data[0] = ',sum.data[0])
+#STOP
+
+#print('EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
+GTC = EarthLocation.of_site('Roque de los Muchachos')
+print('GTC = ',GTC)
+print('GTC.lon = ',GTC.lon)
+print('GTC.lat = ',GTC.lat)
+print('dir(GTC) = ',dir(GTC))
+
+obsRA = hmsToDeg('00:53:11.200')
+obsDEC = dmsToDeg('67:30:02.300')
+sc = SkyCoord(ra=obsRA*u.deg, dec=obsDEC*u.deg)
+obsTime = Time('2016-07-08')
+barycorr = sc.radial_velocity_correction(obstime=obsTime, location=GTC)
+print('barycorr = ',barycorr.to(u.km/u.s))
+heliocorr = sc.radial_velocity_correction('heliocentric', obstime=obsTime, location=GTC)
+print('heliocorr.value = ',heliocorr.value)
+print('heliocorr.to_value() = ',heliocorr.to_value())
+print('heliocorr.to(u.km/u.s) = ',heliocorr.to(u.km/u.s))
+print('heliocorr.to(u.km/u.s).value = ',heliocorr.to(u.km/u.s).value)
+#print('dir(heliocorr) = ',dir(heliocorr))
+#print('dir(heliocorr.to(u.km/u.s)) = ',dir(heliocorr.to(u.km/u.s)))
+
+
+hammer = ham.Hammer()
+pixels = hammer.getPixels()
+lon, lat = raDecToLonLat(obsRA,obsDEC)
+print('lon = ',lon,', lat = ',lat)
+xy = hammer.lonLatToXY(lon, lat)
+print('x = ',xy.x,', y = ',xy.y)
+
+inPix = None
+for pix in pixels:
+    if hammer.isInside(pix,xy):
+        print('pixel = ',pix)
+        inPix = pix
+
+fName = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f_xyz.csv' % (inPix.xLow, inPix.xHigh, inPix.yLow, inPix.yHigh)
+csv = csvFree.readCSVFile(fName)
+#print('csv.header = ',csv.header)
+starPos = csv.find('source_id','526287189172936320')[0]
+print('starPos = ',starPos)
+#starData = csv.getData(starPos)
+#print('starData = ',starData)
+
+pmRA = float(csv.getData('pmra',starPos))
+pmDEC = float(csv.getData('pmdec',starPos))
+vrad = csv.getData('radial_velocity',starPos)
+parallax = float(csv.getData('parallax',starPos))
+print('pmRA = ',pmRA,', pmDEC = ',pmDEC,', vrad = ',vrad,', parallax = ',parallax)
+
+icrs = ICRS(ra=obsRA*u.degree, dec=obsDEC*u.degree,
+            distance=1000./parallax*u.pc,
+            pm_ra_cosdec=pmRA*u.mas/u.yr, pm_dec=pmDEC*u.mas/u.yr,
+            radial_velocity=heliocorr.to(u.km/u.s).value*u.km/u.s)
+print('icrs.transform_to(LSR) = ',icrs.transform_to(LSR))
 
 c0 = 299792.458
 mean1 = 6716.44
 mean2 = 6730.815
 dMean = mean2 - mean1
 sigma = 7.5 / 2.355
-doPlot = False
+doPlot = True
 SIIRatio = 2. / 3.
 
 minRow = 1573
@@ -33,7 +108,7 @@ minSum = 0.5e-21
 maxMeanSigma = 0.1#1.e-1
 maxSigSigma = 800.#1.e-1
 
-colPlot = []
+colPlot = []#np.arange(250,1000,1)#]
 colRejecta = [104,110,127,279,313,468,490,529,536,543,557,559,613,629,651,652,656,857,864]
 colRejectb = [22,53,348,362,416,418,606,613,621,819,822,824,825,856]
 
@@ -167,9 +242,11 @@ def run():
         doPlot = False
         if col in colPlot:
             doPlot = True
-        if doPlot:
+        if False:#col == 389:#doPlot:
             plt.plot(wavelength, twoDSpec[:,col],'g-')
+            plt.plot(wavelength, np.zeros(wavelength.shape[0]),'r-')
             plt.show()
+#            STOP
         # for negative and positive radial velocities (near side and far side)
         iVRad = 0
         for vradRange in [[-1200.,300.],[300.,1200]]:
@@ -273,7 +350,7 @@ def run():
     #                        STOP
 
                     # check if fit was good
-                    if (goodFit
+                    allGood = (goodFit
                         and (abs(popt[0] - vradArr[minPos]) < maxDMean)
                         and (abs(popt[1] - sigmaVRad) < maxDSigma)
                         and (popt[2] < 0.)
@@ -281,14 +358,24 @@ def run():
                         and (np.mean(specs[minPos]) > minMean)
                         and (np.sum(specs[minPos]) > minSum)
                         and (pcov[0,0] < maxMeanSigma)
-                        and (pcov[1,1] < maxSigSigma)):
+                        and (pcov[1,1] < maxSigSigma))
+                    if allGood:
                         print('minMean = ',minMean,', mean(specs[',minPos,']) = ',np.mean(specs[minPos]))
 
                         dist = getArcsecDistance(imFile, starCol, yCenter, minCol+col, yCenter)
                         # if spectrum left of star
                         if col < (starCol - minCol):
                             dist = 0. - dist
-                        goodVRads.append([dist, popt, pcov, guess, col, res, minPos, specs, synSpecs])
+#                        print('dist = ',dist)
+#                        print('popt = ',popt)
+#                        print('col = ',col)
+#                        print('res = ',res)
+#                        print('minPos = ',minPos)
+#                        print('specs = ',specs)
+#                        print('synSpecs = ',synSpecs)
+#                        print('wavelengths = ',wavelengths)
+#                        STOP
+                        goodVRads.append([dist, popt, pcov, guess, col, res, minPos, specs, synSpecs, wavelengths])
                         if doPlot:
                             plt.plot(vradArr,res,'b+')
                             plt.xlabel('v_rad')
@@ -316,8 +403,10 @@ def run():
                                 print('pcov[1,1]=',pcov[1,1],' >= maxSigSigma=',maxSigSigma)
                         print('Gaussian fit not good')
                     if doPlot:
+                        print('plotting activated')
                         plt.show()
-
+#                        if allGood:
+#                            STOP
                 #        minimum, minPos = crossCorrelate(twoDSpec[0:int(twoDSpec.shape[0]*2/3),col], synSpec[0:int(twoDSpec.shape[0]*2/3)], [-,0])
                 #        minima.append(minimum)
                 #        minPositions.append(minPos)
@@ -345,7 +434,7 @@ def run():
                     plt.show()
                     STOP
             iVRad += 1
-    print('goodVRads = ',len(goodVRads),': ',goodVRads)
+#    print('goodVRads = ',len(goodVRads),': ',goodVRads)
 
     if False:
         distPlot = [x[4] for x in goodVRads]
@@ -353,8 +442,17 @@ def run():
         plt.plot(distPlot,vradPlot,'g+')
         plt.xlabel('column')#center distance [arcsec]')
         plt.ylabel('radial velocity [km/s]')
-        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_vrad_SII_fit_maxDM=%d_maxSig=%d.eps' % (maxDMean, maxDSigma), format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
+        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_vrad_SII_fit_maxDM=%d_maxSig=%d.eps' % (maxDMean, maxDSigma), format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
         plt.show()
+
+#    goodSpecs = []
+#    goodWavelengths = []
+#    radialVelocities = []
+    print('found ',len(goodVRads),' good spectra')
+#    for dat in goodVRads:
+#        print('spectrum length = ',len(dat[7][0]))
+
+#    STOP
 
     return goodVRads
 
@@ -405,9 +503,170 @@ def findYForWLen(wLenArr, wLen):
 def lambda0AndVradToLambda(lambda0, vrad):
     return lambda0 + (vrad * lambda0 / c0) # vrad = c * (lambda0 - lambda) / lambda0 -> lambda = lambda0 - (vrad * lambda0 / c)
 
+def writeGoodVRads(goodVRads):
+    with open('/Users/azuri/daten/uni/HKU/Pa30/SII_centerDist-arcsec_vrad-ms-1.csv', 'w') as f:
+        #goodVRads = [[dist, popt, pcov, guess, col, res, minPos, specs, synSpecs, wavelengths],...]
+        f.write('centerDist [arcsec],vrad [km/s]\n')
+        for i in goodVRads:
+            f.write('%.1f,%.0f\n' % (i[0],i[1][0]))
+
+def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities):
+    wavelength = np.arange(6700.,6745.,0.5)
+    sum = Spectrum1D( flux=np.zeros(wavelength.shape[0]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                    spectral_axis = wavelength * u.AA)
+#    print('wavelength = ',wavelength.shape,': ',wavelength)
+    for iCol in range(len(wavelengths)):
+        vRad = radialVelocities[iCol]
+        wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
+#        print('wavelengthICol = ',len(wavelengthICol),': ',wavelengthICol)
+
+        input_spectra = Spectrum1D( flux=np.array(spectra[iCol]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                    spectral_axis = np.array(wavelengthICol) * u.AA)
+        resample_grid = np.array(wavelength) *u.AA
+#        print('resample_grid = ',resample_grid)
+        fluxc_resample = FluxConservingResampler(extrapolation_treatment='zero_fill')
+        specInterp = fluxc_resample(input_spectra, resample_grid) # doctest: +IGNORE_OUTPUT
+        naNPos = np.argwhere(np.isnan(specInterp.data))
+#        print('naNPos = ',naNPos)
+        if naNPos.shape[0] > 0:
+            naNPos = naNPos[0]
+#            print('naNPos = ',naNPos)
+#        nans = np.isnan(specInterp.data)
+        if naNPos.shape[0] > 0:
+            #print('nans = ',nans.shape,': ',nans)
+            #print('specInterp[nans] = ',specInterp.data[nans])
+            #print('naNPos = ',naNPos)
+            #print('specInterp = ',specInterp)
+            #print('specInterp[naNPos] = ',specInterp.data[naNPos])
+            specInterp.data[naNPos] = 0.
+            #print('specInterp.data = ',specInterp.data)
+#        f = interpolate.interp1d(wavelengthICol, spectra[iCol], bounds_error = False,fill_value=0.)
+#        specInterp = f(wavelength)
+#        print('specInterp) = ',len(specInterp))
+        sum += specInterp
+#    print('sum = ',sum)
+#    print('dir(sum) = ',dir(sum))
+#        print('sum.data = ',sum.data)
+#    print('dir(sum.data) = ',dir(sum.data))
+    return [wavelength,sum.data]
+
+def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, background=None):
+    densities = []
+    distances = []
+    S2 = pn.Atom('S',2)
+
+    print('positiveIndices = ',len(positiveIndices),': ',positiveIndices)
+    if negativeIndices is not None:
+        print('negativeIndices = ',len(negativeIndices),': ',negativeIndices)
+
+    for i in range(1 if negativeIndices is None else 2):
+        inds = [positiveIndices, negativeIndices][i]
+        wLens = []
+        specs = []
+        vrads = []
+        dists = []
+        cols = []
+        for ind in inds:
+            wLens.append(goodVRads[ind][9][0])
+            specs.append(goodVRads[ind][7][0])
+            vrads.append(goodVRads[ind][1][0])
+            dists.append(goodVRads[ind][0])
+            cols.append(goodVRads[ind][4])
+            print('goodVRads[ind][1][0] = ',goodVRads[ind][1][0])
+            if negativeIndices is None:#        wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
+                plt.plot([wLen - (goodVRads[ind][1][0] * wLen / c0) for wLen in goodVRads[ind][9][0]],goodVRads[ind][7][0],label='col'+str(goodVRads[ind][4]))
+        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrads)
+#        print('sumOfSpectra = ',sumOfSpectra)
+        if background is None:
+            sumOfSpectra -= np.amin(sumOfSpectra)
+        else:
+            if (i == 0) or (negativeIndices is None):
+                f = interpolate.interp1d(background[0][0], background[0][1], bounds_error = False,fill_value='extrapolate')
+                sumOfSpectra -= f(wLen)
+            else:
+                f = interpolate.interp1d(background[1][0], background[1][1], bounds_error = False,fill_value='extrapolate')
+                sumOfSpectra -= f(wLen)
+#        print('sumOfSpectra = ',sumOfSpectra)
+        label = ''
+        if negativeIndices is not None:
+            if i == 0:
+                label='positive $v_{rad}$'
+            else:
+                label='negative $v_{rad}$'
+        plt.plot(wLen,sumOfSpectra,label=label)
+        area6716,area6731,popt = getAreas2Gauss(wLen,
+                                                sumOfSpectra,
+                                                np.amax(sumOfSpectra[:int(sumOfSpectra.shape[0]/2)]),
+                                                np.amax(sumOfSpectra[int(sumOfSpectra.shape[0]/2):]),
+                                                mean1,
+                                                mean2,
+                                                sigma,
+                                                sigma,
+                                                show=False,
+                                               )
+        good = True
+        for sig in [popt[4],popt[5]]:
+            if sig < sigma * 0.7 or sig > sigma * 1.4:
+                print('sig(=',sig,') outside range')
+                good  = False
+        if np.absolute(popt[2] - mean1) > 1.:
+            print('position(=',popt[2],') outside range')
+            good  = False
+        if np.absolute(popt[3] - mean2) > 1.:
+            print('position(=',popt[3],') outside range')
+            good  = False
+        if good:
+            ratio = area6716 / area6731
+            den = S2.getTemDen(int_ratio=ratio,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
+            if np.isnan(den):
+                good = False
+        if not good:
+            where = np.where((wLen > (mean1-4.)) & (wLen < (mean1+4.)))
+            print('where 6716 = ',where)
+            max6716 = np.amax(sumOfSpectra[where])
+            where = np.where((wLen > (mean2-4.)) & (wLen < (mean2+4.)))
+            print('where 6731 = ',where)
+            max6731 = np.amax(sumOfSpectra[where])
+            print('max6716 = ',max6716,', max6731 = ',max6731)
+            ratio = max6716 / max6731
+            den = S2.getTemDen(int_ratio=ratio,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
+        dist = np.mean(dists)
+        if good:
+            print('dist = ',dist,': area6716 = ',area6716,', area6731 = ',area6731,': ratio = ',ratio,', den = ',den)
+        else:
+            print('dist = ',dist,': max6716 = ',max6716,', max6731 = ',max6731,': ratio = ',ratio,', den = ',den)
+        densities.append(den if np.mean(vrads) > 0 else 0.-den)
+        distances.append(dist)
+    plt.ylabel('Wavelength [$\mathrm{\AA}$]')
+    plt.ylabel('Flux [$erg / cm^2 / s / \AA$]')
+    plt.legend()
+    if negativeIndices is not None:
+        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_flux_vs_wavelength_electron_density=+%.1f-%.1f.pdf' % (densities[0],densities[1]),
+                    format='pdf',
+                    frameon=False,
+                    bbox_inches='tight',
+                    pad_inches=0.1)
+    else:
+        fName = '/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_flux_vs_wavelength_cols'
+        for col in cols:
+            fName += '_'+str(col)
+        fName += '_electron_density=+%.1f.pdf' % (densities[0] if np.mean(vrads) > 0 else 0.-densities[0])
+        plt.savefig(fName,
+                    format='pdf',
+                    frameon=False,
+                    bbox_inches='tight',
+                    pad_inches=0.1)
+    plt.show()
+    print('distances = ',distances)
+    print('densities = ',densities)
+#    if not good:
+#        STOP
+    return [distances,densities]
+
 def plotGoodVRads():
-    goodVRads = run()#                    goodVRads.append([dist, popt, pcov, guess, col, res, minPos, specs, synSpecs])
+    goodVRads = run()#                    goodVRads.append([dist, popt, pcov, guess, col, res, minPos, specs, synSpecs, wavelengths])
                      #                    guess = [vradArr[minPos], sigmaVRad, minimum-y0, y0]
+    writeGoodVRads(goodVRads)
 
     rows = range(twoDSpec.shape[0])
     cols = range(twoDSpec.shape[1])
@@ -419,14 +678,6 @@ def plotGoodVRads():
     twoDSpecPlot = np.ndarray(twoDSpec.shape)
     for row in range(twoDSpec.shape[0]):
         twoDSpecPlot[row,:] = twoDSpec[twoDSpec.shape[0]-1-row,:]
-    plt.imshow(twoDSpecPlot, cmap='Greys',vmin=0., vmax=2.0e-19, extent=(xlim[0],xlim[1],ylim[0],ylim[1]), aspect='auto')
-
-    # mark CS with X
-    plt.plot([len(cols)/2.],[len(rows)/2.],'rx',markersize=10)
-    limits = plt.axis()
-
-    # plot measured lines with vrad as color
-    cm = plt.cm.get_cmap('rainbow')
 
     vrads = [x[1][0] for x in goodVRads]
 
@@ -446,6 +697,43 @@ def plotGoodVRads():
     print('negativeVRads = ',len(negativeVRads),': ',negativeVRads)
     print('negativeIndices = ',len(negativeIndices),': ',negativeIndices)
 
+    distances, densities = calcElectronDensity(goodVRads,
+                                               positiveIndices,
+                                               negativeIndices,
+                                               background = [[[6708.53,6740.36], [4.08e-18,2.21e-18]],
+                                                             [[6702.61,6740.31], [1.828e-18,8.15e-19]]],
+                                              )
+
+    addNSpecs = 5
+    distsDen = []
+    dens = []
+
+    for indices in [positiveIndices,negativeIndices]:
+        for i in range(int(len(indices)/addNSpecs)):
+            if True:#try:
+                returnValue = calcElectronDensity(goodVRads, indices[i*addNSpecs:(i+1)*addNSpecs])
+                print('returnValue = ',returnValue)
+                distance, density = returnValue
+                print('distance[0] = ',distance[0],', density[0] = ',density[0])
+                if not np.isnan(density[0]):
+                    distsDen.append(distance[0])
+                    dens.append(density[0])
+#            except:
+#                pass
+    print('distsDen = ',distsDen)
+    print('dens = ',dens)
+    plt.plot([np.amin(distsDen),np.amax(distsDen)],[0.,0.],'b-')
+    plt.scatter(np.array(distsDen),np.array(dens),marker='o')
+    plt.xlabel('Center Distance [arcsec]')
+    plt.ylabel('Electron Density [$\mathrm{cm}^{-3}$]')
+    plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_electron_densities.pdf',
+                    format='pdf',
+                    frameon=False,
+                    bbox_inches='tight',
+                    pad_inches=0.1)
+    plt.show()
+#    STOP
+
     SII6716a = [lambda0AndVradToLambda(mean1, vrad) for vrad in negativeVRads]
     print('mean1 = ',mean1,', negativeVRads[0] = ',negativeVRads[0],': SII6716a[0] = ',SII6716a[0])
     SII6716b = [lambda0AndVradToLambda(mean1, vrad) for vrad in positiveVRads]
@@ -463,6 +751,14 @@ def plotGoodVRads():
     print('vradSII6716b = ',len(vradSII6716b),': ',vradSII6716b)
     print('vradSII6731a = ',len(vradSII6731a),': ',vradSII6731a)
     print('vradSII6731b = ',len(vradSII6731b),': ',vradSII6731b)
+
+    plt.imshow(twoDSpecPlot, cmap='Greys',vmin=0., vmax=2.0e-19, extent=(xlim[0],xlim[1],ylim[0],ylim[1]), aspect='auto')
+    # mark CS with X
+    plt.plot([len(cols)/2.],[len(rows)/2.],'rx',markersize=10)
+    limits = plt.axis()
+
+    # plot measured lines with vrad as color
+    cm = plt.cm.get_cmap('rainbow')
 
     for colorCode in ['vrad','res','mu','sum','meanSigma','sigSigma']:
         i = 0
@@ -613,7 +909,7 @@ def plotGoodVRads():
             plt.xticks(xTicks,
                        xTicksDistStr)
 
-            plt.xlabel('center distance [arcsec]')
+            plt.xlabel('Center Distance [arcsec]')
 
         if colorCode == 'vrad':
             # change y axis
@@ -629,7 +925,7 @@ def plotGoodVRads():
             print('findXForArcSecDistanceFrom: yTicksRow = ',yTicksRow)
             print('findXForArcSecDistanceFrom: yTicksWLen = ',yTicksWLen)
             plt.yticks(yTicksRow, yTicksWLen)
-            plt.ylabel('wavelength [$\mathrm{\AA}$]')
+            plt.ylabel('Wavelength [$\mathrm{\AA}$]')
 
         # insert magnification of most striking features
         if False:
@@ -645,7 +941,7 @@ def plotGoodVRads():
             plt.yticks([])
 
 
-        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/report/images/pa30_'+colorCode+'_map_on_2dspec_new_maxDMean=%d_maxDSigma=%d_maxRes='
+        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_'+colorCode+'_map_on_2dspec_new_maxDMean=%d_maxDSigma=%d_maxRes='
                     % (maxDMean, maxDSigma) + str(maxRes)+'_minMean='+str(minMean)+'_minSum='+str(minSum)+'_maxMeanSigma=%.3f_maxSigSigma=%.3f' % (maxMeanSigma, maxSigSigma) +'.eps',
                     format='eps',
                     frameon=False,

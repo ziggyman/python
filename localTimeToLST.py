@@ -12,7 +12,7 @@ def ltToLST(longitude, utcoffset, localTime):
     #Sidereal Time and Julian Date Calculator
     #Revision history: Justine Haupt, v1.0 (11/23/17)
     UTC = localTime - utcoffset
-    print('UTC = ',UTC)
+#    print('UTC = ',UTC)
 
     #Only valid for dates between 1901 and 2099. Accurate to within 1.1s.
 
@@ -43,7 +43,7 @@ def ltToLST(longitude, utcoffset, localTime):
 
     #calculate the Julian date:
     JD = (367*YY) - int((7*(YY+int((MM+9)/12)))/4) + int((275*MM)/9) + DD + 1721013.5 + (UT/24)
-    print('\nJulian Date: JD%s' %(JD))
+    #print('\nJulian Date: JD%s' %(JD))
 
     #calculate the Greenwhich mean sidereal time:
     GMST = 18.697374558 + 24.06570982441908*(JD - 2451545)
@@ -53,31 +53,31 @@ def ltToLST(longitude, utcoffset, localTime):
     GMSThh = int(GMST)
     GMSTmm = int(GMSTmm)
     GMSTss = int(GMSTss)
-    print('\nGreenwhich Mean Sidereal Time: %s:%s:%s' %(GMSThh, GMSTmm, GMSTss))
+    #print('\nGreenwhich Mean Sidereal Time: %s:%s:%s' %(GMSThh, GMSTmm, GMSTss))
 
     #Convert to the local sidereal time by adding the longitude (in hours) from the GMST.
     #(Hours = Degrees/15, Degrees = Hours*15)
     lon = lon/15      #Convert longitude to hours
     LST = GMST+lon     #Fraction LST. If negative we want to add 24...
-    print('LST = ',LST)
+    #print('LST = ',LST)
     if LST < 0:
         LST = LST +24
-        print('a LST = ',LST)
+        #print('a LST = ',LST)
     if LST >= 24:
         LST = LST - 24
-        print('b LST = ',LST)
+        #print('b LST = ',LST)
     LSTmm = (LST - int(LST))*60          #convert fraction hours to minutes
     LSTss = (LSTmm - int(LSTmm))*60      #convert fractional minutes to seconds
     LSThh = int(LST)
     LSTmm = int(LSTmm)
     LSTss = int(LSTss)
 
-    print('\nLocal Sidereal Time %s:%s:%s \n\n' %(LSThh, LSTmm, LSTss))
+    #print('\nLocal Sidereal Time %s:%s:%s \n\n' %(LSThh, LSTmm, LSTss))
     year = UTC.strftime("%Y")
     month = UTC.strftime("%m")
     day = UTC.strftime("%d")
     timeStr = '%s-%s-%s %s:%s:%s' % (year, month, day, LSThh, LSTmm, LSTss)
-    print('timeStr = <'+timeStr+'>')
+    #print('timeStr = <'+timeStr+'>')
     returnValue = Time(timeStr)
     return returnValue
 
