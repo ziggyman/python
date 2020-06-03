@@ -4,15 +4,15 @@ import csvData
 import csvFree
 from myUtils import hmsToDeg,dmsToDeg,raDecToLonLat
 
-longList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/TableI_569PNG_10042020_HASH.csv'
-shortList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/TableI I_ 120objets_25032020.csv'
+longList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/May2020/TableI_605PNG_21052020.csv'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/TableI_569PNG_10042020_HASH.csv'
+shortList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/May2020/TableI I_ 124objets_21052020.csv'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/TableI I_ 120objets_25032020.csv'
 
-outList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/FRA_all.csv'
-hashOutList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/April2020/FRAall_HASHoutput.csv'
+outList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/May2020/FRA_all.csv'
+hashOutList = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/May2020/FRAall_HASHoutput.csv'
 
-idPNMainStart = 32490
-idtbCNamesStart = 121425
-idtbAngDiamStart = 39235
+idPNMainStart = 32567
+idtbCNamesStart = 121506
+idtbAngDiamStart = 39344
 hashIDs = []
 
 def readFRAFile(fname):
@@ -224,9 +224,9 @@ def createMySQLCommands():
 
 
 def main():
-    combineLists()
-#    findPNeNotInHASH()
-#    createMySQLCommands()
+#    combineLists()
+    findPNeNotInHASH()
+    createMySQLCommands()
 
 if __name__ == "__main__":
     main()

@@ -39,15 +39,15 @@ def getWavelength(header, axis=2):
 if __name__ == "__main__":
     #read image data from fits file
     imageData = getImageData(imagename, 0)
-    print('imageData = ',imageData)
-    print('type(imageData) = ',type(imageData))
-    print('imageData.shape = ',imageData.shape)
+#    print('imageData = ',imageData)
+#    print('type(imageData) = ',type(imageData))
+#    print('imageData.shape = ',imageData.shape)
 
     #create x array
     header = pyfits.getheader(imagename,0)
-    print('header = ',header)
+#    print('header = ',header)
     x = getWavelength(header,1)#np.arange(0,imageData.shape[0],1)
-    print('x = ',x.shape,': ',x)
+#    print('x = ',x.shape,': ',x)
 
     #plot the spectrum
     plt.plot(x,imageData)
@@ -68,7 +68,7 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True):
     except Exception as e:
         print(e)
         STOP
-    print('popt = ',popt)
+#    print('popt = ',popt)
 
     print('amplitude a1 = ',popt[0])
     print('amplitude a2 = ',popt[1])
@@ -86,7 +86,8 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True):
     areaUnderCurve2 = np.trapz(yGauss2,x=x)
     print('areaUnderCurve2 = ',areaUnderCurve2)
 
-    plt.plot(x,imageData)
+    if show:
+        plt.plot(x,imageData)
 #    plt.plot(x,yGauss1)
 #    plt.plot(x,yGauss2)
 

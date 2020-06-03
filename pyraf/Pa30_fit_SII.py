@@ -2,7 +2,7 @@ from astropy.coordinates import SkyCoord, EarthLocation, Angle, ICRS, LSR
 import astropy.io.fits as pyfits
 from astropy.time import Time
 from specutils import Spectrum1D
-from specutils.manipulation.resample import FluxConservingResampler
+from specutils.manipulation.resample import FluxConservingResampler,LinearInterpolatedResampler
 import astropy.units as u
 import numpy as np
 #from scipy.optimize import leastsq
@@ -108,9 +108,11 @@ minSum = 0.5e-21
 maxMeanSigma = 0.1#1.e-1
 maxSigSigma = 800.#1.e-1
 
+S2 = pn.Atom('S',2)
+
 colPlot = []#np.arange(250,1000,1)#]
-colRejecta = [104,110,127,279,313,468,490,529,536,543,557,559,613,629,651,652,656,857,864]
-colRejectb = [22,53,348,362,416,418,606,613,621,819,822,824,825,856]
+colRejecta = [104,110,127,279,313,468,490,529,536,543,557,559,613,629,651,652,656,857,864,   109,139,140,152,153,167,168,172,174,192,193,242,243,247,250,258,327,335,339,346,398,479,480,508,527,544,548,560,562,572,573,580,584,596,597,600,608,617,618,627,630,643,669,697,698,701,708,711,726,728,733,739,769,781,782,793,806,807,819] # negative radial velocities
+colRejectb = [22,53,348,362,416,418,606,613,621,819,822,824,825,856,   183,188,237,240,249,258,279,298,321,407,415,420,467,472,475,480,487,499,508,525,538,543,548,552,560,566,572,573,598,609,636,637,639,643,654,687,699,700,704,713,734,756,757,] # positive radial velocities
 
 twoDSpecFile = '/Users/azuri/daten/uni/HKU/Pa30/Pa30_av_x_wl_flt_cal_mSky_obs_not_smoothed_minComb.fits'
 imFile = '/Users/azuri/daten/uni/HKU/Pa30/gtc_object_wcsIm_sky_0000956342.fits'
@@ -249,7 +251,7 @@ def run():
 #            STOP
         # for negative and positive radial velocities (near side and far side)
         iVRad = 0
-        for vradRange in [[-1200.,300.],[300.,1200]]:
+        for vradRange in [[-1200.,-300.],[300.,1200]]:
             if ((iVRad == 0) and (col not in colRejecta)) or ((iVRad > 0.) and (col not in colRejectb)):
     #        print('iVRad = ',iVRad,': vradRange = ',vradRange)
                 res = []
@@ -510,7 +512,7 @@ def writeGoodVRads(goodVRads):
         for i in goodVRads:
             f.write('%.1f,%.0f\n' % (i[0],i[1][0]))
 
-def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities):
+def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities, conserveFlux=True):
     wavelength = np.arange(6700.,6745.,0.5)
     sum = Spectrum1D( flux=np.zeros(wavelength.shape[0]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
                                     spectral_axis = wavelength * u.AA)
@@ -524,7 +526,10 @@ def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities):
                                     spectral_axis = np.array(wavelengthICol) * u.AA)
         resample_grid = np.array(wavelength) *u.AA
 #        print('resample_grid = ',resample_grid)
-        fluxc_resample = FluxConservingResampler(extrapolation_treatment='zero_fill')
+        if conserveFlux:
+            fluxc_resample = FluxConservingResampler(extrapolation_treatment='zero_fill')
+        else:
+            fluxc_resample = LinearInterpolatedResampler(extrapolation_treatment='zero_fill')
         specInterp = fluxc_resample(input_spectra, resample_grid) # doctest: +IGNORE_OUTPUT
         naNPos = np.argwhere(np.isnan(specInterp.data))
 #        print('naNPos = ',naNPos)
@@ -553,7 +558,6 @@ def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities):
 def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, background=None):
     densities = []
     distances = []
-    S2 = pn.Atom('S',2)
 
     print('positiveIndices = ',len(positiveIndices),': ',positiveIndices)
     if negativeIndices is not None:
@@ -572,12 +576,21 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
             vrads.append(goodVRads[ind][1][0])
             dists.append(goodVRads[ind][0])
             cols.append(goodVRads[ind][4])
+            if goodVRads[ind][4] == 420:
+                print('found column 420 with vrad = ',goodVRads[ind][1][0])
+                STOP
+            if goodVRads[ind][4] == 643:
+                print('found column 643 with vrad = ',goodVRads[ind][1][0])
+                STOP
             print('goodVRads[ind][1][0] = ',goodVRads[ind][1][0])
             if negativeIndices is None:#        wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
                 plt.plot([wLen - (goodVRads[ind][1][0] * wLen / c0) for wLen in goodVRads[ind][9][0]],goodVRads[ind][7][0],label='col'+str(goodVRads[ind][4]))
         wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrads)
+
+
 #        print('sumOfSpectra = ',sumOfSpectra)
         if background is None:
+            print('no background given')
             sumOfSpectra -= np.amin(sumOfSpectra)
         else:
             if (i == 0) or (negativeIndices is None):
@@ -620,14 +633,14 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
             den = S2.getTemDen(int_ratio=ratio,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
             if np.isnan(den):
                 good = False
+        where = np.where((wLen > (mean1-4.)) & (wLen < (mean1+4.)))
+#        print('where 6716 = ',where)
+        max6716 = np.amax(sumOfSpectra[where])
+        where = np.where((wLen > (mean2-4.)) & (wLen < (mean2+4.)))
+#        print('where 6731 = ',where)
+        max6731 = np.amax(sumOfSpectra[where])
+        print('max6716 = ',max6716,', max6731 = ',max6731)
         if not good:
-            where = np.where((wLen > (mean1-4.)) & (wLen < (mean1+4.)))
-            print('where 6716 = ',where)
-            max6716 = np.amax(sumOfSpectra[where])
-            where = np.where((wLen > (mean2-4.)) & (wLen < (mean2+4.)))
-            print('where 6731 = ',where)
-            max6731 = np.amax(sumOfSpectra[where])
-            print('max6716 = ',max6716,', max6731 = ',max6731)
             ratio = max6716 / max6731
             den = S2.getTemDen(int_ratio=ratio,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
         dist = np.mean(dists)
@@ -637,11 +650,11 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
             print('dist = ',dist,': max6716 = ',max6716,', max6731 = ',max6731,': ratio = ',ratio,', den = ',den)
         densities.append(den if np.mean(vrads) > 0 else 0.-den)
         distances.append(dist)
-    plt.ylabel('Wavelength [$\mathrm{\AA}$]')
+    plt.xlabel('Wavelength [$\mathrm{\AA}$]')
     plt.ylabel('Flux [$erg / cm^2 / s / \AA$]')
     plt.legend()
     if negativeIndices is not None:
-        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_flux_vs_wavelength_electron_density=+%.1f-%.1f.pdf' % (densities[0],densities[1]),
+        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_flux_vs_wavelength_electron_density=+%d_%d.pdf' % (int(densities[0]),int(densities[1])),
                     format='pdf',
                     frameon=False,
                     bbox_inches='tight',
@@ -650,17 +663,18 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
         fName = '/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_flux_vs_wavelength_cols'
         for col in cols:
             fName += '_'+str(col)
-        fName += '_electron_density=+%.1f.pdf' % (densities[0] if np.mean(vrads) > 0 else 0.-densities[0])
-        plt.savefig(fName,
-                    format='pdf',
-                    frameon=False,
-                    bbox_inches='tight',
-                    pad_inches=0.1)
+        if not np.isnan(densities[0]):
+            fName += '_electron_density=+%d.pdf' % (int(densities[0]) if np.mean(vrads) > 0 else int(0.-densities[0]))
+            plt.savefig(fName,
+                        format='pdf',
+                        frameon=False,
+                        bbox_inches='tight',
+                        pad_inches=0.1)
     plt.show()
     print('distances = ',distances)
     print('densities = ',densities)
 #    if not good:
-#        STOP
+    #STOP
     return [distances,densities]
 
 def plotGoodVRads():
@@ -700,8 +714,8 @@ def plotGoodVRads():
     distances, densities = calcElectronDensity(goodVRads,
                                                positiveIndices,
                                                negativeIndices,
-                                               background = [[[6708.53,6740.36], [4.08e-18,2.21e-18]],
-                                                             [[6702.61,6740.31], [1.828e-18,8.15e-19]]],
+                                               background = [[[6701.67,6741.05], [2.13e-18,7.23e-19]],
+                                                             [[6702.61,6740.31], [1.36e-18,0.09e-18]]],
                                               )
 
     addNSpecs = 5
@@ -950,5 +964,180 @@ def plotGoodVRads():
 
         plt.show()
 
+def fit_SII_WIYN():
+    spectrumFName = '/Users/azuri/daten/uni/HKU/Pa30/sparsepak/spectra/pa30_zdtsEcndr-skyMedian_cal.fits'
+    csv = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/Pa30/pa30_sparsepak_data.csv')
 
-plotGoodVRads()
+    ignoreIndicesA = [3,6,16,35,38,45,57,70,71,77]#[3,6,10,14,16,18,19,21,26,30,33,35,38,43,45,48,50,54,56,57,58,60,61,62,63,69,70,71,73,74,75,77,78,]
+    ignoreIndicesB = [9,10,12,14,40,43,44,45,49,67,69,74,]
+    backgroundA = [[6704.3,6740.9],[2.387e-15,2.823e-15]]
+    backgroundB = [[6700.04,6742.19],[4.017e-15,5.23e-15]]
+
+    distX = 0.0-np.array(csvFree.convertStringVectorToDoubleVector(csv.getData('centerDistanceX')))
+    distY = np.array(csvFree.convertStringVectorToDoubleVector(csv.getData('centerDistanceY')))
+    SII6716a = np.array(csvFree.convertStringVectorToDoubleVector(csv.getData('SII6716a')))
+    SII6731a = np.array(csvFree.convertStringVectorToDoubleVector(csv.getData('SII6731a')))
+    SII6716b = np.array(csvFree.convertStringVectorToDoubleVector(csv.getData('SII6716b')))
+    SII6731b = np.array(csvFree.convertStringVectorToDoubleVector(csv.getData('SII6731b')))
+
+    SII6716a_plot = []
+    SII6716b_plot = []
+    SII6731a_plot = []
+    SII6731b_plot = []
+    distX_SIIa_plot = []
+    distY_SIIa_plot = []
+    distX_SIIb_plot = []
+    distY_SIIb_plot = []
+    inda = []
+    indb = []
+    for i in range(len(SII6716a)):
+        if (SII6716a[i] != 0.0) and (SII6731a[i] != 0.0):
+            if i not in ignoreIndicesA:
+                SII6716a_plot.append(SII6716a[i])
+                SII6731a_plot.append(SII6731a[i])
+                distX_SIIa_plot.append(distX[i])
+                distY_SIIa_plot.append(distY[i])
+                inda.append(i)
+        if (SII6716b[i] != 0.0) and (SII6731b[i] != 0.0):
+            if i not in ignoreIndicesB:
+                SII6716b_plot.append(SII6716b[i])
+                SII6731b_plot.append(SII6731b[i])
+                distX_SIIb_plot.append(distX[i])
+                distY_SIIb_plot.append(distY[i])
+                indb.append(i)
+
+
+    vrada = (((np.array(SII6716a_plot) - mean1) * c0 / mean1) + ((np.array(SII6731a_plot) - mean2) * c0 / mean2)) / 2.
+    vradb = (((np.array(SII6716b_plot) - mean1) * c0 / mean1) + ((np.array(SII6731b_plot) - mean2) * c0 / mean2)) / 2.
+    print('vrada = ',vrada.shape,': ',vrada)
+    print('vradb = ',vradb.shape,': ',vradb)
+
+    wavelengthRange = [6690,6760]
+    #inFile = '/Volumes/work/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMedian.fits'#_6684-6760n.fits'#-skyMean.fits'
+    hdulist = pyfits.open(spectrumFName)
+    header = hdulist[0].header
+
+    spectrum = pyfits.getdata(spectrumFName)
+#    print('spectrum.shape = ',spectrum.shape)
+    wavelength = getWavelength(header,1)
+
+
+    #re-order spectra
+#    plt.plot(wavelength,spectrum[51,:])
+#    plt.show()
+    spectrumReversedOrder = np.zeros(spectrum.shape)
+    for i in np.arange(0,spectrum.shape[0],1):
+        spectrumReversedOrder[i,:] = spectrum[spectrum.shape[0]-i-1,:]
+    spectrum = spectrumReversedOrder
+    plt.plot(wavelength,spectrum[51,:])
+    plt.show()
+
+
+    indices = np.where((wavelength >= wavelengthRange[0]-20.) & (wavelength <= wavelengthRange[1]+20.))[0]
+#    print('indices = ',indices)
+    wavelength = wavelength[indices]
+#    print('wavelength = ',wavelength.shape,': ',wavelength)
+    spectrum = spectrum[:,indices]
+#    print('spectrum.shape = ',spectrum.shape)
+
+    densities = []
+    for vrads,inds,background in [[vrada,inda,backgroundA],[vradb,indb,backgroundB]]:
+#        print('vrads = ',vrads)
+        wLens = []
+        specs = []
+        vrad = []
+#        print('vrads = ',vrads.shape,', inds = ',len(inds))
+        for ind in range(len(inds)):
+            wLens.append(wavelength)
+            specs.append(spectrum[inds[ind],:])
+            vrad.append(vrads[ind])
+#            print('wavelength.shape = ',wavelength.shape,', spectrum[',inds[ind],',:].shape = ',spectrum[inds[ind]].shape,', len(vrads) = ',len(vrads))
+#            plt.plot([wLen - (vrads[ind] * wLen / c0) for wLen in wavelength],spectrum[inds[ind],:],label=str(inds[ind]))
+#            if (ind % 5 == 0) or (ind == len(inds)-1):
+#                plt.legend()
+#                plt.show()
+#        print('specs = ',len(specs),': ',specs)
+#        print('vrad = ',vrad)
+        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrad, conserveFlux=True)
+        #print('sumOfSpectra = ',sumOfSpectra)
+#        sumOfSpectra -= np.amin(sumOfSpectra)
+#        plt.plot(wLen,sumOfSpectra,label='sum')
+#        plt.legend()
+#        plt.show()
+
+        f = interpolate.interp1d(background[0], background[1], bounds_error = False,fill_value='extrapolate')
+        sumOfSpectra -= f(wLen)
+#        print('sumOfSpectra = ',sumOfSpectra)
+#        plt.plot(wLen,sumOfSpectra,label='sum '+('positive vrads' if vrad[0] > 0 else 'negative vrads'))
+#        plt.legend()
+#        plt.show()
+        label = ''
+        if vrad[0] > 0:
+            label='positive $v_{rad}$'
+        else:
+            label='negative $v_{rad}$'
+        plt.plot(wLen,sumOfSpectra,label=label)
+        area6716,area6731,popt = getAreas2Gauss(wLen,
+                                                sumOfSpectra,
+                                                np.amax(sumOfSpectra[:int(sumOfSpectra.shape[0]/2)]),
+                                                np.amax(sumOfSpectra[int(sumOfSpectra.shape[0]/2):]),
+                                                mean1,
+                                                mean2,
+                                                sigma,
+                                                sigma,
+                                                show=False,
+                                               )
+        ratio = area6716 / area6731
+        print('ratio of areas = ',ratio)
+        den = S2.getTemDen(int_ratio=ratio,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
+        print('den = ',den)
+        if True:#np.isnan(den):
+            ratio = np.amax(sumOfSpectra[:int(sumOfSpectra.shape[0]/2)]) / np.amax(sumOfSpectra[int(sumOfSpectra.shape[0]/2):])
+            print('ratio of maximas = ',ratio)
+            denMax = S2.getTemDen(int_ratio=ratio,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
+            print('denMax = ',denMax)
+        densities.append(denMax if np.isnan(den) else den)
+    plt.xlabel('Wavelength [$\mathrm{\AA}$]')
+    plt.ylabel('Flux [$erg / cm^2 / s / \AA$]')
+    plt.legend()
+    plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_WIYN_flux_vs_wavelength_electron_density=+%d_-%d.pdf' % (int(densities[1]),int(densities[0])),
+                format='pdf',
+                frameon=False,
+                bbox_inches='tight',
+                pad_inches=0.1)
+    plt.show()
+
+def calculateHydrogenMass():
+    electronDensityPerCubicCentimeter = 155.5# cm^-3
+    sphereRadiusInParsec = 1.63 # pc
+
+    sphereRadiusInCentimeter = sphereRadiusInParsec * 3.0857e18 # cm
+    print('sphereRadiusInCentimeter = ',sphereRadiusInCentimeter,' cm')
+    sphereVolumeInCubicCentermeter = 4. * np.pi * (sphereRadiusInCentimeter ** 3.) / 3. # cm^3
+    print('np.pi = ',np.pi)
+    print('sphereVolumeInCubicCentermeter = ',sphereVolumeInCubicCentermeter,' cm^3')
+
+    numberOfElectronsInsideSphere = electronDensityPerCubicCentimeter * sphereVolumeInCubicCentermeter # = number of Hydrogen atoms
+    print('numberOfElectronsInsideSphere = ',numberOfElectronsInsideSphere)
+
+    protonMass = 1.6726219e-27 # kg
+    print('protonMass = ',protonMass,' kg')
+    hydrogenMassInsideSphere = numberOfElectronsInsideSphere * protonMass # kg
+    print('hydrogenMassInsideSphere = ',hydrogenMassInsideSphere,' kg')
+
+    solarMass = 1.98847e30 # kg
+    print('solarMass = ',solarMass,' kg')
+
+    hydrogenMassInSolarMasses = hydrogenMassInsideSphere / solarMass
+    print('hydrogenMassInSolarMasses = ',hydrogenMassInSolarMasses,' M_sol')
+
+    print('----------------------')
+    mTest = np.pi * ((20000* 1.496e+13)**3.) * 1000. * protonMass / 6. / solarMass
+    print('mTest = ',mTest)
+    hydrogenMassInSolarMassesB = np.pi * ((2. * sphereRadiusInCentimeter)**3.) * 155.5 * protonMass / 6. / solarMass
+    print('hydrogenMassInSolarMassesB = ',hydrogenMassInSolarMassesB)
+
+if __name__ == '__main__':
+    #plotGoodVRads()
+    #fit_SII_WIYN()
+    calculateHydrogenMass()

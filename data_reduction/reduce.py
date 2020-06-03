@@ -1,21 +1,33 @@
-from astropy.nddata import CCDData
-from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
+#from astropy.nddata import CCDData
+from astropy.coordinates import EarthLocation
+from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove,extractSum
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
-from drUtils import makeSkyFlat, makeMasterFlat, imDivide
+from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
+from drUtils import readFluxStandardsList
 import numpy as np
 import os
 from shutil import copyfile
 
 overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
-workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
+#workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
+workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/'
+refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
 #refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/apvertical_trace'
-refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aprefVerticalTrace_spupnic_gr7_16_3'
+refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
-refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aprefHorizontalTrace_spupnic_gr7_16_3_transposed'
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')
+lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
 
+print('EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
+observatoryLocation = EarthLocation.of_site('SAAO')
+print('SAAO.lon = ',observatoryLocation.lon)
+print('SAAO.lat = ',observatoryLocation.lat)
+
+fluxStandardNames, fluxStandardFileNames = readFluxStandardsList()
 
 def readFileToArr(fname):
     text_file = open(fname, "r")
@@ -34,15 +46,15 @@ def getListOfFiles(fname):
     return fList
 
 inList=os.path.join(workPath,'allFits.list')
-suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxfif']
+suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxfif','otzfiEc','otzfifEc','otzfifEcd']
 
 #    copyfile(inList, inList+'bak')
 #    silentRemove(inList[:inList.rfind('/')+1]+'*.list')
 #    copyfile(inList+'bak', inList)
-exptypes = ['BIAS','FLAT','ARC','SCIENCE']
-objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual']]
-separateFileList(inList, suffixes, exptypes, objects, True)
-
+exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
+objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
+separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
+STOP
 objectFiles = os.path.join(workPath,'SCIENCE.list')
 
 # subtract overscan and trim all images
@@ -133,3 +145,20 @@ if True:
     flatCorrect(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfi.list')),
                 os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                 fitsFilesOut=getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))
+
+    # extract and reidentify ARCs
+    wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(getListOfFiles(os.path.join(workPath,'ARC_otzf.list')),
+                                                                     refProfApDef,
+                                                                     lineList)
+
+    # extract science data
+    scienceSpectra = [extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
+
+    dispCor(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEc.list')),
+            getListOfFiles(os.path.join(workPath,'ARC_otzfiEc.list')),
+            wavelengthsOrig,
+            getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEcd.list')),
+            observatoryLocation,
+            'TARG-RA',
+            'TARG-DEC',
+            'DATE-OBS')
