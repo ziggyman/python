@@ -2,7 +2,7 @@
 #from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.coordinates import SkyCoord, EarthLocation, Angle, ICRS, LSR
-from astropy.io.fits.header import _HeaderCommentaryCards
+from astropy.nddata import StdDevUncertainty
 import astropy.io.fits as pyfits
 import astropy.modeling.tests.irafutil as iu
 from astropy.nddata import CCDData
@@ -20,7 +20,7 @@ from numpy.polynomial.legendre import legval
 #import numpy as np
 import os
 from PyAstronomy import pyasl
-from pyraf import iraf
+#from pyraf import iraf
 from scipy import exp,ndimage
 from scipy.integrate import simps
 #from scipy.interpolate import CubicSpline
@@ -36,7 +36,10 @@ from shutil import copyfile
 #from sklearn import linear_model
 from specutils import Spectrum1D
 from specutils.manipulation.resample import FluxConservingResampler,LinearInterpolatedResampler
-
+from specreduce import fluxcal,calibration_data
+#from fluxcal import standard_sensfunc, apply_sensfunc, onedstd, obs_extinction, airmass_cor
+from apextract import trace, extract
+from fluxcal import standard_sensfunc, apply_sensfunc, onedstd, obs_extinction, airmass_cor
 from myUtils import hmsToDeg,dmsToDeg
 
 # TODO: Make it possible to pass in CCDData instead of fits file names
@@ -44,10 +47,11 @@ from myUtils import hmsToDeg,dmsToDeg
 Info = namedtuple('Info', 'start height')
 c0 = 299792.458 # km/s
 plot = False
+fluxStdDirsByPriority = ['spec50cal','oke1990','irscal','iidscal','spechayescal']
 
 def readFileToArr(fname):
-    text_file = open(fname, "r")
-    lines = text_file.readlines()
+    with open(fname, "r") as f:
+        lines = f.readlines()
 
     """remove empty lines"""
     lines = list(filter(len, lines))
@@ -77,6 +81,19 @@ def getImageData(fname,hduNum=1):
     scidata = hdulist[hduNum].data
     hdulist.close()
     return scidata
+
+def getHeaderValue(fname, keyword, hduNum=0):
+    hdulist = pyfits.open(fname)
+    header = hdulist[hduNum].header
+    hdulist.close()
+    return header[keyword]
+
+def getWavelengthArr(fname, hduNum=0):
+    hdulist = pyfits.open(fname)
+    header = hdulist[hduNum].header
+    hdulist.close()
+    wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * header['CDELT1'] + header['CRVAL1']
+    return wLen
 
 # read header from inputFileName, add metaKeys and metaData to that header,
 # adjust the size according to ccdData, and write ccdData and header to outputFileName
@@ -1620,7 +1637,7 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' '):
     #print('p = ',p)
     return [coeffs,rms]
 
-def extract(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis):
+if False:#def extract(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('image.shape')
 
@@ -2066,7 +2083,213 @@ def readFluxStandardsList(fName='/Users/azuri/stella/referenceFiles/fluxStandard
         lines = f.readlines()
     lines = [line.rstrip('\n') for line in lines]
     names = [line[line.rfind('/')+1:line.rfind('.')] for line in lines]
-    return [names, lines]
+    dirs = [line[:line.rfind('/')] for line in lines]
+    dirs = [d[d.rfind('/')+1:] for d in dirs]
+#    stdDirs = []
+#    for d in dirs:
+#        if not d in stdDirs:
+#            stdDirs.append(d)
+    return [names, dirs, lines]
 
-def calcResponse(fNameList):
-    
+def readFluxStandardFile(fName):
+    #with open(fName,'r') as f:
+        #lines = f.readlines()
+    lines = readFileToArr(fName)[1:]#[line.rstrip('\n').strip('\t').strip(' ') for line in lines]
+    #print('lines = ',lines)
+    lines = [line.replace('\t',' ') for line in lines]
+    wavelengths = np.asarray([float(line[:line.find(' ')]) for line in lines])
+    lines = [line[line.find(' '):].strip() for line in lines]
+    fluxes = np.asarray([float(line[:line.find(' ')]) for line in lines])
+    for i in range(len(lines)):
+        print('lambda = ',wavelengths[i],', flux = ',fluxes[i])
+    return [wavelengths, fluxes]
+
+def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat'):
+    fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList(fluxStdandardList)
+    fluxStandardNames = np.asarray(fluxStandardNames)
+    fluxStandardDirs = np.asarray(fluxStandardDirs)
+    fluxStandardFileNames = np.asarray(fluxStandardFileNames)
+    print('fluxStandardNames = ',fluxStandardNames)
+    print('fluxStandardDirs = ',fluxStandardDirs)
+    with open(fNameList, 'r') as f:
+        fNames = f.readlines()
+    fNames = [n.rstrip('\n') for n in fNames]
+    sensFuncs = []
+
+    for fName in fNames:
+        stdName = fName[fName.rfind('SCIENCE_')+8:]
+        stdName = stdName[:stdName.find('_')]
+        print('stdName = <'+stdName+'>')
+#        wLenStd = getWavelengthArr(fName[:fName.rfind('.')]+'Ecd.fits',0)
+#        wLenStd = getWavelengthArr(fName,0)
+
+        indices = np.where(fluxStandardNames == stdName.lower())[0]
+        print('indices = ',indices)
+        print('Flux standard star '+stdName+' found in ',fluxStandardDirs[indices])
+        print('Flux standard star '+stdName+' found in ',fluxStandardFileNames[indices])
+        done = False
+        for prior in fluxStdDirsByPriority:
+            if (not done) and (prior in fluxStandardDirs[indices]):
+                print('dir = '+prior)
+                img = CCDData.read(fName, unit=u.adu)
+                print('dir(img.header) = ',dir(img.header))
+                for key in img.header.keys():
+                    print(key,': ',img.header[key])
+                print('img.data.shape = ',img.data.shape)
+                print('type(img.data[0]) = ',type(img.data[0]))
+                print("type(img.header['EXPTIME']) = ",type(img.header['EXPTIME']))
+                # put in units of ADU/s
+                img.data = img.data / float(img.header['EXPTIME'])
+                img.unit = u.adu / u.s
+
+                # Trace & Extract the standard star spectrum. See the extract example demo for more details
+                tr = trace(img, display=False, nbins=25)
+                ex_tbl = extract(img, tr, display=False, apwidth=8, skysep=3, skywidth=7)
+
+                # this data comes from the APO DIS red channel, which has wavelength axis backwards
+                # (despite not mentioning in the header)
+                wapprox = wLenOrig#(np.arange(img.shape[1]) - img.shape[1]/2)[::-1] * img.header['DISPDW'] + img.header['DISPWC']
+
+                wapprox = wapprox * u.angstrom
+
+                # obj_flux = (flux_std - sky_std) * u.adu / u.s
+                obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
+
+                plt.plot(wapprox, obj_flux)
+                plt.errorbar(wapprox.value, obj_flux.data, yerr=ex_tbl['fluxerr'].data, alpha=0.25)
+                plt.show()
+
+                stdstar=onedstd(prior+'/'+stdName.lower()+'.dat')
+                print('stdstar = ',stdstar)
+
+                obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
+                obj_spectrum = Spectrum1D(spectral_axis=wapprox, flux=obj_flux.quantity,
+                                          uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
+
+                sensfunc_lin = standard_sensfunc(obj_spectrum, stdstar, display=True, mode='linear')
+                print('sensfunc_lin = ',sensfunc_lin)
+                # the actual sensitivity function(s), which in theory include some crude information about
+                # the flat fielding (response) - though the reference spectrum is very coarse.
+                plt.plot(sensfunc_lin['wave'], sensfunc_lin['S'])
+                plt.show()
+
+                # now apply the sensfunc back to the std star to demonstrate
+                # NOTE: this only works b/c wavelength is exactly the same. Normally use `apply_sensfunc`
+                plt.plot(wapprox, obj_flux * sensfunc_lin['S'])
+                plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
+                plt.xlim(5500,7500)
+                plt.ylim(0, 0.3e-12)
+                plt.show()
+
+                # now let's demo the Airmass correction
+                Xfile = obs_extinction(airmassExtCor)
+
+                AIRVAL = float(img.header['AIRMASS'])
+                print('AIRMASS = ',AIRVAL)
+                Atest = airmass_cor(obj_spectrum, AIRVAL, Xfile)
+
+                plt.plot(obj_spectrum.wavelength, obj_spectrum.flux)
+                plt.plot(Atest.wavelength, Atest.flux)
+                plt.show()
+
+                sensFuncs.append(Atest)
+
+                # Now demo how to apply a sensfuc to a new spectrum (just happens to be the same spectrum here...)
+                #Stest = apply_sensfunc(obj_spectrum, sensfunc_lin)
+
+                #print('Stest = ',Stest)
+
+                #plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
+
+                #plt.plot(Stest.wavelength, Stest.flux, c='C2')
+                #plt.xlim(5500,7500)
+                #plt.ylim(0, 0.3e-12)
+                #plt.show()
+
+                done = True
+
+            #wavelengths, fluxes = readFluxStandardFile(fluxStandardFileNames[ind])
+ #           if (wavelengths[0] < wLenStd[0]) and (wavelengths[len(wavelengths)-1] > wLenStd[len(wLenStd)-1]):
+ #               goodFiles.append([fName,fluxStandardFileNames[ind]])
+    return sensFuncs
+
+#def applySensFuncs(objectSpectra, sensFuncs):
+
+def fluxCalibrate(obsSpecFName, standardSpecFName):
+    spec = getImageData(obsSpecFName,0)
+    wLen = getWavelengthArr(obsSpecFName,0)
+    objectSpectrum = Spectrum1D( flux=np.array(spec) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                 spectral_axis = np.array(wLen) * u.AA)
+
+    FluxCal = fluxcal.FluxCalibration()
+    print('dir(FluxCal) = ',dir(FluxCal))
+    airmass = float(getHeaderValue(obsSpecFName,'AIRMASS'))
+    print('type(airmass) = ',type(airmass))
+    FluxCal(objectSpectrum, airmass)
+
+    import matplotlib.pyplot as plt
+    from specreduce.calibration_data import AtmosphericExtinction, SUPPORTED_EXTINCTION_MODELS
+
+    fig, ax = plt.subplots(2, 1, sharex=True)
+    for model in SUPPORTED_EXTINCTION_MODELS:
+        ext = AtmosphericExtinction(model=model)
+        ax[0].plot(ext.spectral_axis, ext.extinction_mag, label=model)
+        ax[1].plot(ext.spectral_axis, ext.transmission)
+    ax[0].legend(fancybox=True, shadow=True)
+    ax[1].set_xlabel("Wavelength ($\AA$)")
+    ax[0].set_ylabel("Extinction (mag)")
+    ax[1].set_ylabel("Transmission")
+    plt.tight_layout()
+    fig.show()
+
+    from specreduce.calibration_data import AtmosphericTransmission
+    fig, ax = plt.subplots()
+    ext_default = AtmosphericTransmission()
+    ext_custom = AtmosphericTransmission(data_file="/Users/azuri/entwicklung/python/data_reduction/specreduce/docs/atm_transmission_secz1.5_1.6mm.dat")
+    ax.plot(ext_default.spectral_axis, ext_default.transmission, label=r"sec $z$ = 1; 1 mm H$_{2}$O", linewidth=1)
+    ax.plot(ext_custom.spectral_axis, ext_custom.transmission, label=r"sec $z$ = 1.5; 1.6 mm H$_{2}$O", linewidth=1)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.12), ncol=2, fancybox=True, shadow=True)
+    ax.set_xlabel("Wavelength (microns)")
+    ax.set_ylabel("Transmission")
+    fig.show()
+
+    from specreduce.calibration_data import load_MAST_calspec
+    spec = load_MAST_calspec("agk_81d266_stisnic_007.fits")
+
+    fig, ax = plt.subplots()
+    ax.step(spec.spectral_axis, spec.flux, where="mid")
+    ax.set_yscale('log')
+    ax.set_xlabel(f'Wavelength ({spec.spectral_axis.unit})')
+    ax.set_ylabel(f"Flux ({spec.flux.unit})")
+    ax.set_title("AGK+81 266")
+    fig.show()
+
+    from specreduce.calibration_data import load_MAST_calspec, load_onedstds
+    s1 = load_MAST_calspec("ltt9491_002.fits", remote=True)
+    s2 = load_onedstds("snfactory", "LTT9491.dat")
+    s3 = load_onedstds("eso", "ctiostan/ltt9491.dat")
+    fig, ax = plt.subplots()
+    ax.step(s1.spectral_axis, s1.flux, label="MAST", where="mid")
+    ax.step(s2.spectral_axis, s2.flux, label="SNFactory", where="mid")
+    ax.step(s3.spectral_axis, s3.flux, label="ESO", where="mid")
+    ax.set_yscale('log')
+    ax.set_xlabel(f"Wavelength ({s1.spectral_axis.unit})")
+    ax.set_ylabel(f"Flux ({s1.flux.unit})")
+    ax.set_title("LTT 9491")
+    ax.legend()
+    fig.show()
+
+
+    from specreduce.calibration_data import get_reference_file_path
+    kpno_extinction_file = get_reference_file_path("extinction/kpnoextinct.dat")
+    print('kpno_extinction_file = <'+kpno_extinction_file+'>')
+
+    print('dir(calibration_data) = ',dir(calibration_data))
+    a=calibration_data.load_MAST_calspec(kpno_extinction_file)
+    print('a = ',)
+    b=calibration_data.load_onedstds()
+    print('b = ',)
+
+
+#    extinctionCurve = FluxCal.obs_extinction('kpno')
+#    print('extinctionCurve = ',extinctionCurve)

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 #import pymodelfit
-from pyraf import iraf
+#from pyraf import iraf
 import re
 import subprocess
 
@@ -501,15 +501,16 @@ def degToArcsec(deg):
 # offset < 0: fitsName2 shifted left relative to fitsName1
 # offset > 0: fitsName2 shifted right relative to fitsName1 (spectrum appears further left)
 # gap: tuple: [x0,x1]
-def imMinCombine(fitsName1,
-                 fitsName2,
-                 offset,
-                 gap=None,
-                 outFileName=None,
-                 scale=None,
-                 ignoreFirst=None,
-                 ignoreLast=None,
-                ):
+#def imMinCombine(fitsName1,
+#                 fitsName2,
+#                 offset,
+#                 gap=None,
+#                 outFileName=None,
+#                 scale=None,
+#                 ignoreFirst=None,
+#                 ignoreLast=None,
+#                ):
+if False:
     def setRowNaNs(row):
 #        print('setRowNaNs: row = ',row)
         row[:offset] = 'nan'

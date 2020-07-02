@@ -3,7 +3,7 @@ from astropy.coordinates import EarthLocation
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove,extractSum
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
-from drUtils import readFluxStandardsList
+from drUtils import readFluxStandardsList,calcResponse,fluxCalibrate
 import numpy as np
 import os
 from shutil import copyfile
@@ -27,7 +27,7 @@ observatoryLocation = EarthLocation.of_site('SAAO')
 print('SAAO.lon = ',observatoryLocation.lon)
 print('SAAO.lat = ',observatoryLocation.lat)
 
-fluxStandardNames, fluxStandardFileNames = readFluxStandardsList()
+fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList()
 
 def readFileToArr(fname):
     text_file = open(fname, "r")
@@ -53,67 +53,68 @@ suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxf
 #    copyfile(inList+'bak', inList)
 exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
 objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
-separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
-STOP
-objectFiles = os.path.join(workPath,'SCIENCE.list')
+if False:
+    separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
+    #STOP
+    objectFiles = os.path.join(workPath,'SCIENCE.list')
 
-# subtract overscan and trim all images
-for inputList in ['ARC', 'BIAS', 'FLAT', 'SCIENCE']:
-    subtractOverscan(getListOfFiles(os.path.join(workPath,inputList+'.list')),
-                     overscanSection,
-                     trimSection=trimSection,
-                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_ot.list')),
+    # subtract overscan and trim all images
+    for inputList in ['ARC', 'BIAS', 'FLAT', 'SCIENCE']:
+        subtractOverscan(getListOfFiles(os.path.join(workPath,inputList+'.list')),
+                         overscanSection,
+                         trimSection=trimSection,
+                         fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_ot.list')),
+                         overwrite=True)
+
+    # create master bias
+    masterBias = os.path.join(workPath,'combinedBias_ot.fits')
+    combinedBias = combine(getListOfFiles(os.path.join(workPath,'BIAS_ot.list')),
+                           combinerMethod='median',
+                           clippingMethod='sigma',
+                           clippingParameters={'niter':0,
+                                               'low_thresh':-3.,
+                                               'high_thresh':3.,
+                                               'func':np.ma.median},
+                           scaling=False,
+                           fitsOutName=masterBias)
+    print('average sigma 0: mean(combinedBias) = ',np.mean(combinedBias))
+
+    # subtract masterBias from all images
+    for inputList in ['ARC', 'FLAT', 'SCIENCE']:
+        subtractBias(getListOfFiles(os.path.join(workPath,inputList+'_ot.list')),
+                     masterBias,
+                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                      overwrite=True)
 
-# create master bias
-masterBias = os.path.join(workPath,'combinedBias_ot.fits')
-combinedBias = combine(getListOfFiles(os.path.join(workPath,'BIAS_ot.list')),
-                       combinerMethod='median',
-                       clippingMethod='sigma',
-                       clippingParameters={'niter':0,
-                                           'low_thresh':-3.,
-                                           'high_thresh':3.,
-                                           'func':np.ma.median},
-                       scaling=False,
-                       fitsOutName=masterBias)
-print('average sigma 0: mean(combinedBias) = ',np.mean(combinedBias))
+    # create master DomeFlat
+    combinedFlat = os.path.join(workPath,'combinedFlat.fits')
+    print('creating combinedFlat <'+combinedFlat+'>')
+    flat = combine(getListOfFiles(os.path.join(workPath,'FLATDOMEFLAT_otz.list')),
+                   combinerMethod='median',
+                   clippingMethod='sigma',
+                   clippingParameters={'niter':2,
+                                       'low_thresh':-3.,
+                                       'high_thresh':3.,
+                                       'func':np.ma.median},
+                   scaling=False,
+                   minVal=0.0001,
+                   fitsOutName=combinedFlat)
 
-# subtract masterBias from all images
-for inputList in ['ARC', 'FLAT', 'SCIENCE']:
-    subtractBias(getListOfFiles(os.path.join(workPath,inputList+'_ot.list')),
-                 masterBias,
-                 fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
-                 overwrite=True)
+    masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
+    smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
+    makeMasterFlat(combinedFlat,
+                   9,
+                   80.,
+                   outFileNameMasterFlat=masterFlat,
+                   outFileNameMasterFlatSmoothed=smoothedFlat)
 
-# create master DomeFlat
-combinedFlat = os.path.join(workPath,'combinedFlat.fits')
-print('creating combinedFlat <'+combinedFlat+'>')
-flat = combine(getListOfFiles(os.path.join(workPath,'FLATDOMEFLAT_otz.list')),
-               combinerMethod='median',
-               clippingMethod='sigma',
-               clippingParameters={'niter':2,
-                                   'low_thresh':-3.,
-                                   'high_thresh':3.,
-                                   'func':np.ma.median},
-               scaling=False,
-               minVal=0.0001,
-               fitsOutName=combinedFlat)
-
-masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
-smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
-makeMasterFlat(combinedFlat,
-               9,
-               80.,
-               outFileNameMasterFlat=masterFlat,
-               outFileNameMasterFlatSmoothed=smoothedFlat)
-
-# apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
-for inputList in ['ARC','SCIENCE','FLATSKYFLAT']:
-    flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
-                masterFlat,
-                norm_value = 1.,
-                fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
-if True:
+    # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
+    for inputList in ['ARC','SCIENCE','FLATSKYFLAT']:
+        flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
+                    masterFlat,
+                    norm_value = 1.,
+                    fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
+if False:
     # interpolate images to get straight dispersion and spectral features
     for inputList in ['ARC', 'SCIENCE']:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')),
@@ -146,6 +147,7 @@ if True:
                 os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                 fitsFilesOut=getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))
 
+if True:
     # extract and reidentify ARCs
     wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(getListOfFiles(os.path.join(workPath,'ARC_otzf.list')),
                                                                      refProfApDef,
@@ -162,3 +164,11 @@ if True:
             'TARG-RA',
             'TARG-DEC',
             'DATE-OBS')
+
+    sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfif.list'), wavelengthsOrig[0])
+    print('sensFuncs = ',sensFuncs)
+
+
+#    response = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfifEcd.list'))
+    fluxCalibrate(os.path.join(workPath,'SCIENCE_LTT7379_a1171120_otzfifEcd.fits'),
+                  os.path.join(workPath,'SCIENCE_Feige110_a1171214_otzfifEcd.fits'))
