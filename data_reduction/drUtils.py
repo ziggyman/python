@@ -92,7 +92,13 @@ def getWavelengthArr(fname, hduNum=0):
     hdulist = pyfits.open(fname)
     header = hdulist[hduNum].header
     hdulist.close()
-    wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * header['CDELT1'] + header['CRVAL1']
+    if 'CDELT1' in header.keys():
+        cdelt = header['CDELT1']
+    elif 'CD1_1' in header.keys():
+        cdelt = header['CD1_1']
+    else:
+        raise('ERROR: neither CDELT1 nor CD1_1 found in header of file <'+fname+'>')
+    wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * cdelt + header['CRVAL1']
     return wLen
 
 # read header from inputFileName, add metaKeys and metaData to that header,
@@ -2154,6 +2160,7 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
 
                 # obj_flux = (flux_std - sky_std) * u.adu / u.s
                 obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
+                print('obj_flux = ',obj_flux)
 
                 plt.plot(wapprox, obj_flux)
                 plt.errorbar(wapprox.value, obj_flux.data, yerr=ex_tbl['fluxerr'].data, alpha=0.25)
@@ -2163,6 +2170,7 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
                 print('stdstar = ',stdstar)
 
                 obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
+                print('obj_flux.quantity = ',obj_flux.quantity)
                 obj_spectrum = Spectrum1D(spectral_axis=wapprox, flux=obj_flux.quantity,
                                           uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
 
@@ -2213,9 +2221,35 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
  #               goodFiles.append([fName,fluxStandardFileNames[ind]])
     return sensFuncs
 
-#def applySensFuncs(objectSpectra, sensFuncs):
+def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='apoextinct.dat'):
+    for iSpec in range(len(objectSpectraIn)):
+        img = CCDData.read(objectSpectraIn[iSpec], unit=u.adu)
+        # put in units of ADU/s
+        img.data = img.data / float(img.header['EXPTIME'])
+        img.unit = u.adu / u.s
 
-def fluxCalibrate(obsSpecFName, standardSpecFName):
+        wLen = getWavelengthArr(objectSpectraIn[iSpec],0) * u.angstrom
+
+        obj_spectrum = Spectrum1D(spectral_axis=wLen, flux=img.data * img.unit)#,
+ #                                 uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
+        Xfile = obs_extinction(airmassExtCor)
+
+        AIRVAL = float(img.header['AIRMASS'])
+        print('AIRMASS = ',AIRVAL)
+        obj_spectrum = airmass_cor(obj_spectrum, AIRVAL, Xfile)
+        objectSpectrumFluxCalibrated = apply_sensfunc(obj_spectrum, sensFuncs[0])
+        print('objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
+        print('dir(objectSpectrumFluxCalibrated.data) = ',dir(objectSpectrumFluxCalibrated.data))
+        writeFits1D(objectSpectrumFluxCalibrated.data,
+                    objectSpectraOut[iSpec],
+                    wavelength=None,
+                    header=img.header,
+                    CRVAL1=img.header['CRVAL1'],
+                    CRPIX1=img.header['CRPIX1'],
+                    CDELT1=img.header['CDELT1'],
+                   )
+
+if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
     spec = getImageData(obsSpecFName,0)
     wLen = getWavelengthArr(obsSpecFName,0)
     objectSpectrum = Spectrum1D( flux=np.array(spec) * u.erg / (u.cm * u.cm) / u.s / u.AA,
@@ -2286,9 +2320,9 @@ def fluxCalibrate(obsSpecFName, standardSpecFName):
 
     print('dir(calibration_data) = ',dir(calibration_data))
     a=calibration_data.load_MAST_calspec(kpno_extinction_file)
-    print('a = ',)
+    print('a = ',a)
     b=calibration_data.load_onedstds()
-    print('b = ',)
+    print('b = ',b)
 
 
 #    extinctionCurve = FluxCal.obs_extinction('kpno')

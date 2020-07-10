@@ -3,7 +3,7 @@ from astropy.coordinates import EarthLocation
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove,extractSum
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
-from drUtils import readFluxStandardsList,calcResponse,fluxCalibrate
+from drUtils import readFluxStandardsList,calcResponse,applySensFuncs
 import numpy as np
 import os
 from shutil import copyfile
@@ -46,7 +46,7 @@ def getListOfFiles(fname):
     return fList
 
 inList=os.path.join(workPath,'allFits.list')
-suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxfif','otzfiEc','otzfifEc','otzfifEcd']
+suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxfif','otzfiEc','otzfifEc','otzfifEcd','otzfifEcdF']
 
 #    copyfile(inList, inList+'bak')
 #    silentRemove(inList[:inList.rfind('/')+1]+'*.list')
@@ -57,7 +57,7 @@ if False:
     separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
     #STOP
     objectFiles = os.path.join(workPath,'SCIENCE.list')
-
+if False:
     # subtract overscan and trim all images
     for inputList in ['ARC', 'BIAS', 'FLAT', 'SCIENCE']:
         subtractOverscan(getListOfFiles(os.path.join(workPath,inputList+'.list')),
@@ -168,7 +168,8 @@ if True:
     sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfif.list'), wavelengthsOrig[0])
     print('sensFuncs = ',sensFuncs)
 
+    applySensFuncs(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEcd.list')),getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEcdF.list')), sensFuncs)
 
 #    response = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfifEcd.list'))
-    fluxCalibrate(os.path.join(workPath,'SCIENCE_LTT7379_a1171120_otzfifEcd.fits'),
-                  os.path.join(workPath,'SCIENCE_Feige110_a1171214_otzfifEcd.fits'))
+#    fluxCalibrate(os.path.join(workPath,'SCIENCE_LTT7379_a1171120_otzfifEcd.fits'),
+#                  os.path.join(workPath,'SCIENCE_Feige110_a1171214_otzfifEcd.fits'))

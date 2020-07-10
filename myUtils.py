@@ -460,8 +460,8 @@ def angularDistanceFromXYPyAsl(fitsName, x1, y1, x2, y2):
 #@return: angular distance in arc seconds
 def angularDistance(ra1, dec1, ra2, dec2):
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
-    mm1 = SkyCoord(ra=ra1, dec=dec1, frame='icrs')
-    mm2 = SkyCoord(ra=ra2, dec=dec2, frame='icrs')
+    mm1 = SkyCoord(ra=ra1, dec=dec1, frame='icrs', unit="deg")
+    mm2 = SkyCoord(ra=ra2, dec=dec2, frame='icrs', unit="deg")
     return mm1.separation(mm2).arcsecond
 
 def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
