@@ -253,6 +253,19 @@ def fixAccuracy():
                 lCalc, bCalc = raDecToLonLat(draCalc,ddecCalc)
                 f.write("UPDATE `tbCSCoords` SET `CS_RAJ2000` = '%s', `CS_DECJ2000` = '%s', `CS_DRAJ2000` = %.5f, `CS_DDECJ2000` = %.5f, `CS_Glon` = %.5f, `CS_Glat` = %.5f WHERE `idtbCSCoords` = %d;\n" % (ra, dec, draCalc, ddecCalc, lCalc, bCalc, int(row['idtbCSCoords'])))
 
+def addSimbasComments():
+    simbaFName = '/Users/azuri/daten/uni/HKU/interns_projects/simba/All_list_v2.csv'
+    simba = csv.DictReader(open(simbaFName))
+
+    for row in simba:
+        if row['Comments detailed'] != '':
+            idPNMain = row['Hash id']
+            cspn = csv.DictReader(open(fNameHashCSPN))
+            for line in cspn:
+                if (line['idPNMain'] == idPNMain) and (row[''])
+
+
+
 
 if __name__ == '__main__':
     checkCSPNCoordsAndAddMissingAngles()
