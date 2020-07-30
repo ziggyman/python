@@ -3,15 +3,17 @@ from astropy.coordinates import EarthLocation
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove,extractSum
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
-from drUtils import readFluxStandardsList,calcResponse,applySensFuncs
+from drUtils import readFluxStandardsList,calcResponse,applySensFuncs,extractObjectAndSubtractSky
 import numpy as np
 import os
 from shutil import copyfile
 
+import csvFree, csvData
+
 overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
-workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/'
+workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190906/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
@@ -29,6 +31,9 @@ print('SAAO.lat = ',observatoryLocation.lat)
 
 fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList()
 
+if not os.path.exists(os.path.join(workPath,'database')):
+    os.makedirs(os.path.join(workPath,'database'))
+
 def readFileToArr(fname):
     text_file = open(fname, "r")
     lines = text_file.readlines()
@@ -41,6 +46,7 @@ def readFileToArr(fname):
 
 def getListOfFiles(fname):
     fList = readFileToArr(fname)
+    print('fname = ',fname,': fList = ',fList)
     if fList[0].rfind('/') == -1:
         fList = [os.path.join(workPath, fileName) for fileName in fList]
     return fList
@@ -57,7 +63,6 @@ if False:
     separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
     #STOP
     objectFiles = os.path.join(workPath,'SCIENCE.list')
-if False:
     # subtract overscan and trim all images
     for inputList in ['ARC', 'BIAS', 'FLAT', 'SCIENCE']:
         subtractOverscan(getListOfFiles(os.path.join(workPath,inputList+'.list')),
@@ -114,7 +119,7 @@ if False:
                     masterFlat,
                     norm_value = 1.,
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
-if False:
+
     # interpolate images to get straight dispersion and spectral features
     for inputList in ['ARC', 'SCIENCE']:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')),
@@ -154,7 +159,19 @@ if True:
                                                                      lineList)
 
     # extract science data
-    scienceSpectra = [extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
+    #extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis)
+    areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
+    scienceSpectra = []#extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
+    for i in range(areas.size()):
+        skyAbove = None if areas.getData('skyAbove',i) == '' else [int(areas.getData('skyAbove',i)[1:areas.getData('skyAbove',i).find(':')]),int(areas.getData('skyAbove',i)[areas.getData('skyAbove',i).find(':')+1:-1])]
+        skyBelow = None if areas.getData('skyBelow',i) == '' else [int(areas.getData('skyBelow',i)[1:areas.getData('skyBelow',i).find(':')]),int(areas.getData('skyBelow',i)[areas.getData('skyBelow',i).find(':')+1:-1])]
+        extractObjectAndSubtractSky(os.path.join(workPath,areas.getData('fName',i)) if '/' not in areas.getData('fName',i) else areas.getData('fName',i),
+                                    os.path.join(workPath,areas.getData('fName',i)[:-5]+'Ec.fits'),
+                                    [int(areas.getData('object',i)[1:areas.getData('object',i).find(':')]),int(areas.getData('object',i)[areas.getData('object',i).find(':')+1:-1])],
+                                    skyAbove = skyAbove,
+                                    skyBelow = skyBelow,
+                                    extractionMethod = areas.getData('method',i),
+                                    dispAxis = 'row')
 
     dispCor(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEc.list')),
             getListOfFiles(os.path.join(workPath,'ARC_otzfiEc.list')),
@@ -165,10 +182,14 @@ if True:
             'TARG-DEC',
             'DATE-OBS')
 
-    sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfif.list'), wavelengthsOrig[0])
+    sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfif.list'),
+                             getListOfFiles(os.path.join(workPath,'ARC_otzfiEc.list')),
+                             wavelengthsOrig)
     print('sensFuncs = ',sensFuncs)
 
-    applySensFuncs(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEcd.list')),getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEcdF.list')), sensFuncs)
+    applySensFuncs(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEcd.list')),
+                   getListOfFiles(os.path.join(workPath,'SCIENCE_otzfifEcdF.list')),
+                   sensFuncs)
 
 #    response = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfifEcd.list'))
 #    fluxCalibrate(os.path.join(workPath,'SCIENCE_LTT7379_a1171120_otzfifEcd.fits'),

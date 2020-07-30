@@ -1228,18 +1228,30 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     markCenter(tempFile, [row, center], tempFile)
     print('row = ',len(row),': ',row)
     print('center = ',len(center),': ',center)
-#    plt.plot(row,center)
-#    plt.show()
-    markCenter(tempFile, [row,center], imFileOut=tempFile[:-5]+'_centerMarked'+str(apNumber)+'.fits')
 
     colNumber = int(center[int(len(row)/2)])
 
     centerRow = image[centerRowIdx,:]
     maxPos = np.where(centerRow == np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]))[0][0]
     print('maxPos = ',maxPos)
-#    plt.plot(centerRow)
-#    plt.plot([colNumber-halfWidth,colNumber+halfWidth],[0.,0.])
-#    plt.show()
+
+    center += maxPos - center[centerRowIdx]
+    print('center = ',center)
+
+    if 'PNG'in twoDImageFileIn:
+        plot = True
+    else:
+        plot = False
+    if plot:
+        plt.plot(row,center)
+        plt.show()
+    markCenter(tempFile, [row,center], imFileOut=tempFile[:-5]+'_centerMarked'+str(apNumber)+'.fits')
+
+    if plot:
+        plt.plot(centerRow)
+        plt.plot([colNumber-halfWidth,colNumber+halfWidth],[0.,0.])
+        plt.show()
+        #STOP
 
     profileDataX = []
     profileDataY = []
@@ -1263,7 +1275,6 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     print('sortedIndices = ',sortedIndices)
     profileDataX = np.array(profileDataX)[sortedIndices]
     profileDataY = np.array(profileDataY)[sortedIndices]
-    #plot = True
     if plot:
         plt.scatter(profileDataX,profileDataY)
 
@@ -1643,43 +1654,117 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' '):
     #print('p = ',p)
     return [coeffs,rms]
 
-if False:#def extract(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis):
+#@brief: extract sky-subtracted object spectrum
+#@param twoDImageFileIn: string: name of 2d input fits file
+#@param specOut: string: name of 1d output fits file
+#@param yRange: [int start,int stop]: extracted area is where y in [start, stop] (including stop)
+#@param skyAbove=None: [int start,int stop]: sky above area is where y in [start, stop] (including stop)
+#@param skyBelow=None: [int start,int stop]: sky below area is where y in [start, stop] (including stop)
+#@param extractionMethod='sum': 'sum', 'median', 'skyMedian', or filename:
+#       if 'sum': sum up pixels where y in [start, stop] (including stop)
+#       if 'median': extracted value = (stop-start+1) * median(y in [start, stop] (including stop))
+#       if 'skyMedian': extracted value = sum up pixels where y in [start, stop] (including stop) - ((stop-start+1) * median(y in [start, stop]) (including stop))
+#                       skyAbove and skyBelow should be empty, should be default method if no PN spectrum is obvious
+#       if filename: scale sky image with exposure time and subtract from twoDImageFileIn
+#@param dispAxis='row': 'row' or 'column'
+def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None, skyBelow=None, extractionMethod='sum', dispAxis='row'):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
-    print('image.shape')
+    print('image.shape = ',image.shape)
+    print('twoDImageFileIn = <'+twoDImageFileIn+'>')
+    print('yRange = ',yRange)
+    print('skyAbove = ',skyAbove)
+    print('skyBelow = ',skyBelow)
+
+    hdulist = pyfits.open(twoDImageFileIn)
+    head = hdulist[0].header
 
     profile = extractSum(image,'column' if dispAxis == 'row' else 'row')
     plt.plot(profile)
     plt.show()
 
+    # subtract sky
     if dispAxis == 'row':
-        objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
-        skyAboveSpec = extractSum(image[skyAbove[0]:skyAbove[1]+1,:],dispAxis)
-        skyBelowSpec = extractSum(image[skyAbove[0]:skyAbove[1]+1,:],dispAxis)
+        rowsSky = []
+        if skyAbove is not None:
+            for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
+                rowsSky.append(i)
+        if skyBelow is not None:
+            for i in np.arange(skyBelow[0],skyBelow[1]+1,1):
+                rowsSky.append(i)
+        if (skyAbove is not None) or (skyBelow is not None):
+            rowsSky = np.array(rowsSky)
+            for col in range(image.shape[1]):
+                skyArr = []
+                for i in rowsSky:
+                    skyArr.append(image[i,col])
+
+                f = interp1d(rowsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
+                image[yRange[0]:yRange[1]+1,col] -= f(np.arange(yRange[0],yRange[1]+1))
+        if extractionMethod == 'sum':
+            objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
+        elif extractionMethod == 'median':
+            objectSpec = []
+            for col in range(image.shape[1]):
+                objectSpec.append(np.median(image[yRange[0]:yRange[1]+1,col]) * (yRange[1]-yRange[0]+1))
+            objectSpec = np.array(objectSpec)
+        elif extractionMethod == 'skyMedian':
+            objectSpec = []
+            for col in range(image.shape[1]):
+                objectSpec.append(np.sum(image[yRange[0]:yRange[1]+1,col]) - (np.median(image[yRange[0]:yRange[1]+1,col]) * (yRange[1]-yRange[0]+1)))
+            objectSpec = np.array(objectSpec)
+        else:
+            skyImage = np.array(CCDData.read(extractionMethod, unit="adu"))
+            hdulistSky = pyfits.open(extractionMethod)
+            exptimeSky = hdulistSky[0].header['EXPTIME']
+            exptime = head['EXPTIME']
+            skyImage = skyImage * exptime / exptimeSky
+            image -= skyImage
+            objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
     else:
-        objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
-        skyAboveSpec = extractSum(image[:,skyAbove[0]:skyAbove[1]+1],dispAxis)
-        skyBelowSpec = extractSum(image[:,skyAbove[0]:skyAbove[1]+1],dispAxis)
+        colsSky = []
+        if skyAbove is not None:
+            for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
+                colsSky.append(i)
+        if skyBelow is not None:
+            for i in np.arange(skyBelow[0],skyBelow[1]+1,1):
+                colsSky.append(i)
+        colsSky = np.array(colsSky)
+        if (skyAbove is not None) or (skyBelow is not None):
+            for row in range(image.shape[0]):
+                skyArr = []
+                for i in colsSky:
+                    skyArr.append(image[row,i])
 
-    skyAboveSpec = skyAboveSpec * (yRange[1] - yRange[0] + 1) / (skyAbove[1] - skyAbove[0] + 1)
-    skyBelowSpec = skyBelowSpec * (yRange[1] - yRange[0] + 1) / (skyBelow[1] - skyBelow[0] + 1)
+                f = interp1d(colsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
+                image[row,yRange[0]:yRange[1]+1] -= f(np.arange(yRange[0],yRange[1]+1))
+        if extractionMethod == 'sum':
+            objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
+        elif extractionMethod == 'median':
+            objectSpec = []
+            for row in range(image.shape[0]):
+                objectSpec.append(np.median(row,image[yRange[0]:yRange[1]+1]) * (yRange[1]-yRange[0]+1))
+            objectSpec = np.array(objectSpec)
+        elif extractionMethod == 'skyMedian':
+            objectSpec = []
+            for row in range(image.shape[0]):
+                objectSpec.append(np.sum(row,image[yRange[0]:yRange[1]+1]) - (np.median(row,image[yRange[0]:yRange[1]+1]) * (yRange[1]-yRange[0]+1)))
+            objectSpec = np.array(objectSpec)
+        else:
+            skyImage = np.array(CCDData.read(extractionMethod, unit="adu"))
+            hdulistSky = pyfits.open(extractionMethod)
+            exptimeSky = hdulistSky[0].header['EXPTIME']
+            exptime = head['EXPTIME']
+            skyImage = skyImage * exptime / exptimeSky
+            image -= skyImage
+            objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
 
-    plt.plot(objectSpec,'b-')
+    writeFits(image, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
 
-    skyAbovePos = skyAbove[0] + ((skyAbove[1]-skyAbove[0]) / 2.)
-    skyBelowPos = skyBelow[0] + ((skyBelow[1]-skyBelow[0]) / 2.)
-    specPos = yRange[0] + ((yRange[1]-yRange[0]) / 2.)
-    print('skyBelow = ',skyBelow,', yRange = ',yRange,', skyAbove = ',skyAbove)
-    print('skyBelowPos = ',skyBelowPos,', specPos = ',specPos,', skyAbovePos = ',skyAbovePos)
-
-    plt.plot(skyBelowSpec,'y-')
-    plt.plot(skyAboveSpec,'c-')
-    print('skyAboveSpec = ',skyAboveSpec)
-    sky = skyBelowSpec + ((skyAboveSpec - skyBelowSpec) * (specPos - skyBelowPos) / (skyAbovePos - skyBelowPos))
-    plt.plot(sky,'r-')
-    objectSpec -= sky
     plt.plot(objectSpec,'g-')
 
     plt.show()
+
+    writeFits1D(objectSpec, specOut, wavelength=None, header=head, CRVAL1=1., CRPIX1=1, CDELT1=1.)
 
 #@param xSpec: np.array1d
 #@param ySpec: np.array1d
@@ -1957,6 +2042,11 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
         waveParams = {'CRVAL1': CRVAL1,
                       'CRPIX1': CRPIX1,
                       'CDELT1': CDELT1}
+    #print('flux = ',flux)
+    #print('wavelength = ',wavelength)
+    #print('waveParams = ',waveParams)
+    #print('head = ',head)
+    print('writing file <'+outFileName+'>')
     pyasl.write1dFitsSpec(outFileName, flux, wvl=wavelength, waveParams=waveParams, fluxErr=None, header=head, clobber=True, refFileName=None, refFileExt=0)
 
 def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn):
@@ -2005,25 +2095,35 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn):
 
     return [wavelengthsOrigOut, wavelengthsResampledOut]
 
+def getClosestInTime(fitsFileName, fitsList):
+    arcTimes = []
+    for iArc in range(len(fitsList)):
+        hdulist = pyfits.open(fitsList[iArc])
+        head = hdulist[0].header
+        arcTimes.append(head['HJD-OBS'])
+
+    hdulist = pyfits.open(fitsFileName)
+    headerSc = hdulist[0].header
+    print('headerSc = ',headerSc)
+    specTime = headerSc['HJD-OBS']
+    timeDiffs = np.absolute(np.array(arcTimes) - specTime)
+    print('timeDiffs = ',timeDiffs)
+    closestArc = np.where(timeDiffs == np.min(timeDiffs))[0][0]
+    hdulist.close()
+    return closestArc
+
 #@brief: apply wavelength to extracted science spectra and resample them to linear dispersion
 def dispCor(scienceListIn, arcListIn, wavelengthsOrigIn, scienceListOut, observatoryLocation, keywordRA, keywordDEC, keywordObsTime):
     print('scienceListIn = ',len(scienceListIn),': ',scienceListIn)
     print('arcListIn = ',len(arcListIn),': ',arcListIn)
     print('wavelengthsOrigIn = ',len(wavelengthsOrigIn))
 
-    arcTimes = []
-    for iArc in range(len(arcListIn)):
-        hdulist = pyfits.open(arcListIn[iArc])
-        head = hdulist[0].header
-        arcTimes.append(head['HJD-OBS'])
-
     for iSpec in range(len(scienceListIn)):
+        print('running dispCor on '+scienceListIn[iSpec])
         hdulist = pyfits.open(scienceListIn[iSpec])
         headerSc = hdulist[0].header
-        specTime = headerSc['HJD-OBS']
-        timeDiffs = np.absolute(np.array(arcTimes) - specTime)
-        print('timeDiffs = ',timeDiffs)
-        closestArc = np.where(timeDiffs == np.min(timeDiffs))[0][0]
+        print('headerSc = ',headerSc)
+        closestArc = getClosestInTime(scienceListIn[iSpec],arcListIn)
         print('closestArc = ',closestArc)
 
         spec = getImageData(scienceListIn[iSpec],0)
@@ -2110,7 +2210,7 @@ def readFluxStandardFile(fName):
         print('lambda = ',wavelengths[i],', flux = ',fluxes[i])
     return [wavelengths, fluxes]
 
-def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat'):
+def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat', display=False):
     fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList(fluxStdandardList)
     fluxStandardNames = np.asarray(fluxStandardNames)
     fluxStandardDirs = np.asarray(fluxStandardDirs)
@@ -2154,7 +2254,7 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
 
                 # this data comes from the APO DIS red channel, which has wavelength axis backwards
                 # (despite not mentioning in the header)
-                wapprox = wLenOrig#(np.arange(img.shape[1]) - img.shape[1]/2)[::-1] * img.header['DISPDW'] + img.header['DISPWC']
+                wapprox = wLenOrig[getClosestInTime(fName,arcList)]#(np.arange(img.shape[1]) - img.shape[1]/2)[::-1] * img.header['DISPDW'] + img.header['DISPWC']
 
                 wapprox = wapprox * u.angstrom
 
@@ -2162,9 +2262,10 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
                 obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
                 print('obj_flux = ',obj_flux)
 
-                plt.plot(wapprox, obj_flux)
-                plt.errorbar(wapprox.value, obj_flux.data, yerr=ex_tbl['fluxerr'].data, alpha=0.25)
-                plt.show()
+                if display:
+                    plt.plot(wapprox, obj_flux)
+                    plt.errorbar(wapprox.value, obj_flux.data, yerr=ex_tbl['fluxerr'].data, alpha=0.25)
+                    plt.show()
 
                 stdstar=onedstd(prior+'/'+stdName.lower()+'.dat')
                 print('stdstar = ',stdstar)
@@ -2178,16 +2279,18 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
                 print('sensfunc_lin = ',sensfunc_lin)
                 # the actual sensitivity function(s), which in theory include some crude information about
                 # the flat fielding (response) - though the reference spectrum is very coarse.
-                plt.plot(sensfunc_lin['wave'], sensfunc_lin['S'])
-                plt.show()
+                if display:
+                    plt.plot(sensfunc_lin['wave'], sensfunc_lin['S'])
+                    plt.show()
 
                 # now apply the sensfunc back to the std star to demonstrate
                 # NOTE: this only works b/c wavelength is exactly the same. Normally use `apply_sensfunc`
-                plt.plot(wapprox, obj_flux * sensfunc_lin['S'])
-                plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
-                plt.xlim(5500,7500)
-                plt.ylim(0, 0.3e-12)
-                plt.show()
+                if display:
+                    plt.plot(wapprox, obj_flux * sensfunc_lin['S'])
+                    plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
+                    plt.xlim(5500,7500)
+                    plt.ylim(0, 0.3e-12)
+                    plt.show()
 
                 # now let's demo the Airmass correction
                 Xfile = obs_extinction(airmassExtCor)
@@ -2196,11 +2299,12 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
                 print('AIRMASS = ',AIRVAL)
                 Atest = airmass_cor(obj_spectrum, AIRVAL, Xfile)
 
-                plt.plot(obj_spectrum.wavelength, obj_spectrum.flux)
-                plt.plot(Atest.wavelength, Atest.flux)
-                plt.show()
+                if display:
+                    plt.plot(obj_spectrum.wavelength, obj_spectrum.flux)
+                    plt.plot(Atest.wavelength, Atest.flux)
+                    plt.show()
 
-                sensFuncs.append(Atest)
+                sensFuncs.append(sensfunc_lin)
 
                 # Now demo how to apply a sensfuc to a new spectrum (just happens to be the same spectrum here...)
                 #Stest = apply_sensfunc(obj_spectrum, sensfunc_lin)
@@ -2221,12 +2325,18 @@ def calcResponse(fNameList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/r
  #               goodFiles.append([fName,fluxStandardFileNames[ind]])
     return sensFuncs
 
+
+
 def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='apoextinct.dat'):
     for iSpec in range(len(objectSpectraIn)):
+        print('reading spectrum file <'+objectSpectraIn[iSpec]+'>')
         img = CCDData.read(objectSpectraIn[iSpec], unit=u.adu)
         # put in units of ADU/s
         img.data = img.data / float(img.header['EXPTIME'])
         img.unit = u.adu / u.s
+#        print('img.header = ',img.header)
+#        print('dir(img.header) = ',dir(img.header))
+#        print('img.header.keys = ',img.header.keys)
 
         wLen = getWavelengthArr(objectSpectraIn[iSpec],0) * u.angstrom
 
@@ -2235,18 +2345,34 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='
         Xfile = obs_extinction(airmassExtCor)
 
         AIRVAL = float(img.header['AIRMASS'])
-        print('AIRMASS = ',AIRVAL)
+#        print('AIRMASS = ',AIRVAL)
+#        print('obj_spectrum = ',obj_spectrum)
         obj_spectrum = airmass_cor(obj_spectrum, AIRVAL, Xfile)
+#        print('obj_spectrum = ',obj_spectrum)
+#        print('sensFuncs[0] = ',sensFuncs[0])
         objectSpectrumFluxCalibrated = apply_sensfunc(obj_spectrum, sensFuncs[0])
-        print('objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
-        print('dir(objectSpectrumFluxCalibrated.data) = ',dir(objectSpectrumFluxCalibrated.data))
+#        print('objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
+#        print('dir(objectSpectrumFluxCalibrated.data) = ',dir(objectSpectrumFluxCalibrated.data))
+#        print('img.header.keys = ',img.header.keys)
+        crval = obj_spectrum.wavelength[0]
+        cdelt = obj_spectrum.wavelength[1]-obj_spectrum.wavelength[0]
+        crpix = 1
+#        print('crval = ',crval)
+#        print('dir(crval) = ',dir(crval))
+#        print('crval.value = ',crval.value)
+#        print('dir(crval.value) = ',dir(crval.value))
+#        print('cdelt = ',cdelt)
+#        print('dir(cdelt) = ',dir(cdelt))
+#        print('crpix = ',crpix)
+#        print('objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
+        print('writing file ',objectSpectraOut[iSpec])
         writeFits1D(objectSpectrumFluxCalibrated.data,
                     objectSpectraOut[iSpec],
                     wavelength=None,
                     header=img.header,
-                    CRVAL1=img.header['CRVAL1'],
-                    CRPIX1=img.header['CRPIX1'],
-                    CDELT1=img.header['CDELT1'],
+                    CRVAL1=crval.value,
+                    CRPIX1=crpix,
+                    CDELT1=cdelt.value,
                    )
 
 if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
