@@ -29,7 +29,7 @@ from scipy.interpolate import make_lsq_spline#, BSpline
 #from scipy import interpolate
 from scipy.interpolate import griddata
 #from scipy.interpolate import UnivariateSpline
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, minimize
 from scipy.signal import find_peaks
 #from scipy.signal import medfilt
 from shutil import copyfile
@@ -40,14 +40,19 @@ from specreduce import fluxcal,calibration_data
 #from fluxcal import standard_sensfunc, apply_sensfunc, onedstd, obs_extinction, airmass_cor
 from apextract import trace, extract
 from fluxcal import standard_sensfunc, apply_sensfunc, onedstd, obs_extinction, airmass_cor
-from myUtils import hmsToDeg,dmsToDeg
+from myUtils import hmsToDeg,dmsToDeg,subtractSky,sigmaRej
 
 # TODO: Make it possible to pass in CCDData instead of fits file names
 
 Info = namedtuple('Info', 'start height')
 c0 = 299792.458 # km/s
 plot = False
-fluxStdDirsByPriority = ['spec50cal','oke1990','irscal','iidscal','spechayescal']
+fluxStdDirsByPriority = ['spec50cal',
+                         'oke1990',
+                         'irscal',
+                         'iidscal',
+                         'spechayescal',
+                         'gemini']
 
 def readFileToArr(fname):
     with open(fname, "r") as f:
@@ -107,8 +112,8 @@ def writeFits(ccdData, inputFileName, outputFileName, metaKeys=None, metaData=No
     hdulist = pyfits.open(inputFileName)
     print('writeFits: len(hdulist) = ',len(hdulist),', inputFileName = ',inputFileName,', outputFileName = ',outputFileName,', old mean = ',hdulist[len(hdulist)-1].data,', mean(ccdData) = ',np.mean(ccdData.data))
     hdulist[len(hdulist)-1].data = ccdData.data
-    hdulist[len(hdulist)-1].header['NAXIS1'] = ccdData.data.shape[1]
-    hdulist[len(hdulist)-1].header['NAXIS2'] = ccdData.data.shape[0]
+    hdulist[len(hdulist)-1].header['NAXIS1'] = np.asarray(ccdData.data).shape[1]
+    hdulist[len(hdulist)-1].header['NAXIS2'] = np.asarray(ccdData.data).shape[0]
     if metaKeys is not None:
         for iKey in np.arange(0,len(metaKeys),1):
             hdulist[len(hdulist)-1].header[metaKeys[iKey]] = metaData[iKey]
@@ -547,6 +552,8 @@ def cleanCosmic(fitsFilesIn,
                 raise('key "'+key+'" not in available keys ',goodKeys)
     for iFile in np.arange(0,len(fitsFilesIn),1):
         ccdData = CCDData.read(fitsFilesIn[iFile], unit="adu")
+        #print('dir(ccdData) = ',dir(ccdData))
+        ccdDataArr = ccdData.data
         if ctype == 'lacosmic':
             sigclip = 4.5
             sigfrac = 0.3
@@ -597,7 +604,7 @@ def cleanCosmic(fitsFilesIn,
                     psfbeta = cosmicParameters['psfbeta']
                 if 'verbose' in cosmicParameters.keys():
                     verbose = cosmicParameters['verbose']
-            ccdDataCleaned = ccdproc.cosmicray_lacosmic(ccdData,
+            ccdDataCleaned = ccdproc.cosmicray_lacosmic(ccdDataArr,
                                                         sigclip=sigclip,
                                                         cleantype=cleantype,
                                                         sigfrac=sigfrac,
@@ -634,16 +641,17 @@ def cleanCosmic(fitsFilesIn,
                     rbox = cosmicParameters['rbox']
                 if 'error_image' in cosmicParameters.keys():
                     error_image = cosmicParameters['error_image']
-            ccdDataCleaned = ccdproc.cosmicray_median(ccdData,
+            ccdDataCleaned = ccdproc.cosmicray_median(ccdDataArr,
                                                       mbox=mbox,
                                                       rbox=rbox,
                                                       gbox=gbox,
                                                       thresh=thresh,
                                                       error_image=error_image)
-        ccdDataCleaned.header['COSMIC'] = ctype.upper()
+#        ccdDataCleaned.header['COSMIC'] = ctype.upper()
         dataOut.append(ccdDataCleaned)
+        ccdData.data = ccdDataCleaned
         if fitsFilesOut is not None:
-            writeFits(ccdDataCleaned, fitsFilesIn[iFile], fitsFilesOut[iFile], ['COSMICS'], [cosmicMethod], overwrite=overwrite)
+            writeFits(ccdData, fitsFilesIn[iFile], fitsFilesOut[iFile], ['COSMICS'], [cosmicMethod], overwrite=overwrite)
     return dataOut
 
 
@@ -789,6 +797,8 @@ def flatCorrect(fitsFilesIn,
                 fitsFilesOut=None,
                 overwrite=True):
     ccdDataFlat = CCDData.read(flat, unit="adu")
+    if ccdDataFlat.shape[0] == 2:
+        ccdDataFlat.data = ccdDataFlat.data[0,:,:]
     print('flatCorrect: ccdDataFlat = ',ccdDataFlat)
     print('min(ccdDataFlat) = ',np.min(ccdDataFlat),', max(ccdDataFlat) = ',np.max(ccdDataFlat))
     print('ccdDataFlat[np.where(np.isnan(ccdDataFlat))] = ',ccdDataFlat[np.where(np.isnan(ccdDataFlat))])
@@ -797,6 +807,8 @@ def flatCorrect(fitsFilesIn,
 
     for iFile in np.arange(0,len(fitsFilesIn),1):
         ccdData = CCDData.read(fitsFilesIn[iFile], unit="adu")
+        if ccdData.shape[0] == 2:
+            ccdData.data = ccdData.data[0,:,:]
         print('flatCorrect: iFile = ',iFile,': ccdData = ',ccdData)
         print('min(ccdData) = ',np.min(ccdData),', max(ccdData) = ',np.max(ccdData))
         print('ccdData[np.where(np.isnan(ccdData))] = ',ccdData[np.where(np.isnan(ccdData))])
@@ -1038,79 +1050,91 @@ def area(size): return size[0]*size[1]
 # WHICH IS equivalent to imtranspose
 def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, markCenters=False):
     # read imFile for dimensions
+    if len(imFiles) > 0:
+        image = CCDData.read(imFiles[0], unit="adu")
+        print('image.shape = ',image.shape)
+        print('image.data.shape = ',image.data.shape)
+        if image.data.shape[0] == 2:
+            image.data = image.data[0,:,:]
+        print('image.shape = ',image.shape)
+        print('image.data.shape = ',image.data.shape)
 
-    image = CCDData.read(imFiles[0], unit="adu")
+        records = iu.get_records(dbFileVerticalTrace)
+        verticalTraces = []
+        for i in np.arange(0,len(records),1):
+            verticalTraces.append(calcTrace(dbFileVerticalTrace,i,[1,image.data.shape[0]]))
+    #        x, y = verticalTraces[len(verticalTraces)-1]
 
-    records = iu.get_records(dbFileVerticalTrace)
-    verticalTraces = []
-    for i in np.arange(0,len(records),1):
-        verticalTraces.append(calcTrace(dbFileVerticalTrace,i,[1,image.shape[0]]))
-#        x, y = verticalTraces[len(verticalTraces)-1]
+        records = iu.get_records(dbFileHorizontalTrace)
+        horizontalTraces = []
+        for i in np.arange(0,len(records),1):
+            horizontalTraces.append(calcTrace(dbFileHorizontalTrace,i,[1,image.data.shape[1]]))
+    #        x, y = horizontalTraces[len(horizontalTraces)-1]
 
-    records = iu.get_records(dbFileHorizontalTrace)
-    horizontalTraces = []
-    for i in np.arange(0,len(records),1):
-        horizontalTraces.append(calcTrace(dbFileHorizontalTrace,i,[1,image.shape[1]]))
-#        x, y = horizontalTraces[len(horizontalTraces)-1]
-
-    xyOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
-    xyFit = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
-    zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
-    for ix in np.arange(0,image.data.shape[0],1):
-        for iy in np.arange(0,image.data.shape[1],1):
-            xyOrig[(ix*image.data.shape[1]) + iy,0] = ix
-            xyOrig[(ix*image.data.shape[1]) + iy,1] = iy
-            xyFit[(ix*image.data.shape[1]) + iy,0] = ix + horizontalTraces[0][1][iy] - horizontalTraces[0][1][0]
-            xyFit[(ix*image.data.shape[1]) + iy,1] = iy + verticalTraces[0][1][ix] - verticalTraces[0][1][0]
-
-    for imFile in imFiles:
-        image = CCDData.read(imFile, unit="adu")
-
-        if markCenters:
-            inFile = ''
-            outFile = ''
-            for i in np.arange(0,len(verticalTraces),1):
-                if i == 0:
-                    inFile = imFile
-                    outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
-                else:
-                    inFile = outFile
-                    outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
-                markCenter(inFile,verticalTraces[i],outFile)
-            horFile = outFile
-            for i in np.arange(0,len(horizontalTraces),1):
-                if i == 0:
-                    inFile = horFile
-                    outFile = inFile[:inFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
-                else:
-                    inFile = outFile
-                    outFile = horFile[:horFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
-                markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
-
+        xyOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
+        xyFit = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1],2), dtype=np.float32)
         zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
         for ix in np.arange(0,image.data.shape[0],1):
             for iy in np.arange(0,image.data.shape[1],1):
-                zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
-        zFit = griddata(xyOrig, zOrig, xyFit, method='linear')
+                xyOrig[(ix*image.data.shape[1]) + iy,0] = ix
+                xyOrig[(ix*image.data.shape[1]) + iy,1] = iy
+                xyFit[(ix*image.data.shape[1]) + iy,0] = ix + horizontalTraces[0][1][iy] - horizontalTraces[0][1][0]
+                xyFit[(ix*image.data.shape[1]) + iy,1] = iy + verticalTraces[0][1][ix] - verticalTraces[0][1][0]
 
-        # re-order vector back to 2D array
-        for ix in np.arange(0,image.data.shape[0],1):
-            for iy in np.arange(0,image.data.shape[1],1):
-                image.data[ix, iy] = zFit[(ix*image.data.shape[1]) + iy]
+        for imFile in imFiles:
+            image = CCDData.read(imFile, unit="adu")
+            if image.data.shape[0] == 2:
+                image.data = image.data[0,:,:]
 
-        #trim image to only contain good data inside the original trace
-        maxSizeArr = np.zeros(image.data.shape)
-        maxSizeArr[np.where(np.isnan(image.data))] = 1
-        tempArr = max_size(maxSizeArr)
-        image.data = image.data[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
-#        image.mask = image.mask[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
-#        image.uncertainty = image.uncertainty[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+            if markCenters:
+                inFile = ''
+                outFile = ''
+                for i in np.arange(0,len(verticalTraces),1):
+                    if i == 0:
+                        inFile = imFile
+                        outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
+                    else:
+                        inFile = outFile
+                        outFile = imFile[:imFile.rfind('.')]+'_vCenter%dMarked.fits' % (i)
+                    markCenter(inFile,verticalTraces[i],outFile)
+                horFile = outFile
+                for i in np.arange(0,len(horizontalTraces),1):
+                    if i == 0:
+                        inFile = horFile
+                        outFile = inFile[:inFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
+                    else:
+                        inFile = outFile
+                        outFile = horFile[:horFile.rfind('.')]+'_hCenter%dMarked.fits' % (i)
+                    markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
 
-        image.header['NAXIS1'] = tempArr[0][1]
-        image.header['NAXIS2'] = tempArr[0][0]
+            zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
+            print('image.data.shape = ',image.data.shape)
+            for ix in np.arange(0,image.data.shape[0],1):
+                for iy in np.arange(0,image.data.shape[1],1):
+    #                print('image.data[',ix,',',iy,'] = ',image.data[ix,iy])
+                    zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
+            zFit = griddata(xyOrig, zOrig, xyFit, method='linear')
 
-        writeFits(image, imFile, imFile[:imFile.rfind('.')]+'i.fits', ['STRAIGHT'], ['interpolated'], overwrite=True)
-    return 1
+            # re-order vector back to 2D array
+            for ix in np.arange(0,image.data.shape[0],1):
+                for iy in np.arange(0,image.data.shape[1],1):
+                    image.data[ix, iy] = zFit[(ix*image.data.shape[1]) + iy]
+
+            #trim image to only contain good data inside the original trace
+            maxSizeArr = np.zeros(image.data.shape)
+            maxSizeArr[np.where(np.isnan(image.data))] = 1
+            tempArr = max_size(maxSizeArr)
+            image.data = image.data[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+    #        image.mask = image.mask[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+    #        image.uncertainty = image.uncertainty[tempArr[1][0]:tempArr[1][0]+tempArr[0][0],tempArr[1][1]:tempArr[1][1]+tempArr[0][1]]
+
+            image.header['NAXIS1'] = tempArr[0][1]
+            image.header['NAXIS2'] = tempArr[0][0]
+
+            writeFits(image, imFile, imFile[:imFile.rfind('.')]+'i.fits', ['STRAIGHT'], ['interpolated'], overwrite=True)
+        return 1
+    else:
+        return 0
 
 def makeSkyFlat(skyFileIn, skyFlatOut, rowMedianSmoothSize = 7):
     image = CCDData.read(skyFileIn, unit="adu")
@@ -1238,7 +1262,7 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     center += maxPos - center[centerRowIdx]
     print('center = ',center)
 
-    if 'PNG'in twoDImageFileIn:
+    if False:#'PNG'in twoDImageFileIn:
         plot = True
     else:
         plot = False
@@ -1259,6 +1283,7 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     print('xProfInt = ',xProfInt)
     rectangles = []
     intensities = []
+    print('image.shape = ',image.shape)
     for row in np.arange(0,image.shape[0],1):
         image[row,xProfInt+int(center[row])] = image[row,xProfInt+int(center[row])] / np.sum(image[row,xProfInt+int(center[row])])
         for x in xProfInt:
@@ -1557,8 +1582,10 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
 
     return [par[3][1] for par in xYFitParams]
 
+# NOTE: currently it is required for the x values to be accending
 def normalizeX(x):
-    return 2*x/x[-1] - 1
+    xZero = x - x[0]
+    return 2.0 * xZero / xZero[-1] - 1.0
 
 # @brief : fit background and subtract from y
 # @param x : 1D array of x-values
@@ -1604,9 +1631,9 @@ def subtractBackground(x,y,deg,indicesToIgnore=None):
 
     return yArr-yFit
 
-def calcDispersion(lineList, xRange, degree=3, delimiter=' '):
-    pixels = [xRange[0]]
-    wLens = [-1]
+def calcDispersion(lineList, xRange, degree=3, delimiter=' ', display=False):
+    pixels = [xRange[0]]# we need to include the range limits to get the correct normlization
+    wLens = [-1]        # we need to include the range limits to get the correct normlization
 
     if isinstance(lineList,str):
         with open(lineList,'r') as f:
@@ -1618,33 +1645,35 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' '):
             line = line.split(delimiter)
             pixels.append(float(line[0]))
             wLens.append(float(line[1]))
-        pixels.append(xRange[1])
-        wLens.append(-1)
     else:
         for line in lineList:
             pixels.append(line[0])
             wLens.append(line[1])
+    pixels.append(xRange[1])# we need to include the range limits to get the correct normlization
+    wLens.append(-1)        # we need to include the range limits to get the correct normlization
 
     pixels = np.array(pixels)
     wLens = np.array(wLens)
 
     #normalize x to [-1,1]
     nx = np.array(normalizeX(pixels))
+    print('calcDispersion: pixels = ',pixels.shape,': ',pixels)
+    print('calcDispersion: nx = ',nx.shape,': ',nx)
 
-    #fit Legendre polynomial
+    #fit Legendre polynomial excluding the normalized range limits
     coeffs = np.polynomial.legendre.legfit(nx[1:nx.shape[0]-1], wLens[1:nx.shape[0]-1], degree)
 
-    # calculate fitted values
+    # calculate fitted values excluding the normalized range limits
     yFit = np.polynomial.legendre.legval(nx[1:nx.shape[0]-1], coeffs)
     differences = wLens[1:nx.shape[0]-1] - yFit
     errors = (differences) ** 2
     rms = np.sqrt(np.sum(errors) / (wLens.shape[0]-2))
     for i in range(len(pixels)-2):
-        print(pixels[i+1],wLens[i+1],differences[i],errors[i])
-    print('RMS = ',rms)
+        print('calcDispersion: ',pixels[i+1],wLens[i+1],differences[i],errors[i])
+    print('calcDispersion: RMS = ',rms)
 
     # plot original values and fit
-    if plot:
+    if display:
         plt.scatter(pixels[1:nx.shape[0]-1],wLens[1:nx.shape[0]-1])
         plt.errorbar(pixels[1:nx.shape[0]-1],wLens[1:nx.shape[0]-1],yerr=errors)
         plt.plot(pixels[1:nx.shape[0]-1],yFit)
@@ -1654,6 +1683,20 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' '):
     #print('p = ',p)
     return [coeffs,rms]
 
+def chisqfunc(fac, object, sky, sigma):
+    model = fac * sky
+    chisq = np.sum(((object - model) / sigma)**2)
+    return chisq
+
+def sfit(x, y, fittingFunction, solveFunction, order, nIter, lowReject, highReject, adjustSigLevels, useMean):
+    coeffs = fittingFunction(x,y,order)
+    fittedValues = solveFunction(x,coeffs)
+    for i in range(nIter):
+        fittedValuesRej = sigmaRej(y / fittedValues, lowReject, highReject, adjustSigLevels, useMean=useMean) * fittedValues
+        coeffs = fittingFunction(x,fittedValuesRej,order)
+        fittedValues = solveFunction(x,coeffs)
+    return [coeffs, fittedValues]
+
 #@brief: extract sky-subtracted object spectrum
 #@param twoDImageFileIn: string: name of 2d input fits file
 #@param specOut: string: name of 1d output fits file
@@ -1662,12 +1705,12 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' '):
 #@param skyBelow=None: [int start,int stop]: sky below area is where y in [start, stop] (including stop)
 #@param extractionMethod='sum': 'sum', 'median', 'skyMedian', or filename:
 #       if 'sum': sum up pixels where y in [start, stop] (including stop)
-#       if 'median': extracted value = (stop-start+1) * median(y in [start, stop] (including stop))
+#       if 'median': extracted value = (stop-start+1) * median(y in [start, stop] (including stop)) - for all sky images
 #       if 'skyMedian': extracted value = sum up pixels where y in [start, stop] (including stop) - ((stop-start+1) * median(y in [start, stop]) (including stop))
 #                       skyAbove and skyBelow should be empty, should be default method if no PN spectrum is obvious
 #       if filename: scale sky image with exposure time and subtract from twoDImageFileIn
 #@param dispAxis='row': 'row' or 'column'
-def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None, skyBelow=None, extractionMethod='sum', dispAxis='row'):
+def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None, skyBelow=None, extractionMethod='sum', dispAxis='row', display=False):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('image.shape = ',image.shape)
     print('twoDImageFileIn = <'+twoDImageFileIn+'>')
@@ -1678,12 +1721,48 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
     hdulist = pyfits.open(twoDImageFileIn)
     head = hdulist[0].header
 
+    newImageData = None
+    skyData = None
+    if dispAxis == 'row':
+        if (skyAbove is not None) and (skyBelow is not None):
+            imageTransposed = image.transpose()
+            if display:
+                plt.imshow(imageTransposed)
+                plt.show()
+            newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)
+            if display:
+                plt.imshow(newImageData)
+                plt.show()
+                plt.imshow(skyData)
+                plt.show()
+    else:
+        if (skyAbove is not None) and (skyBelow is not None):
+            if display:
+                plt.imshow(image)
+                plt.show()
+            newImageData,skyData = subtractSky(image,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)
+            if display:
+                plt.imshow(newImageData)
+                plt.show()
+                plt.imshow(skyData)
+                plt.show()
+
     profile = extractSum(image,'column' if dispAxis == 'row' else 'row')
-    plt.plot(profile)
-    plt.show()
+    if display:
+        plt.plot(profile)
+        plt.show()
 
     # subtract sky
     if dispAxis == 'row':
+        if display:
+            if skyAbove is not None:
+                plt.plot([skyAbove[0],skyAbove[0]],[np.amin(profile),np.amax(profile)],'b-')
+                plt.plot([skyAbove[1],skyAbove[1]],[np.amin(profile),np.amax(profile)],'b-')
+            if skyBelow is not None:
+                plt.plot([skyBelow[0],skyBelow[0]],[np.amin(profile),np.amax(profile)],'b-')
+                plt.plot([skyBelow[1],skyBelow[1]],[np.amin(profile),np.amax(profile)],'b-')
+            plt.plot([yRange[0],yRange[0]],[np.amin(profile),np.amax(profile)],'g-')
+            plt.plot([yRange[1],yRange[1]],[np.amin(profile),np.amax(profile)],'g-')
         rowsSky = []
         if skyAbove is not None:
             for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
@@ -1701,7 +1780,10 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
                 f = interp1d(rowsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
                 image[yRange[0]:yRange[1]+1,col] -= f(np.arange(yRange[0],yRange[1]+1))
         if extractionMethod == 'sum':
-            objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
+            if (skyAbove is not None) and (skyBelow is not None):
+                objectSpec = extractSum(newImageData.transpose()[yRange[0]:yRange[1]+1,:],dispAxis)
+            else:
+                objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
         elif extractionMethod == 'median':
             objectSpec = []
             for col in range(image.shape[1]):
@@ -1709,18 +1791,44 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
             objectSpec = np.array(objectSpec)
         elif extractionMethod == 'skyMedian':
             objectSpec = []
+            skyImage = np.zeros(image.shape)
             for col in range(image.shape[1]):
-                objectSpec.append(np.sum(image[yRange[0]:yRange[1]+1,col]) - (np.median(image[yRange[0]:yRange[1]+1,col]) * (yRange[1]-yRange[0]+1)))
+                skyImage[yRange[0]:yRange[1]+1,col] = np.ones(yRange[1]-yRange[0]+1) * np.median(image[yRange[0]:yRange[1]+1,col])
+                objectSpec.append(np.sum(image[yRange[0]:yRange[1]+1,col] - skyImage[yRange[0]:yRange[1]+1,col]))
             objectSpec = np.array(objectSpec)
         else:
             skyImage = np.array(CCDData.read(extractionMethod, unit="adu"))
-            hdulistSky = pyfits.open(extractionMethod)
-            exptimeSky = hdulistSky[0].header['EXPTIME']
-            exptime = head['EXPTIME']
-            skyImage = skyImage * exptime / exptimeSky
-            image -= skyImage
+            result = np.array([minimize(chisqfunc, 1., (image[:,iCol], skyImage[:,iCol], np.sqrt(np.absolute(image[:,iCol])))).x[0] for iCol in range(image.shape[1])])
+            print('result = ',result)
+            xNorm = normalizeX(np.arange(0,image.shape[1],1.))
+            coeffs, resultFit = sfit(xNorm,
+                                     result,
+                                     np.polynomial.legendre.legfit,
+                                     np.polynomial.legendre.legval,
+                                     order=7,
+                                     nIter=2,
+                                     lowReject=3.,
+                                     highReject=1.8,
+                                     adjustSigLevels=True,
+                                     useMean=False)
+            if display:
+                plt.plot(result)
+                plt.plot(resultFit)
+                plt.show()
+
+            for iCol in range(image.shape[1]):
+                image[:,iCol] = image[:,iCol] - (skyImage[:,iCol] * resultFit[iCol])
             objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
     else:
+        if display:
+            if skyAbove is not None:
+                plt.plot([np.amin(profile),np.amax(profile)],[skyAbove[0],skyAbove[0]],'b-')
+                plt.plot([np.amin(profile),np.amax(profile)],[skyAbove[1],skyAbove[1]],'b-')
+            if skyBelow is not None:
+                plt.plot([np.amin(profile),np.amax(profile)],[skyBelow[0],skyBelow[0]],'b-')
+                plt.plot([np.amin(profile),np.amax(profile)],[skyBelow[1],skyBelow[1]],'b-')
+            plt.plot([np.amin(profile),np.amax(profile)],[yRange[0],yRange[0]],'g-')
+            plt.plot([np.amin(profile),np.amax(profile)],[yRange[1],yRange[1]],'g-')
         colsSky = []
         if skyAbove is not None:
             for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
@@ -1738,7 +1846,10 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
                 f = interp1d(colsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
                 image[row,yRange[0]:yRange[1]+1] -= f(np.arange(yRange[0],yRange[1]+1))
         if extractionMethod == 'sum':
-            objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
+            if (skyAbove is not None) and (skyBelow is not None):
+                objectSpec = extractSum(newImageData[:,yRange[0]:yRange[1]+1],dispAxis)
+            else:
+                objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
         elif extractionMethod == 'median':
             objectSpec = []
             for row in range(image.shape[0]):
@@ -1751,18 +1862,46 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
             objectSpec = np.array(objectSpec)
         else:
             skyImage = np.array(CCDData.read(extractionMethod, unit="adu"))
-            hdulistSky = pyfits.open(extractionMethod)
-            exptimeSky = hdulistSky[0].header['EXPTIME']
-            exptime = head['EXPTIME']
-            skyImage = skyImage * exptime / exptimeSky
-            image -= skyImage
+            result = np.array([minimize(chisqfunc, 1., (image[iRow,:], skyImage[iRow,:], np.sqrt(np.absolute(image[iRow,:])))).x[0] for iRow in range(image.shape[0])])
+            print('result = ',result)
+            xNorm = normalizeX(np.arange(0,image.shape[0],1.))
+            coeffs, resultFit = sfit(xNorm,
+                                     result,
+                                     np.polynomial.legendre.legfit,
+                                     np.polynomial.legendre.legval,
+                                     order=7,
+                                     nIter=2,
+                                     lowReject=3.,
+                                     highReject=1.8,
+                                     adjustSigLevels=True,
+                                     useMean=False)
+            if display:
+                plt.plot(result)
+                plt.plot(resultFit)
+                plt.show()
+
+            for iRow in range(image.shape[0]):
+                image[iRow,:] = image[iRow,:] - (skyImage[iRow,:] * resultFit[iRow])
             objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
+    if display:
+        plt.show()
 
-    writeFits(image, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
+    if newImageData is not None:
+        if dispAxis == 'row':
+            writeFits(newImageData.transpose(), twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
+            writeFits(skyData.transpose(), twoDImageFileIn, twoDImageFileIn[:-5]+'Sky.fits', metaKeys=None, metaData=None, overwrite=True)
+        else:
+            writeFits(newImageData, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
+            writeFits(skyData, twoDImageFileIn, twoDImageFileIn[:-5]+'Sky.fits', metaKeys=None, metaData=None, overwrite=True)
+    else:
+        if extractionMethod == 'skyMedian':
+            writeFits(image-skyImage, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
+        else:
+            writeFits(image, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
 
-    plt.plot(objectSpec,'g-')
-
-    plt.show()
+    if True:#display:
+        plt.plot(objectSpec,'g-')
+        plt.show()
 
     writeFits1D(objectSpec, specOut, wavelength=None, header=head, CRVAL1=1., CRPIX1=1, CDELT1=1.)
 
@@ -1930,9 +2069,9 @@ def crossCheckLines(lineList, referenceLineList):
 # @param lineListIn: array like (2D) [[position, wavelength], [position,wavelength],...]
 # @param profileIn: array like (2D): [x,y]: x,y: array like (1D): integral normalized emission line profile
 # @return: lineListOut: same as lineListIn with new positions
-def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefinitionFile, lineListIn, lineListOut=None, specOut=None):
+def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefinitionFile, lineListIn, lineListOut=None, specOut=None, display=False):
     tempFile = arcFitsName2DForLineProfile[:arcFitsName2DForLineProfile.rfind('/')+1]+'database/aptmp'+arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]
-    print('tempFile = <'+tempFile+'>')
+    print('reidentify: tempFile = <'+tempFile+'>')
 
     if not os.path.isfile(tempFile):
         copyfile(referenceApertureDefinitionFile,tempFile)
@@ -1942,16 +2081,19 @@ def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefi
             for line in lines:
                 f.write(line.replace(referenceApertureDefinitionFile[referenceApertureDefinitionFile.rfind('/')+3:],
                                      arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]))
-        print('updated new database file ',tempFile)
+        print('reidentify: updated new database file ',tempFile)
 #        STOP
 
     lineProfiles = getLineProfiles(arcFitsName2DForLineProfile)
     bestLineProfile = getBestLineProfile(lineProfiles,outFileName=None)
     specY = extractSum(arcFitsName2D,'row')
-    print('specIn = ',specY.shape,': ',specY)
-    print('profileIn = ',bestLineProfile)
+    if display:
+        plt.plot(specY)
+        plt.show()
+    print('reidentify: specIn = ',specY.shape,': ',specY)
+    print('reidentify: profileIn = ',bestLineProfile)
     goodLines = findGoodLines(np.arange(0,specY.shape[0],1),specY,bestLineProfile,outFileNameGoodLines=lineListOut)
-    print('found ',len(goodLines),' goodLines at ',goodLines)
+    print('reidentify: found ',len(goodLines),' goodLines at ',goodLines)
     if not lineListOut is None:
         with open(lineListOut[:lineListOut.rfind('.')]+'_temp.dat','w') as f:
             for line in goodLines:
@@ -1959,22 +2101,27 @@ def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefi
 
     lineList = readFileToArr(lineListIn)
     for line in lineList:
-        print('line = <'+line+'>')
-        print('line[:line.find(' ')] = <'+line[:line.find(' ')]+'>, line[line.find(' ')+1:] = <'+line[line.find(' ')+1:]+'>')
+        print('reidentify: line = <'+line+'>')
+        print('reidentify: line[:line.find(' ')] = <'+line[:line.find(' ')]+'>, line[line.find(' ')+1:] = <'+line[line.find(' ')+1:]+'>')
     refLineList = [[float(line[:line.find(' ')]),float(line[line.find(' ')+1:])] for line in lineList]
     lineListIdentified = crossCheckLines(goodLines,refLineList)
-    print('lineListIdentified = ',len(lineListIdentified),': ',lineListIdentified)
+    print('reidentify: lineListIdentified = ',len(lineListIdentified),': ',lineListIdentified)
     if not lineListOut is None:
         with open(lineListOut,'w') as f:
             for line in lineListIdentified:
                 f.write('%.5f %.5f\n' % (line[0],line[1]))
 
     xSpec = np.arange(0,specY.shape[0],1.)
-    coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=3)
-    xSpecNorm = normalizeX(xSpec)
-    #wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
-    #plt.plot(wLenSpec,specY)
-    #plt.show()
+    coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=3, display=display)
+    if display:
+        xSpecNorm = normalizeX(xSpec)
+        wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
+        plt.plot(wLenSpec,specY)
+        minY = np.amin(specY)
+        maxY = np.amax(specY)
+        for line in lineListIdentified:
+            plt.plot([line[1],line[1]],[minY,maxY])
+        plt.show()
 
     return [lineListIdentified, coeffs, [0,xSpec[xSpec.shape[0]-1]], rms]
 
@@ -2049,36 +2196,45 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
     print('writing file <'+outFileName+'>')
     pyasl.write1dFitsSpec(outFileName, flux, wvl=wavelength, waveParams=waveParams, fluxErr=None, header=head, clobber=True, refFileName=None, refFileExt=0)
 
-def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn):
+def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, display=False):
     wavelengthsOrigOut = []
     wavelengthsResampledOut = []
     for arc in arcListIn:
         arcInterp = arc[:-5]+'i.fits'
         oneDSpecInterp = extractSum(arcInterp,'row')
+        if display:
+            plt.plot(oneDSpecInterp)
+            plt.show()
 
         lineListNew, coeffs, xRange, rms = reidentify(arcInterp,
                                                       arc,
                                                       refApDef,
                                                       lineListIn,
                                                       lineListOut=arc[:arc.rfind('.')]+'_lines.dat',
-                                                      specOut=arc[:-5]+'Ecd.fits')
+                                                      specOut=arc[:-5]+'Ecd.fits',
+                                                      display=False)
         xSpec = np.arange(xRange[0],xRange[1]+1,1.)
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
         wavelengthsOrigOut.append(wLenSpec)
 
-
+        print('extractAndReidentifyARCs: np.absolute(wLenSpec[1]-wLenSpec[0]) = ',np.absolute(wLenSpec[1]-wLenSpec[0]))
+        print('extractAndReidentifyARCs: np.absolute(wLenSpec[wLenSpec.shape[0]-1]-wLenSpec[wLenSpec.shape[0]-2]) = ',np.absolute(wLenSpec[wLenSpec.shape[0]-1]-wLenSpec[wLenSpec.shape[0]-2]))
         dLam = np.min([np.absolute(wLenSpec[1]-wLenSpec[0]),np.absolute(wLenSpec[wLenSpec.shape[0]-1]-wLenSpec[wLenSpec.shape[0]-2])])
         resampled = np.arange(np.min([wLenSpec[0], wLenSpec[wLenSpec.shape[0]-1]]), np.max([wLenSpec[0], wLenSpec[wLenSpec.shape[0]-1]]), dLam)
         wavelengthsResampledOut.append(resampled)
 
+        print('extractAndReidentifyARCs: wLenSpec = ',wLenSpec.shape,': ',wLenSpec)
+        print('extractAndReidentifyARCs: oneDSpecInterp = ',oneDSpecInterp.shape,': ',oneDSpecInterp)
+        print('extractAndReidentifyARCs: resampled = ',resampled.shape,': ',resampled)
         resampledSpec = rebin(wLenSpec, oneDSpecInterp, resampled, preserveFlux = False)
-#        print('wLenSpec = ',wLenSpec.shape,': ',wLenSpec)
-#        print('resampled wavelength = ',resampled.shape,': ',resampled)
-#        plt.plot(wLenSpec,oneDSpecInterp,label='original')
-#        plt.plot(resampled,resampledSpec,label='resampled')
-#        plt.legend()
-#        plt.show()
+        print('extractAndReidentifyARCs: wLenSpec = ',wLenSpec.shape,': ',wLenSpec)
+        print('extractAndReidentifyARCs: resampled wavelength = ',resampled.shape,': ',resampled)
+        if display:
+            plt.plot(wLenSpec,oneDSpecInterp,label='original')
+            plt.plot(resampled,resampledSpec,label='resampled')
+            plt.legend()
+            plt.show()
 
         writeFits1D(resampledSpec,
                     arcInterp[:-5]+'Ec.fits',
@@ -2212,6 +2368,9 @@ def readFluxStandardFile(fName):
 
 def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat', display=False):
     fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList(fluxStdandardList)
+    print('fluxStandardNames = ',fluxStandardNames)
+    print('fluxStandardDirs = ',fluxStandardDirs)
+    print('fluxStandardFileNames = ',fluxStandardFileNames)
     fluxStandardNames = np.asarray(fluxStandardNames)
     fluxStandardDirs = np.asarray(fluxStandardDirs)
     fluxStandardFileNames = np.asarray(fluxStandardFileNames)
@@ -2223,7 +2382,11 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
     sensFuncs = []
 
     for fName in fNames:
-        stdName = fName[fName.rfind('SCIENCE_')+8:]
+        print("fName.rfind('SCIENCE_') = ",fName.rfind('SCIENCE_'))
+        if fName.rfind('SCIENCE_') >= 0:
+            stdName = fName[fName.rfind('SCIENCE_')+8:]
+        else:
+            stdName = fName[fName.rfind('FLUXSTDS_')+9:]
         stdName = stdName[:stdName.find('_')]
         print('stdName = <'+stdName+'>')
 #        wLenStd = getWavelengthArr(fName[:fName.rfind('.')]+'Ecd.fits',0)
@@ -2235,7 +2398,27 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
         print('Flux standard star '+stdName+' found in ',fluxStandardFileNames[indices])
         done = False
         for prior in fluxStdDirsByPriority:
-            if (not done) and (prior in fluxStandardDirs[indices]):
+            print('prior = <'+prior+'>')
+            priorInFluxStandardDirs = False
+            if prior.find('/') < 0:
+                print("prior.rfind('/') = ",prior.find('/')," < 0")
+                if prior in fluxStandardDirs[indices]:
+                    print('prior( = <'+prior+'> in fluxStandardDirs[',indices,'] = ',fluxStandardDirs[indices])
+                    priorInFluxStandardDirs = True
+                    print('priorInFluxStandardDirs = True')
+                else:
+                    print('prior( = <'+prior+'> NOT in fluxStandardDirs[',indices,'] = ',fluxStandardDirs[indices])
+            else:
+                print("prior.rfind('/') = ",prior.rfind('/')," >= 0")
+                if prior[prior.rfind('/')+1:] in fluxStandardDirs[indices]:
+                    print("prior[prior.rfind('/')+1:] = <"+prior[prior.rfind('/')+1:]+"> in fluxStandardDirs[",indices,"] = ",fluxStandardDirs[indices])
+                    priorInFluxStandardDirs = True
+                    print('priorInFluxStandardDirs = True')
+                else:
+                    print("prior[prior.rfind('/')+1:] = <"+prior[prior.rfind('/')+1:]+"> NOT in fluxStandardDirs[",indices,"] = ",fluxStandardDirs[indices])
+
+            print('priorInFluxStandardDirs = ',priorInFluxStandardDirs)
+            if (not done) and (priorInFluxStandardDirs):
                 print('dir = '+prior)
                 img = CCDData.read(fName, unit=u.adu)
                 print('dir(img.header) = ',dir(img.header))
@@ -2267,6 +2450,8 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
                     plt.errorbar(wapprox.value, obj_flux.data, yerr=ex_tbl['fluxerr'].data, alpha=0.25)
                     plt.show()
 
+                print('prior = <'+prior+'>')
+                print("prior+'/'+stdName.lower()+'.dat' = <"+prior+'/'+stdName.lower()+'.dat'+'>')
                 stdstar=onedstd(prior+'/'+stdName.lower()+'.dat')
                 print('stdstar = ',stdstar)
 
@@ -2453,3 +2638,70 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
 
 #    extinctionCurve = FluxCal.obs_extinction('kpno')
 #    print('extinctionCurve = ',extinctionCurve)
+
+def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunction, order, nIter, lowReject, highReject, type='difference', adjustSigLevels=False, useMean=False):
+    spec = getImageData(spectrumFileNameIn,0)
+
+    xNorm = normalizeX(np.arange(0,spec.shape[0],1.))
+    coeffs, resultFit = sfit(xNorm,
+                             spec,
+                             fittingFunction,#np.polynomial.legendre.legfit,
+                             evalFunction,#np.polynomial.legendre.legval,
+                             order=order,
+                             nIter=nIter,
+                             lowReject=lowReject,
+                             highReject=highReject,
+                             adjustSigLevels=True,
+                             useMean=False)
+    if type == 'difference':
+        spec -= resultFit
+    elif type == 'ratio':
+        spec /= resultFit
+
+    writeFits1D(spec,
+                spectrumFileNameOut,
+                wavelength=None,
+                header=spectrumFileNameIn,
+                CRVAL1=None,
+                CRPIX1=None,
+                CDELT1=None,
+               )
+
+
+
+def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None, highReject=None, adjustSigLevels=False, useMean=False, display=False):
+    fileNames = readFileToArr(fileListName)
+    wLenAll = getWavelengthArr(fileNames[0],0)
+    spectra = []
+    for fileName in fileNames:
+        if fileName == fileNames[0]:
+            spectra.append(getImageData(fileName,0))
+        else:
+            spectra.append(rebin(getWavelengthArr(fileName,0), getImageData(fileName,0), wLenAll, preserveFlux = True))
+        if display:
+            plt.plot(wLenAll, spectra[len(spectra)-1], label=fileName[fileName.rfind('/')+1:fileName.rfind('.')])
+
+    goodPix = []
+    combinedSpectrum = np.array(wLenAll.shape[0])
+    if method == 'median':
+        if lowReject is not None:
+            for pix in range(wLenAll.shape[0]):
+                goodPix.append(sigmaRej([spectrum[pix] for spectrum in spectra], lowReject, highReject, adjustSigLevels, useMean=useMean))
+                print('scombine: pix = ',pix,': goodPix = ',goodPix[pix])
+                if len(goodPix[pix]) % 2 == 0:
+                    combinedSpectrum[pix] = (np.mean(np.array(goodPix[pix])))
+                else:
+                    combinedSpectrum[pix] = (np.median(np.array(goodPix[pix])))
+    if display:
+        plt.plot(wLenAll, combinedSpectrum, 'g-', label = 'combined')
+        plt.legend()
+        plt.show()
+
+    writeFits1D(combinedSpectrum,
+                spectrumFileNameOut,
+                wavelength=None,
+                header=fileNames[0],
+                CRVAL1=None,
+                CRPIX1=None,
+                CDELT1=None,
+               )

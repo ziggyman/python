@@ -15,7 +15,7 @@ overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 #testPath = '/Users/azuri/spupnik/data/20190501/'
 testPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
-testPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/'
+testPath = '/Users/azuri/spectra/saao/saao_sep2019/20190905/'
 #testPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190501/'
 #testPath = '/Volumes/work/azuri/spectra/saao/saao_may2020/20200517/'
 
@@ -578,7 +578,8 @@ def main():
 
 if __name__ == "__main__":
     #main()
-    if True:
+    test_cleanCosmic()
+    if False:
 #        arc = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/ARC_Feige110_a1171059_otzf.fits'
         arc = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzf.fits'
         arcInterp = arc[:-5]+'i.fits'
