@@ -4,6 +4,7 @@ from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
 from drUtils import readFluxStandardsList,calcResponse,applySensFuncs,extractObjectAndSubtractSky
+from drUtils import scombine,continuum
 import numpy as np
 import os
 from shutil import copyfile
@@ -62,7 +63,7 @@ suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxf
 #    copyfile(inList+'bak', inList)
 exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
 objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
-if False:
+if True:
     separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
     #STOP
     objectFiles = os.path.join(workPath,'SCIENCE.list')
@@ -210,6 +211,78 @@ if True:
     applySensFuncs(getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfifEcd.list')),
                    getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfifEcdF.list')),
                    sensFuncs)
+
+if True:
+    # combine multiple spectra of the same object
+    fileList = getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfifEcdF.list'))
+    toCombineLists = []
+    combinedList = []
+    toContinuumSubtract = []
+    continuumSubtracted = []
+    for fileName in fileList:
+        objectName = fileName[fileName.rfind('SCIENCE_')+8:]
+        objectName = objectName[:objectName.find('_a')]
+        print('objectName = ',objectName)
+        nFiles = 0
+        for fName in fileList:
+            objName = fName[fName.rfind('SCIENCE_')+8:]
+            objName = objName[:objName.find('_a')]
+            print('objName = ',objName)
+            if objectName == objName:
+                nFiles += 1
+        if nFiles > 1:
+            listNameOut = fileName[:fileName.rfind('_a')]+'_toCombine.list'
+            toCombineLists.append(listNameOut)
+            combinedList.append(listNameOut[:listNameOut.rfind('toCombine')]+'combined.fits')
+            print('nFiles = ',nFiles,': creating <'+listNameOut+'>')
+            with open(listNameOut,'w') as f:
+                for fName in fileList:
+                    objName = fName[fName.rfind('SCIENCE_')+8:]
+                    objName = objName[:objName.find('_a')]
+                    print('objName = ',objName)
+                    if objectName == objName:
+                        f.write(fName+'\n')
+            toContinuumSubtract.append()
+        else:
+            toContinuumSubtract.append(fileName)
+            continuumSubtracted.append(fileName[:fileName.rfind('_a')]+'c.fits')
+    for iList in range(len(toCombineLists)):
+        inputList = toCombineLists[iList]
+        outFile = combinedList[iList]
+        scombine(inputList,
+                 outFile,
+                 method='median',
+                 lowReject=2.,
+                 highReject=2.,
+                 adjustSigLevels=False,
+                 useMean=False,
+                 display=True)
+
+    # subtract continuum
+    for i in range(len(toContinuumSubtract)):
+        fittingFunction = np.polynomial.legendre.legfit
+        evalFunction = np.polynomial.legendre.legval
+        order = 9
+        nIterReject = 3
+        nIterFit = 3
+        lowReject = 2.
+        highReject = 2.
+        useMean = False
+        continuum(toContinuumSubtract[i],
+                  continuumSubtracted[i],
+                  fittingFunction,
+                  evalFunction,
+                  order,
+                  nIterReject,
+                  nIterFit,
+                  lowReject,
+                  highReject,
+                  type='difference',
+                  adjustSigLevels=False,
+                  useMean=useMean,
+                  display=True)
+
+
 
 #    response = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfifEcd.list'))
 #    fluxCalibrate(os.path.join(workPath,'SCIENCE_LTT7379_a1171120_otzfifEcd.fits'),

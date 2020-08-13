@@ -3,8 +3,8 @@ from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractSum, calcLineProfile,xCor
 from drUtils import findLines, getYAt, calcDispersion, normalizeX, extract,readFileToArr
-from drUtils import reidentify,getLineProfiles,getBestLineProfile,findGoodLines, rebin
-from drUtils import writeFits1D
+from drUtils import reidentify,getLineProfiles,getBestLineProfile,findGoodLines,rebin
+from drUtils import writeFits1D,scombine,continuum
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -576,9 +576,50 @@ def main():
 
         extract(twoDSpec, specOut, extractList[1][1], extractList[1][2], extractList[1][3], 'row')
 
+def test_scombine():
+    inputList = '/Users/azuri/spectra/saao/saao_sep2019/20190905/MPA_J1924+0038_EcdF.list'
+    outputFileName = '/Users/azuri/spectra/saao/saao_sep2019/20190905/MPA_J1924+0038_EcdF_combinedTest.fits'
+    method = 'median'
+    lowReject = 2.
+    highReject = 2.
+    adjustSigLevels = False
+    useMean = False
+    scombine(inputList,
+             outputFileName[:-5]+'_'+method+'_lowRej'+str(lowReject)+'_highRej'+str(highReject)+'_adj='+str(adjustSigLevels),
+             method=method,
+             lowReject=lowReject,
+             highReject=highReject,
+             adjustSigLevels=adjustSigLevels,
+             useMean=useMean,
+             display=True)
+    method = 'mean'
+    scombine(inputList,
+             outputFileName[:-5]+'_'+method+'_lowRej'+str(lowReject)+'_highRej'+str(highReject)+'_adj='+str(adjustSigLevels),
+             method=method,
+             lowReject=lowReject,
+             highReject=highReject,
+             adjustSigLevels=adjustSigLevels,
+             useMean=useMean,
+             display=True)
+
+def test_continuum():
+    spectrumFileNameIn = '/Users/azuri/spectra/saao/saao_sep2019/20190906/SCIENCE_NGC7293-NE1_a1171207_otzxfifEcdF.fits'
+    spectrumFileNameOut = '/Users/azuri/spectra/saao/saao_sep2019/20190906/SCIENCE_NGC7293-NE1_a1171207_otzxfifEcdF_continuumTest.fits'
+    fittingFunction = np.polynomial.legendre.legfit
+    evalFunction = np.polynomial.legendre.legval
+    order = 9
+    nIterReject = 3
+    nIterFit = 3
+    lowReject = 2.
+    highReject = 2.
+    useMean = False
+    continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunction, order, nIterReject, nIterFit, lowReject, highReject, type='difference', adjustSigLevels=False, useMean=useMean, display=True)
+
 if __name__ == "__main__":
     #main()
-    test_cleanCosmic()
+    #test_cleanCosmic()
+    test_scombine()
+    test_continuum()
     if False:
 #        arc = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/ARC_Feige110_a1171059_otzf.fits'
         arc = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190905/ARC_MPA_J1354-6337_a1171127_otzf.fits'

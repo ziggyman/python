@@ -40,7 +40,7 @@ from specreduce import fluxcal,calibration_data
 #from fluxcal import standard_sensfunc, apply_sensfunc, onedstd, obs_extinction, airmass_cor
 from apextract import trace, extract
 from fluxcal import standard_sensfunc, apply_sensfunc, onedstd, obs_extinction, airmass_cor
-from myUtils import hmsToDeg,dmsToDeg,subtractSky,sigmaRej
+from myUtils import hmsToDeg,dmsToDeg,subtractSky#,sigmaRej
 
 # TODO: Make it possible to pass in CCDData instead of fits file names
 
@@ -191,35 +191,35 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                 line = fOutName
             if expType == exptype:
                 if object == '*':
-                    print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
+                    print('createLists: exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
                     isNames.append(line)
                 else:
                     if objectName.lower() == object.lower():
-                        print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
+                        print('createLists: exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
                         isNames.append(line)
                     else:
-                        print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
+                        print('createLists: exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
                         isntNames.append(line)
             elif exptype == 'FLUXSTDS':
                 if fluxStandardNames is None:
                     print('createLists: ERROR: no fluxStandardNames given')
                     STOP
-                print('objectName = ',objectName)
+                print('createLists: objectName = ',objectName)
                 if objectName.lower() in fluxStandardNames:
                     if expType == 'SCIENCE':
                         isNames.append(line)
-#                        print('isNames = ',isNames)
+#                        print('createLists: isNames = ',isNames)
 #                        STOP
                 else:
                     isntNames.append(line)
             else:
-                print('exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
+                print('createLists: exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
                 isntNames.append(line)
-        print('writing isList <'+isList+'>')
+        print('createLists: writing isList <'+isList+'>')
         with open(isList,'w') as f:
             for name in isNames:
                 f.write(addSuffixToFileName(name,suffix)+'\n')
-        print('writing isntList <'+isntList+'>')
+        print('createLists: writing isntList <'+isntList+'>')
         with open(isntList,'w') as f:
             for name in isntNames:
                 f.write(addSuffixToFileName(name,suffix)+'\n')
@@ -254,26 +254,26 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                 fOutName = addSuffixToFileName(fOutName, suffix)
 
                 expType = hdulist[0].header['EXPTYPE']
-                print('line = ',line,': expType = ',expType)
+                print('separateFileList: line = ',line,': expType = ',expType)
                 if expType not in [x['expType'] for x in expTypes]:
                     listOutName = os.path.join(path,expType.lower()+'.list')
                     listOutName = addSuffixToFileName(listOutName,suffix)
-                    print('writing to listOutName = <'+listOutName+'>')
+                    print('separateFileList: writing to listOutName = <'+listOutName+'>')
                     expTypes.append({'expType':expType, 'listOutName':listOutName})
                     silentRemove(listOutName)
                 else:
                     for x in expTypes:
                         if x['expType'] == expType:
                             listOutName = x['listOutName']
-                print('listOutName = <'+listOutName+'>')
+                print('separateFileList: listOutName = <'+listOutName+'>')
 
                 objectName = hdulist[0].header['OBJECT']
-                print('line = ',line,': objectName = ',objectName,', expType = ',expType)
+                print('separateFileList: line = ',line,': objectName = ',objectName,', expType = ',expType)
                 if expType == 'SCIENCE':
                     if objectName not in [x['objectName'] for x in objectNames]:
                         listOutNameObs = os.path.join(path,objectName.lower()+'.list')
                         listOutNameObs = addSuffixToFileName(listOutNameObs, suffix)
-                        print('writing to listOutNameObs = <'+listOutNameObs+'>')
+                        print('separateFileList: writing to listOutNameObs = <'+listOutNameObs+'>')
                         objectNames.append({'objectName':objectName,'listOutNameObs':listOutNameObs})
                         silentRemove(listOutNameObs)
                     else:
@@ -358,16 +358,16 @@ def combine(ccdImages,
     ccdData = [CCDData.read(fname, unit="adu") for fname in ccdImages]
     combiner = ccdproc.Combiner(ccdData)
     if clippingMethod == 'minmax':
-        print('applying minmax clipping')
+        print('combine: applying minmax clipping')
         combiner.minmax_clipping(min_clip=clippingParameters['min_clip'],
                                  max_clip=clippingParameters['max_clip'])
 
     elif clippingMethod == 'sigma':
-        print('applying sigma clipping')
-        #print('dir(clippingParameters = ',dir(clippingParameters))
-        print('clippingParameters.keys() = ',clippingParameters.keys())
-        print("clippingParameters['low_thresh'] = ",clippingParameters['low_thresh'])
-        print("clippingParameters['high_thresh'] = ",clippingParameters['high_thresh'])
+        print('combine: applying sigma clipping')
+        #print('combine: dir(clippingParameters = ',dir(clippingParameters))
+        print('combine: clippingParameters.keys() = ',clippingParameters.keys())
+        print("combine: clippingParameters['low_thresh'] = ",clippingParameters['low_thresh'])
+        print("combine: clippingParameters['high_thresh'] = ",clippingParameters['high_thresh'])
         combiner.sigma_clipping(low_thresh=clippingParameters['low_thresh'],
                                 high_thresh=clippingParameters['high_thresh'],
                                 func=clippingParameters['func'])
@@ -384,12 +384,12 @@ def combine(ccdImages,
                 iIter += 1
 
     elif clippingMethod == 'extrema':
-        print('applying extrema clipping')
+        print('combine: applying extrema clipping')
         combiner.clip_extrema(nlow=clippingParameters['nlow'],
                               nhigh=clippingParameters['nhigh'])
 
     if scaling:
-        print('applying image scaling')
+        print('combine: applying image scaling')
         scaling_func = lambda arr: 1/np.ma.average(arr)
         combiner.scaling = scaling_func
 
@@ -404,8 +404,8 @@ def combine(ccdImages,
         combinedImage.data = np.maximum(combinedImage.data, minVal)
 
     if fitsOutName is not None:
-        print('combinedImage.data.shape = ',combinedImage.data.shape)
-        print('combinedImage.header = ',combinedImage.header)
+        print('combine: combinedImage.data.shape = ',combinedImage.data.shape)
+        print('combine: combinedImage.header = ',combinedImage.header)
         writeFits(combinedImage, ccdImages[0], fitsOutName, ['COMBINED'], ['from %d images' % len(ccdImages)], overwrite=overwrite)
 
     return combinedImage
@@ -449,7 +449,7 @@ def subtractBias(fitsFilesIn,
     masterBiasArr = CCDData.read(masterBias, unit="adu")
     for iFile in np.arange(0,len(fitsFilesIn),1):
         ccdData = CCDData.read(fitsFilesIn[iFile], unit="adu")
-        print('inFile = ',fitsFilesIn[iFile],', masterBias = ',masterBias)
+        print('subtractBias: inFile = ',fitsFilesIn[iFile],', masterBias = ',masterBias)
         ccdDataBiasSubtracted = ccdproc.subtract_bias(ccdData,
                                                       masterBiasArr)
         dataOut.append(ccdDataBiasSubtracted)
@@ -552,7 +552,7 @@ def cleanCosmic(fitsFilesIn,
                 raise('key "'+key+'" not in available keys ',goodKeys)
     for iFile in np.arange(0,len(fitsFilesIn),1):
         ccdData = CCDData.read(fitsFilesIn[iFile], unit="adu")
-        #print('dir(ccdData) = ',dir(ccdData))
+        #print('cleanCosmic: dir(ccdData) = ',dir(ccdData))
         ccdDataArr = ccdData.data
         if ctype == 'lacosmic':
             sigclip = 4.5
@@ -627,9 +627,9 @@ def cleanCosmic(fitsFilesIn,
             gbox = 0
             rbox = 0
             error_image = None
-#            print('ccdData.uncertainty = ',ccdData.uncertainty)
+#            print('cleanCosmic: ccdData.uncertainty = ',ccdData.uncertainty)
 #            error_image = ccdData.uncertainty.array
-#            print('error_image = ',error_image)
+#            print('cleanCosmic: error_image = ',error_image)
             if cosmicParameters is not None:
                 if 'thresh' in cosmicParameters.keys():
                     thresh = cosmicParameters['thresh']
@@ -658,9 +658,9 @@ def cleanCosmic(fitsFilesIn,
 # axis: 0 (columns) or 1 (rows), or 2 for 2D box
 # width: odd number
 def boxCarMedianSmooth(imageData, axis, width):
-    print('imageData.shape = ',imageData.shape)
-    print('len(imageData.shape) = ',len(imageData.shape))
-    print('imageData = ',imageData)
+    print('boxCarMedianSmooth: imageData.shape = ',imageData.shape)
+    print('boxCarMedianSmooth: len(imageData.shape) = ',len(imageData.shape))
+    print('boxCarMedianSmooth: imageData = ',imageData)
     newDataArray = None
     if len(imageData.shape) > 1:
         newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0,0]))
@@ -716,7 +716,7 @@ def boxCarMedianSmooth(imageData, axis, width):
                     newDataArray[iRow,iCol] = np.median(imageData[iRowStart:iRowEnd,iColStart:iColEnd])
     #                print 'iColStart = ',iColEnd,', iRow = ',iRow,': iRowStart = ',iRowStart,', iRowEnd = ',iRowEnd,': imageData[iRowStart:iRowEnd,iColStart:iColEnd] = ',imageData[iRowStart:iRowEnd,iColStart:iColEnd],': median = ',newDataArray[iRow,iCol]
         else:
-            print('ERROR: axis(=',axis,') out of bounds [0,1,2]')
+            print('boxCarMedianSmooth: ERROR: axis(=',axis,') out of bounds [0,1,2]')
     else:
         newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0]))
         for iCol in range(imageData.shape[0]):
@@ -742,27 +742,27 @@ def imDivide(inFileNames, quotientImageName, outFileNames, zeroVal=0.):
 
 def makeMasterFlat(combinedFlatIn, boxSize, minSNR, outFileNameMasterFlat=None, outFileNameMasterFlatSmoothed=None):
     ccdDataFlat = CCDData.read(combinedFlatIn, unit="adu")
-    print('mean(ccdDataFlat) = ',np.mean(ccdDataFlat.data))
-    print('ccdDataFlat.data = ',ccdDataFlat.data.shape,': ',ccdDataFlat.data)
+    print('makeMasterFlat: mean(ccdDataFlat) = ',np.mean(ccdDataFlat.data))
+    print('makeMasterFlat: ccdDataFlat.data = ',ccdDataFlat.data.shape,': ',ccdDataFlat.data)
     smoothedFlatArr = ndimage.median_filter(ccdDataFlat.data, boxSize)
-    print('mean(smoothedFlatArr) = ',np.mean(smoothedFlatArr))
-    print('smoothedFlatArr = ',smoothedFlatArr.shape,': ',smoothedFlatArr)
+    print('makeMasterFlat: mean(smoothedFlatArr) = ',np.mean(smoothedFlatArr))
+    print('makeMasterFlat: smoothedFlatArr = ',smoothedFlatArr.shape,': ',smoothedFlatArr)
     masterFlatArr = smoothedFlatArr / ccdDataFlat.data
 #    masterFlatArr = masterFlatArr / np.amax(masterFlatArr)
-    print('1. mean(masterFlatArr) = ',np.mean(masterFlatArr))
-    print('1. masterFlatArr = ',masterFlatArr.shape,': ',masterFlatArr)
+    print('makeMasterFlat: 1. mean(masterFlatArr) = ',np.mean(masterFlatArr))
+    print('makeMasterFlat: 1. masterFlatArr = ',masterFlatArr.shape,': ',masterFlatArr)
     whereSNRltMinSNR = np.where(np.sqrt(ccdDataFlat.data) < minSNR)
     masterFlatArr[whereSNRltMinSNR] = 1.0
-    print('2. mean(masterFlatArr) = ',np.mean(masterFlatArr))
+    print('makeMasterFlat: 2. mean(masterFlatArr) = ',np.mean(masterFlatArr))
     if outFileNameMasterFlat is not None:
         ccdDataFlat.data = masterFlatArr
-        print('mean(master ccdDataFlat) = ',np.mean(ccdDataFlat.data))
+        print('makeMasterFlat: mean(master ccdDataFlat) = ',np.mean(ccdDataFlat.data))
         writeFits(ccdDataFlat, combinedFlatIn, outFileNameMasterFlat, ['BOXSIZE','MINSNR'], ['%d' % boxSize, '%d' % minSNR], overwrite=True)
     if outFileNameMasterFlat is not None:
         ccdDataFlat.data = smoothedFlatArr
         writeFits(ccdDataFlat, combinedFlatIn, outFileNameMasterFlatSmoothed[0:outFileNameMasterFlatSmoothed.rfind('.')]+'_notScaled.fits', ['BOXSIZE','MINSNR'], ['%d' % boxSize, '%d' % int(minSNR)], overwrite=True)
         ccdDataFlat.data = smoothedFlatArr / np.amax(smoothedFlatArr)
-        print('mean(smoothed ccdDataFlat) = ',np.mean(ccdDataFlat.data))
+        print('makeMasterFlat: mean(smoothed ccdDataFlat) = ',np.mean(ccdDataFlat.data))
         writeFits(ccdDataFlat, combinedFlatIn, outFileNameMasterFlatSmoothed, ['BOXSIZE','MINSNR'], ['%d' % boxSize, '%d' % int(minSNR)], overwrite=True)
     return masterFlatArr, smoothedFlatArr
 
@@ -800,9 +800,9 @@ def flatCorrect(fitsFilesIn,
     if ccdDataFlat.shape[0] == 2:
         ccdDataFlat.data = ccdDataFlat.data[0,:,:]
     print('flatCorrect: ccdDataFlat = ',ccdDataFlat)
-    print('min(ccdDataFlat) = ',np.min(ccdDataFlat),', max(ccdDataFlat) = ',np.max(ccdDataFlat))
-    print('ccdDataFlat[np.where(np.isnan(ccdDataFlat))] = ',ccdDataFlat[np.where(np.isnan(ccdDataFlat))])
-    print('ccdDataFlat[np.where(np.isinf(ccdDataFlat))] = ',ccdDataFlat[np.where(np.isinf(ccdDataFlat))])
+    print('flatCorrect: min(ccdDataFlat) = ',np.min(ccdDataFlat),', max(ccdDataFlat) = ',np.max(ccdDataFlat))
+    print('flatCorrect: ccdDataFlat[np.where(np.isnan(ccdDataFlat))] = ',ccdDataFlat[np.where(np.isnan(ccdDataFlat))])
+    print('flatCorrect: ccdDataFlat[np.where(np.isinf(ccdDataFlat))] = ',ccdDataFlat[np.where(np.isinf(ccdDataFlat))])
     dataOut = []
 
     for iFile in np.arange(0,len(fitsFilesIn),1):
@@ -810,9 +810,9 @@ def flatCorrect(fitsFilesIn,
         if ccdData.shape[0] == 2:
             ccdData.data = ccdData.data[0,:,:]
         print('flatCorrect: iFile = ',iFile,': ccdData = ',ccdData)
-        print('min(ccdData) = ',np.min(ccdData),', max(ccdData) = ',np.max(ccdData))
-        print('ccdData[np.where(np.isnan(ccdData))] = ',ccdData[np.where(np.isnan(ccdData))])
-        print('ccdData[np.where(np.isinf(ccdData))] = ',ccdData[np.where(np.isinf(ccdData))])
+        print('flatCorrect: min(ccdData) = ',np.min(ccdData),', max(ccdData) = ',np.max(ccdData))
+        print('flatCorrect: ccdData[np.where(np.isnan(ccdData))] = ',ccdData[np.where(np.isnan(ccdData))])
+        print('flatCorrect: ccdData[np.where(np.isinf(ccdData))] = ',ccdData[np.where(np.isinf(ccdData))])
         ccdDataFlattened = ccdproc.flat_correct(ccdData,
                                                 flat=ccdDataFlat,
                                                 min_value=min_value,
@@ -836,7 +836,7 @@ def chebyshev(xNorm, coeffs):
         z.append(xNorm[0])
         for i in np.arange(2,len(coeffs)):
             z.append(2.0 * xNorm[0] * z[i-1] - z[i-2])
-        print('z = ',z)
+        print('chebyshev: z = ',z)
         y = []
         for x in xNorm:
             z[1] = x
@@ -846,12 +846,12 @@ def chebyshev(xNorm, coeffs):
             for i in np.arange(2,len(coeffs),1):
                 yTemp += coeffs[i] * z[i]
             y.append(yTemp)
-        print('xNorm = ',len(xNorm),': ',xNorm)
-        print('y = ',len(y),': ',y)
+        print('chebyshev: xNorm = ',len(xNorm),': ',xNorm)
+        print('chebyshev: y = ',len(y),': ',y)
         return y
 
     yCheck = chebval(xNorm, coeffs)
-#    print('yCheck = ',yCheck)
+#    print('chebyshev: yCheck = ',yCheck)
     return yCheck
 
 # calculate Legendre polynomial for normalized x values [-1.0,...,1.0] and give coefficients
@@ -866,24 +866,24 @@ def legendre(xNorm, coeffs):
         z.append(xNorm[0])
         for i in np.arange(2,len(coeffs)):
             z.append(((((2.0*(i+1.0))-3.0) * xNorm[0] * z[i-1]) - ((i-1.0) * z[i-2]) / (i)))
-        print('z = ',z)
+        print('legendre: z = ',z)
         y = []
         for x in xNorm:
             z[1] = x
             for i in np.arange(2,len(coeffs)):
                 z[i] = ((((2.0*(i+1.0))-3.0) * x * z[i-1]) - ((i-1.0) * z[i-2])) / (i)
-            print('z = ',z)
+            print('legendre: z = ',z)
             yTemp = (coeffs[0] * z[0]) + (coeffs[1] * z[1])
             for i in np.arange(2,len(coeffs),1):
                 yTemp += coeffs[i] * z[i]
-                print('i = ',i,': yTemp = ',yTemp)
+                print('legendre: i = ',i,': yTemp = ',yTemp)
             y.append(yTemp)
-        print('xNorm = ',len(xNorm),': ',xNorm)
-        print('y = ',len(y),': ',y)
+        print('legendre: xNorm = ',len(xNorm),': ',xNorm)
+        print('legendre: y = ',len(y),': ',y)
         return y
 
     yCheck = legval(xNorm,coeffs)
-#    print('yCheck = ',yCheck)
+#    print('legendre: yCheck = ',yCheck)
     return yCheck
 
 # calculate linear spline for normalized x values [-1.0,...,1.0] and give coefficients
@@ -900,7 +900,7 @@ def linearSpline(xRange, order, coeffs):
         j = int(s)
         a = (j + 1) - s
         b = s - j
-        print('x = ',x,': s = ',s,', j = ',j,', a = ',a,', b = ',b)
+        print('linearSpline: x = ',x,': s = ',s,', j = ',j,', a = ',a,', b = ',b)
         y.append(coeffs[j] * a + coeffs[j+1] * b)
     print('linear spline: y = ',y)
     return y
@@ -923,7 +923,7 @@ def cubicSpline(xRange, order, coeffs):
         z_1 = 1.0 + 3.0 * a * (1.0 + a * b)
         z_2 = 1.0 + 3.0 * b * (1.0 + a * b)
         z_3 = b**3
-        print('x = ',x,': s = ',s,', j = ',j,', a = ',a,', b = ',b,', z_0 = ',z_0,', z_1 = ',z_1,', z_2 = ',z_2,', z_3 = ',z_3)
+        print('cubicSpline: x = ',x,': s = ',s,', j = ',j,', a = ',a,', b = ',b,', z_0 = ',z_0,', z_1 = ',z_1,', z_2 = ',z_2,', z_3 = ',z_3)
         y.append((coeffs[j] * z_0) + (coeffs[j+1] * z_1) + (coeffs[2+j] * z_2) + (coeffs[3+j] * z_3))
     print('cubic spline: y = ',y)
     return y
@@ -938,21 +938,21 @@ def cubicSpline(xRange, order, coeffs):
 # return: x=[0...size-1], y=[0...size-1]
 def calcTrace(dbFile, apNum=0, xRange = None):
     imFileName = dbFile[:dbFile.find('database/')]+dbFile[dbFile.rfind('/ap')+3:]+'.fits'
-    print('imFileName = <'+imFileName+'>')
+    print('calcTrace: imFileName = <'+imFileName+'>')
     imageData = CCDData.read(imFileName, unit="adu")
-    print('imageData.shape=',imageData.shape)
+    print('calcTrace: imageData.shape=',imageData.shape)
     records = iu.get_records(dbFile)
     xCenter, yCenter = [float(c) for c in records[apNum].get_fields()['center'].split(' ')]
     curve = records[apNum].get_fields()['curve']
-    print('curve = ',curve)
+    print('calcTrace: curve = ',curve)
     funcs = ['none','chebyshev','legendre','cubicSpline','linearSpline']
     function = funcs[int(curve[0])]
-    print('function = ',function)
+    print('calcTrace: function = ',function)
     order = curve[1][0]
-    print('order = ',order)
+    print('calcTrace: order = ',order)
     if xRange is None:
         xRange = [curve[2][0],curve[3][0]]
-    print('xRange = ',xRange)
+    print('calcTrace: xRange = ',xRange)
     xNorm = []
     xArr = np.arange(xRange[0],xRange[1]+1)
 #    xArr = np.arange(1,imageData.shape[0]+1,1)#np.arange(xRange[0],xRange[1]+1)
@@ -993,8 +993,8 @@ def calcTrace(dbFile, apNum=0, xRange = None):
 # image with centers of aperture set to zero
 def markCenter(imFileIn, trace, imFileOut=None):
     image = CCDData.read(imFileIn, unit="adu")
-    print('image = ',image)
-    print('trace = ',len(trace),': ',trace)
+    print('markCenter: image = ',image)
+    print('markCenter: trace = ',len(trace),': ',trace)
     print('markCenter: trace[0].shape = ',trace[0].shape)
     for i in np.arange(0,trace[0].shape[0],1):
         image.data[int(trace[0][i]), int(trace[1][i])] = 0.
@@ -1052,12 +1052,12 @@ def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, mark
     # read imFile for dimensions
     if len(imFiles) > 0:
         image = CCDData.read(imFiles[0], unit="adu")
-        print('image.shape = ',image.shape)
-        print('image.data.shape = ',image.data.shape)
+        print('interpolateTraceIm: image.shape = ',image.shape)
+        print('interpolateTraceIm: image.data.shape = ',image.data.shape)
         if image.data.shape[0] == 2:
             image.data = image.data[0,:,:]
-        print('image.shape = ',image.shape)
-        print('image.data.shape = ',image.data.shape)
+        print('interpolateTraceIm: image.shape = ',image.shape)
+        print('interpolateTraceIm: image.data.shape = ',image.data.shape)
 
         records = iu.get_records(dbFileVerticalTrace)
         verticalTraces = []
@@ -1108,10 +1108,10 @@ def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, mark
                     markCenter(inFile,[horizontalTraces[i][1],horizontalTraces[i][0]],outFile)
 
             zOrig = np.ndarray(shape=(image.data.shape[0] * image.data.shape[1]), dtype=np.float32)
-            print('image.data.shape = ',image.data.shape)
+            print('interpolateTraceIm: image.data.shape = ',image.data.shape)
             for ix in np.arange(0,image.data.shape[0],1):
                 for iy in np.arange(0,image.data.shape[1],1):
-    #                print('image.data[',ix,',',iy,'] = ',image.data[ix,iy])
+    #                print('interpolateTraceIm: image.data[',ix,',',iy,'] = ',image.data[ix,iy])
                     zOrig[(ix*image.data.shape[1]) + iy] = image.data[ix,iy]
             zFit = griddata(xyOrig, zOrig, xyFit, method='linear')
 
@@ -1176,7 +1176,7 @@ def extractSum(imageFileIn, dispAxis, fNameOut = None):
         image = CCDData.read(imageFileIn, unit="adu")
     else:
         image = imageFileIn
-    print('image.shape = ',image.shape)
+    print('extractSum: image.shape = ',image.shape)
 
     axis = 0
     if dispAxis == 'row':
@@ -1192,7 +1192,7 @@ def extractSum(imageFileIn, dispAxis, fNameOut = None):
 
 def lambdaCal(oneDImageFileIn, specOutName, func, coeffs):
     spec = np.array(CCDData.read(oneDImageFileIn, unit="adu"))
-    print('spec.shape = ',spec.shape)
+    print('lambdaCal: spec.shape = ',spec.shape)
     xSpec = range(spec.shape[0])
     xSpecNorm = normalizeX(xSpec)
     wLenSpec = func(xSpecNorm, coeffs)
@@ -1209,12 +1209,12 @@ def lambdaCal(oneDImageFileIn, specOutName, func, coeffs):
 # @param plot: bool: plot debugging plots?
 def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
-    print('image.shape = ',image.shape)
+    print('calcLineProfile: image.shape = ',image.shape)
 
     centerRowIdx = int(image.shape[0]/2)
 
     tempFile = os.path.join(twoDImageFileIn[0:twoDImageFileIn.rfind('/')],'tmp'+twoDImageFileIn[twoDImageFileIn.rfind('/')+1:])
-    print('tempFile = <'+tempFile+'>')
+    print('calcLineProfile: tempFile = <'+tempFile+'>')
 
     copyfile(twoDImageFileIn,tempFile)
 
@@ -1247,20 +1247,20 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
 
     dbFile = os.path.join(tempFile[:tempFile.rfind('/')],'database')
     dbFile = os.path.join(dbFile,'ap'+tempFile[tempFile.rfind('/')+1:tempFile.rfind('.')])
-    print('dbFile = <'+dbFile+'>')
+    print('calcLineProfile: dbFile = <'+dbFile+'>')
     row,center = calcTrace(dbFile, apNum=apNumber, xRange = None)
     markCenter(tempFile, [row, center], tempFile)
-    print('row = ',len(row),': ',row)
-    print('center = ',len(center),': ',center)
+    print('calcLineProfile: row = ',len(row),': ',row)
+    print('calcLineProfile: center = ',len(center),': ',center)
 
     colNumber = int(center[int(len(row)/2)])
 
     centerRow = image[centerRowIdx,:]
     maxPos = np.where(centerRow == np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]))[0][0]
-    print('maxPos = ',maxPos)
+    print('calcLineProfile: maxPos = ',maxPos)
 
     center += maxPos - center[centerRowIdx]
-    print('center = ',center)
+    print('calcLineProfile: center = ',center)
 
     if False:#'PNG'in twoDImageFileIn:
         plot = True
@@ -1280,24 +1280,24 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     profileDataX = []
     profileDataY = []
     xProfInt = np.arange(-halfWidth,halfWidth+1,1)
-    print('xProfInt = ',xProfInt)
+    print('calcLineProfile: xProfInt = ',xProfInt)
     rectangles = []
     intensities = []
-    print('image.shape = ',image.shape)
+    print('calcLineProfile: image.shape = ',image.shape)
     for row in np.arange(0,image.shape[0],1):
         image[row,xProfInt+int(center[row])] = image[row,xProfInt+int(center[row])] / np.sum(image[row,xProfInt+int(center[row])])
         for x in xProfInt:
-            print('x = ',x,': center[',row,',] = ',center[row],', int(center[row]) = ',int(center[row]))
-            print('x + 0.5 - center[row] + int(center[row]) = ',x + 0.5 - center[row] + int(center[row]))
+            print('calcLineProfile: x = ',x,': center[',row,',] = ',center[row],', int(center[row]) = ',int(center[row]))
+            print('calcLineProfile: x + 0.5 - center[row] + int(center[row]) = ',x + 0.5 - center[row] + int(center[row]))
             profileDataX.append(x + 0.5 - center[row] + int(center[row]))
             profileDataY.append(image[row,x+int(center[row])])
 
 #            rectangles.append((x, row))
             rectangles.append((x+int(center[row]), row))
             intensities.append(image[row,x+int(center[row])])
-#        print('np.sum(image[row,xProfInt+int(center[row])]) = ',np.sum(image[row,xProfInt+int(center[row])]))
+#        print('calcLineProfile: np.sum(image[row,xProfInt+int(center[row])]) = ',np.sum(image[row,xProfInt+int(center[row])]))
     sortedIndices = np.argsort(profileDataX)
-    print('sortedIndices = ',sortedIndices)
+    print('calcLineProfile: sortedIndices = ',sortedIndices)
     profileDataX = np.array(profileDataX)[sortedIndices]
     profileDataY = np.array(profileDataY)[sortedIndices]
     if plot:
@@ -1310,28 +1310,28 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
 
     # interpolate Cubic Spline
     #print(xProfInt.shape, profileDataX.shape, profileDataY.shape)
-    #print('profileDataX = ',profileDataX)
-    #print('profileDataY = ',profileDataY)
+    #print('calcLineProfile: profileDataX = ',profileDataX)
+    #print('calcLineProfile: profileDataY = ',profileDataY)
     #cs = CubicSpline(profileDataX,profileDataY,bc_type=((1,0),(1,0)))
-    #print('profileDataX[0] = ',profileDataX[0])
+    #print('calcLineProfile: profileDataX[0] = ',profileDataX[0])
     #print('profileDataX[profileDataX.shape[0]-1]+dxFit = ',profileDataX[profileDataX.shape[0]-1]+dxFit)
     x = np.arange(profileDataX[0],profileDataX[profileDataX.shape[0]-1]+dxFit, dxFit)
-    #print('x = ',x)
+    #print('calcLineProfile: x = ',x)
 
     #plt.plot(x,cs(x),'b-', label='Cubic Spline')
 
     #interpolate lsq spline
     t = xProfInt#[-1,-0.5,0,0.5,1]
     k = 3
-    print('(profileDataX[0],)*(k+1) = ',(profileDataX[0],)*(k+1))
-    print('t=',t)
-    print('(profileDataX[-1],)*(k+1) = ',(profileDataX[-1],)*(k+1))
+    print('calcLineProfile: (profileDataX[0],)*(k+1) = ',(profileDataX[0],)*(k+1))
+    print('calcLineProfile: t=',t)
+    print('calcLineProfile: (profileDataX[-1],)*(k+1) = ',(profileDataX[-1],)*(k+1))
     t = np.r_[(profileDataX[0],)*(k+1),
               t,
               (profileDataX[-1],)*(k+1)]
-    print('t=',t)
-    print('profileDataX = ',profileDataX.shape,': ',profileDataX)
-    print('profileDataY = ',profileDataY.shape,': ',profileDataY)
+    print('calcLineProfile: t=',t)
+    print('calcLineProfile: profileDataX = ',profileDataX.shape,': ',profileDataX)
+    print('calcLineProfile: profileDataY = ',profileDataY.shape,': ',profileDataY)
     spl = make_lsq_spline(profileDataX, profileDataY, t, k)
     yFit = spl(x)
     if plot:
@@ -1340,16 +1340,16 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
         plt.show()
 
 
-    print('rectangles = ',rectangles)
-    print('intensities = ',intensities)
+    print('calcLineProfile: rectangles = ',rectangles)
+    print('calcLineProfile: intensities = ',intensities)
     normal = plt.Normalize(np.array(intensities).min(), np.array(intensities).max())
-    print('normal = ',type(normal),': ',normal)
+    print('calcLineProfile: normal = ',type(normal),': ',normal)
     colors = plt.cm.Greys(normal(intensities))
-    print('colors = ',type(colors),': ',colors)
+    print('calcLineProfile: colors = ',type(colors),': ',colors)
     cmap=plt.cm.Greys
-    print('cmap = ',type(cmap),': ',cmap)
+    print('calcLineProfile: cmap = ',type(cmap),': ',cmap)
     c = cmap((np.array(colors) - np.amin(colors))/(np.amax(colors) - np.amin(colors)))
-    print('c = ',type(c),': ',c)
+    print('calcLineProfile: c = ',type(c),': ',c)
 
     if plot:
         fig = plt.figure()
@@ -1368,11 +1368,11 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
 #    plt.show()
 
     # cut off last half pixel on both sides as they are sometimes bad
-#    print('x = ',x)
-#    print('0.5/dxFit = ',0.5/dxFit)
+#    print('calcLineProfile: x = ',x)
+#    print('calcLineProfile: 0.5/dxFit = ',0.5/dxFit)
     x = x[int(0.5/dxFit):x.shape[0]-int(0.5/dxFit)]
     yFit = yFit[int(0.5/dxFit):yFit.shape[0]-int(0.5/dxFit)]
-#    print('x trimmed = ',x)
+#    print('calcLineProfile: x trimmed = ',x)
 
     # subtract background and re-normalize to an integral of 1
     yFit = yFit - np.amin(yFit)
@@ -1380,8 +1380,8 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
 
     # center to maximum
     maxPos = np.where(yFit == np.amax(yFit))
-    print('maxPos = ',maxPos)
-    print('x[maxPos] = ',x[maxPos[0]])
+    print('calcLineProfile: maxPos = ',maxPos)
+    print('calcLineProfile: x[maxPos] = ',x[maxPos[0]])
     x = x-x[maxPos[0]]
 
     return [x, yFit]
@@ -1429,24 +1429,24 @@ def getYAt(x,y,xAt):
 def xCor(static, moving):
     xCorVals = []
     dxMoving = moving[0][1]-moving[0][0]
-#    print('dx = ',dxMoving)
-#    print('xMoving = ',moving[0])
-#    print('xStatic = ',static[0])
+#    print('xCor: dx = ',dxMoving)
+#    print('xCor: xMoving = ',moving[0])
+#    print('xCor: xStatic = ',static[0])
     xMovingStart = 0. - moving[0][0]#(moving[0][moving[0].shape[0]-1]-moving[0][0])/2.
-#    print('xMovingStart = ',xMovingStart)
-#    print('xMoving at half = ',moving[0][int(moving[0].shape[0]/2)])
+#    print('xCor: xMovingStart = ',xMovingStart)
+#    print('xCor: xMoving at half = ',moving[0][int(moving[0].shape[0]/2)])
     xMovingEnd = static[0][static[0].shape[0]-1]-moving[0][moving[0].shape[0]-1]
-#    print('xMovingEnd = ',xMovingEnd)
+#    print('xCor: xMovingEnd = ',xMovingEnd)
     xXCor = np.arange(xMovingStart,xMovingEnd,dxMoving)
-#    print('xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
+#    print('xCor: xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
     for iX in np.arange(0,xXCor.shape[0],1):
         xMovingPlot = moving[0]+xXCor[iX]
-#        print('xMovingPlot = ',xMovingPlot)
+#        print('xCor: xMovingPlot = ',xMovingPlot)
 #        plt.plot(xMovingPlot,moving[1])
         xStaticPlot,yStaticPlot = getInsideRange(static[0],static[1], [xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1]])
         yStaticPlot = yStaticPlot - np.amin(yStaticPlot)
-#        print('xStaticPlot = ',xStaticPlot)
-#        print('yStaticPlot = ',yStaticPlot)
+#        print('xCor: xStaticPlot = ',xStaticPlot)
+#        print('xCor: yStaticPlot = ',yStaticPlot)
 #        plt.plot(xStaticPlot,yStaticPlot/simps(yStaticPlot,xStaticPlot))
 #        plt.xlim(xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1])
         yAt = getYAt(xMovingPlot,moving[1],xStaticPlot)
@@ -1455,17 +1455,17 @@ def xCor(static, moving):
 #        plt.plot(xStaticPlot,yAt)
 #        plt.show()
         xCorVals.append(np.sum(np.square(yStaticPlot - yAt)) / yAt.shape[0])
-#    print('xXCor = ',xXCor.shape,': ',xXCor)
-#    print('static[0] = ',static[0].shape,': ',static[0])
+#    print('xCor: xXCor = ',xXCor.shape,': ',xXCor)
+#    print('xCor: static[0] = ',static[0].shape,': ',static[0])
 #    yAtXCor = getYAt(xXCor,xCorVals,static[0])
 
-#    print('xCorVals = ',xCorVals)
+#    print('xCor: xCorVals = ',xCorVals)
     if plot:
         plt.plot(xXCor,xCorVals/np.amax(xCorVals), label='xCor')
         plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
-    #    print('static[1].shape = ',static[1].shape)
-    #    print('yAtXCor.shape = ',yAtXCor.shape)
-    #    print('yAtXCor = ',yAtXCor)
+    #    print('xCor: static[1].shape = ',static[1].shape)
+    #    print('xCor: yAtXCor.shape = ',yAtXCor.shape)
+    #    print('xCor: yAtXCor = ',yAtXCor)
     #    yPlot = yAtXCor / static[1]
     #    yPlot = yPlot / np.amax(yPlot)
     #    plt.plot(static[0], yPlot, label='xCor/static')
@@ -1491,21 +1491,21 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
         plt.plot(spec)
         plt.scatter(peaks,spec[peaks])
         plt.show()
-    print('peaks = ',peaks)
-    print('properties = ',properties)
-    print('spec.shape = ',spec.shape)
-    print('xCorX.shape = ',xCorX.shape)
-    print('xCorX = ',xCorX)
+    print('findLines: peaks = ',peaks)
+    print('findLines: properties = ',properties)
+    print('findLines: spec.shape = ',spec.shape)
+    print('findLines: xCorX.shape = ',xCorX.shape)
+    print('findLines: xCorX = ',xCorX)
 
     yNorm = xCorY / np.amax(xCorY)
 #    peaks,properties = find_peaks(0.-yNorm)#, height = -0.05, width=[30,120], threshold=0.00001)
-#    print('peaks = ',peaks)
+#    print('findLines: peaks = ',peaks)
     if plot:
         plt.plot(xCorX,yNorm)
     xCorPeaks = []
     for peak in peaks:
         xCorPeaks.append(np.where(np.absolute(xCorX - peak) < (xCorX[1]-xCorX[0])/2.)[0])
-        print('peak = ',peak,': xCorPeaks[',len(xCorPeaks)-1,'] = ',xCorPeaks[len(xCorPeaks)-1])
+        print('findLines: peak = ',peak,': xCorPeaks[',len(xCorPeaks)-1,'] = ',xCorPeaks[len(xCorPeaks)-1])
     xCorPeaks = np.array(xCorPeaks)
     if plot:
         plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
@@ -1519,18 +1519,18 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
         plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
     for i in np.arange(0,xCorPeaks.shape[0],1):
         indices = np.where((xCorX > (xCorX[xCorPeaks[i]]-sigma)) & (xCorX < (xCorX[xCorPeaks[i]]+sigma)))
-#            print('indices = ',indices)
+#            print('findLines: indices = ',indices)
         xi = xCorX[indices]
-#            print('xi = ',xi)
+#            print('findLines: xi = ',xi)
         yi = yNorm[indices]
-#            print('yi = ',yi)
+#            print('findLines: yi = ',yi)
         xCenter = xi[int(xi.shape[0]/2)]
-        print('xCenter = ',xCenter,', xCorX[xCorPeaks[',i,']] = ',xCorX[xCorPeaks[i]])
+        print('findLines: xCenter = ',xCenter,', xCorX[xCorPeaks[',i,']] = ',xCorX[xCorPeaks[i]])
         try:
             popt,pcov = curve_fit(gauss,xi,yi,p0=[-np.amax(yi),xCenter,sigma,np.amax(yi)])
         except:
             continue
-        print('popt = ',popt)
+        print('findLines: popt = ',popt)
         if popt[2] < 0.:
             popt[2] = 0.-popt[2]
         maxAmp = -0.00001
@@ -1547,13 +1547,13 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
             yDiff.append(np.sum(((yi-yFit) / np.amax(yi))**2) / yi.shape[0])
             xYFitParams.append([xi,yi,yFit,popt,i])
         else:
-            print('rejected fit for line at ',xCorX[xCorPeaks[i]],', fitted parameters = [a=',popt[0],', x0=',popt[1],', sigma=',popt[2],', background=',popt[3],']')
+            print('findLines: rejected fit for line at ',xCorX[xCorPeaks[i]],', fitted parameters = [a=',popt[0],', x0=',popt[1],', sigma=',popt[2],', background=',popt[3],']')
             if popt[0] >= maxAmp:
-                print('amplitude >= ',maxAmp)
+                print('findLines: amplitude >= ',maxAmp)
             if np.absolute(xCenter - popt[1]) >= maxPosDiff:
-                print('np.absolute(xCenter - popt[1]) >= maxPosDiff=',maxPosDiff)
+                print('findLines: np.absolute(xCenter - popt[1]) >= maxPosDiff=',maxPosDiff)
             if np.absolute(sigma - popt[2]) >= maxSigDiff:
-                print('np.absolute(sigma - popt[2]) >= maxSigDiff=',maxSigDiff)
+                print('findLines: np.absolute(sigma - popt[2]) >= maxSigDiff=',maxSigDiff)
             xDiff.append(xi[int(xi.shape[0]/2)])
             yFit = gauss(xi,*popt)
             if plot:
@@ -1568,7 +1568,7 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
         plt.plot(xDiff,yDiff)
         plt.show()
     sigmas = [par[3][2] for par in xYFitParams]
-    print('good sigmas = ',sigmas)
+    print('findLines: good sigmas = ',sigmas)
 
     if plot:
         plt.plot(spec/np.amax(spec))
@@ -1593,8 +1593,8 @@ def normalizeX(x):
 # @param deg : int: degree for Legendre Polynomial
 # @param indicesToIgnore : 1D array of indices to ignore for fitting the background
 def subtractBackground(x,y,deg,indicesToIgnore=None):
-#    print('x = ',x)
-#    print('y = ',y)
+#    print('subtractBackground: x = ',x)
+#    print('subtractBackground: y = ',y)
     xArr = np.array(x)
     yArr = np.array(y)
     xFit = []
@@ -1605,19 +1605,19 @@ def subtractBackground(x,y,deg,indicesToIgnore=None):
             yToFit.append(y[iX])
     xFit = np.array(xFit)
     yToFit = np.array(yToFit)
-#    print('xFit = ',xFit.shape,': ',xFit)
-#    print('yToFit = ',yToFit.shape,': ',yToFit)
+#    print('subtractBackground: xFit = ',xFit.shape,': ',xFit)
+#    print('subtractBackground: yToFit = ',yToFit.shape,': ',yToFit)
 
     #interpolate lsq spline
 #    xKnots = xFit[1::3]
-#    print('xKnots = ',xKnots.shape,': ',xKnots)
+#    print('subtractBackground: xKnots = ',xKnots.shape,': ',xKnots)
 
 #    t = xKnots#[-1,-0.5,0,0.5,1]
 #    k = 3
 #    t = np.r_[(xFit[0],)*(k+1),
 #              t,
 #              (xFit[-1],)*(k+1)]
-#    print('t = ',t.shape,': ',t)
+#    print('subtractBackground: t = ',t.shape,': ',t)
 #    spl = make_lsq_spline(xFit, yToFit, t, k)
     nx = normalizeX(xFit)
     coeffs = np.polynomial.legendre.legfit(nx, yToFit, deg)
@@ -1638,7 +1638,7 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' ', display=False):
     if isinstance(lineList,str):
         with open(lineList,'r') as f:
             lines = f.readlines()
-        print('lines = ',lines)
+        print('calcDispersion: lines = ',lines)
 
         for line in lines:
             line = line.rstrip()
@@ -1680,7 +1680,7 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' ', display=False):
         plt.show()
 
     #p = L.fit(pixels, wLens, 3)
-    #print('p = ',p)
+    #print('calcDispersion: p = ',p)
     return [coeffs,rms]
 
 def chisqfunc(fac, object, sky, sigma):
@@ -1688,13 +1688,98 @@ def chisqfunc(fac, object, sky, sigma):
     chisq = np.sum(((object - model) / sigma)**2)
     return chisq
 
-def sfit(x, y, fittingFunction, solveFunction, order, nIter, lowReject, highReject, adjustSigLevels, useMean):
+def sigmaRej(values, sigLow, sigHigh, replace=False, adjustSigLevels=False, useMean=False, keepFirstAndLastX=False):
+    print('sigmaRej: sigLow = ',sigLow,', sigHigh = ',sigHigh,', adjustSigLevels = ',adjustSigLevels,', replace = ',replace,', useMean = ',useMean,', keepFirstAndLastX = ',keepFirstAndLastX)
+    ySkyMedian = None
+    if useMean:
+        ySkyMedian = np.mean(values)
+    else:
+        ySkyMedian = np.median(values)
+    sigma = np.std(values)
+    nRej = 0
+    outArr = []
+    outIndices = []
+    if adjustSigLevels:
+        if sigma > 3. * ySkyMedian:
+            sigLow = 0.5
+            sigHigh = 0.05
+    for i in range(len(values)):
+        if (values[i] < ySkyMedian - (sigLow * sigma)) or (values[i] > ySkyMedian + (sigHigh * sigma)):
+            if ((i == 0) and keepFirstAndLastX):
+                outArr.append(np.mean(values[i:i+3]))
+                outIndices.append(i)
+            elif ((i == len(values)-1) and keepFirstAndLastX):
+                outArr.append(np.mean(values[i-2:i+1]))
+                outIndices.append(i)
+            else:
+                if replace:
+                    outArr.append(ySkyMedian)
+                    outIndices.append(i)
+                nRej += 1
+                print('sigmaRej: median = ',ySkyMedian,', sigma = ',sigma,': removed pixel ',i,' from sky with value ',values[i])
+                if (values[i] < ySkyMedian - (sigLow * sigma)):
+                    print('sigmaRej: values[',i,'](=',values[i],') < ySkyMedian(=',ySkyMedian,') - (sigLow(=',sigLow,') * sigma(=',sigma,'))(=',sigLow*sigma,')=',ySkyMedian - (sigLow * sigma))
+                else:
+                    print('sigmaRej: values[',i,'](=',values[i],') > ySkyMedian(=',ySkyMedian,') + (sigHigh(=',sigHigh,') * sigma(=',sigma,'))(=',sigHigh*sigma,')=',ySkyMedian + (sigHigh * sigma))
+        else:
+            outArr.append(values[i])
+            outIndices.append(i)
+    if nRej > 0:
+        print('sigmaRej: rejected ',nRej,' out of ',len(values),' pixels')
+    return [np.array(outArr),np.array(outIndices)]
+
+def sigmaReject(y, nIter, lowReject, highReject, replace=False, adjustSigLevels=False, useMean=False, keepFirstAndLastX=True):
+    indices = np.arange(0,len(y),1)
+    yGood, goodIndices = sigmaRej(y, lowReject, highReject, replace=replace, adjustSigLevels=adjustSigLevels, useMean=useMean, keepFirstAndLastX=keepFirstAndLastX)
+    indices = indices[goodIndices]
+    print('sigmaReject: iter = 0: indices = ',indices.shape,': ',indices)
+    for iter in np.arange(1,nIter,1):
+        yGood, goodIndices = sigmaRej(yGood, lowReject, highReject, replace=replace, adjustSigLevels=adjustSigLevels, useMean=useMean, keepFirstAndLastX=keepFirstAndLastX)
+        indices = indices[goodIndices]
+        print('sigmaReject: iter = ',iter,': yGood = ',yGood.shape,': ',yGood)
+        print('sigmaReject: iter = ',iter,': indices = ',indices.shape,': ',indices)
+    return [yGood,indices]
+
+# NOTE: requires x to be normalized
+def sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, lowReject, highReject, adjustSigLevels=False, useMean=False, display=False):
     coeffs = fittingFunction(x,y,order)
     fittedValues = solveFunction(x,coeffs)
-    for i in range(nIter):
-        fittedValuesRej = sigmaRej(y / fittedValues, lowReject, highReject, adjustSigLevels, useMean=useMean) * fittedValues
-        coeffs = fittingFunction(x,fittedValuesRej,order)
+    fittedIndices = np.arange(0,fittedValues.shape[0],1)
+    print('sfit: iter = -1: x.shape = ',x.shape,', y.shape = ',y.shape,', fittedValues.shape = ',fittedValues.shape,', fittedIndices = ',fittedIndices.shape,': ',fittedIndices)
+    fittedValuesTemp = fittedValues
+    for i in range(nIterFit):
+        print('sfit: iter = ',i,': x.shape = ',x.shape,', y.shape = ',y.shape,', fittedValues.shape = ',fittedValues.shape,', fittedIndices = ',fittedIndices.shape,': ',fittedIndices)
+        print('sfit: y[fittedIndices] = ',y[fittedIndices])
+        if display:
+            plt.plot(x,fittedValues,label='previous fit')
+            plt.plot(x[fittedIndices],y[fittedIndices], label='input')
+            plt.plot(x[fittedIndices],y[fittedIndices] - fittedValuesTemp, label='difference')
+        fittedValuesNotRejected, fittedIndicesTemp = sigmaReject(y[fittedIndices] - fittedValuesTemp,
+                                                                 nIter=nIterReject,
+                                                                 lowReject=lowReject,
+                                                                 highReject=highReject,
+                                                                 replace=False,
+                                                                 adjustSigLevels=adjustSigLevels,
+                                                                 useMean=useMean,
+                                                                 keepFirstAndLastX=True,
+                                                                )
+        fittedValuesNotRejected += fittedValuesTemp[fittedIndicesTemp]
+        fittedIndices = fittedIndices[fittedIndicesTemp]
+        print('sfit: y[fittedIndices] = ',y[fittedIndices].shape,': ',y[fittedIndices])
+        print('sfit: fittedValuesNotRejected = ',fittedValuesNotRejected.shape,': ',fittedValuesNotRejected)
+        """x is already required to be normalized at function call"""
+        coeffs = fittingFunction(x[fittedIndices],y[fittedIndices],order)
+        """keep first and last x values to get the normalization right!!!"""
         fittedValues = solveFunction(x,coeffs)
+        print('sfit: sfit: iter = ',i,': x.shape = ',x.shape,', y.shape = ',y.shape,', fittedValues.shape = ',fittedValues.shape,', fittedIndices = ',fittedIndices.shape,': ',fittedIndices)
+        fittedValuesTemp = fittedValues[fittedIndices]
+        if display:
+            print('sfit: sfit: iter = ',i,': y[fittedIndices] = ',y[fittedIndices],', fittedValuesNotRejected = ',fittedValuesNotRejected)
+            plt.plot(x[fittedIndices],y[fittedIndices] - fittedValuesTemp,'b*', label='fitted points')
+            plt.plot(x[fittedIndices],y[fittedIndices],'r+', label='fitted points')
+            plt.plot(x,fittedValues,label='new fit')
+            plt.legend()
+            plt.show()
     return [coeffs, fittedValues]
 
 #@brief: extract sky-subtracted object spectrum
@@ -1712,11 +1797,11 @@ def sfit(x, y, fittingFunction, solveFunction, order, nIter, lowReject, highReje
 #@param dispAxis='row': 'row' or 'column'
 def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None, skyBelow=None, extractionMethod='sum', dispAxis='row', display=False):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
-    print('image.shape = ',image.shape)
-    print('twoDImageFileIn = <'+twoDImageFileIn+'>')
-    print('yRange = ',yRange)
-    print('skyAbove = ',skyAbove)
-    print('skyBelow = ',skyBelow)
+    print('extractObjectAndSubtractSky: image.shape = ',image.shape)
+    print('extractObjectAndSubtractSky: twoDImageFileIn = <'+twoDImageFileIn+'>')
+    print('extractObjectAndSubtractSky: yRange = ',yRange)
+    print('extractObjectAndSubtractSky: skyAbove = ',skyAbove)
+    print('extractObjectAndSubtractSky: skyBelow = ',skyBelow)
 
     hdulist = pyfits.open(twoDImageFileIn)
     head = hdulist[0].header
@@ -1799,18 +1884,20 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
         else:
             skyImage = np.array(CCDData.read(extractionMethod, unit="adu"))
             result = np.array([minimize(chisqfunc, 1., (image[:,iCol], skyImage[:,iCol], np.sqrt(np.absolute(image[:,iCol])))).x[0] for iCol in range(image.shape[1])])
-            print('result = ',result)
+            print('extractObjectAndSubtractSky: result = ',result)
             xNorm = normalizeX(np.arange(0,image.shape[1],1.))
+            #sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, lowReject, highReject, adjustSigLevels=False, useMean=False, display=False)
             coeffs, resultFit = sfit(xNorm,
                                      result,
                                      np.polynomial.legendre.legfit,
                                      np.polynomial.legendre.legval,
                                      order=7,
-                                     nIter=2,
+                                     nIterReject=2,
+                                     nIterFit=2,
                                      lowReject=3.,
                                      highReject=1.8,
-                                     adjustSigLevels=True,
-                                     useMean=False)
+                                     adjustSigLevels=False,
+                                     useMean=False,)
             if display:
                 plt.plot(result)
                 plt.plot(resultFit)
@@ -1863,18 +1950,21 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
         else:
             skyImage = np.array(CCDData.read(extractionMethod, unit="adu"))
             result = np.array([minimize(chisqfunc, 1., (image[iRow,:], skyImage[iRow,:], np.sqrt(np.absolute(image[iRow,:])))).x[0] for iRow in range(image.shape[0])])
-            print('result = ',result)
+            print('extractObjectAndSubtractSky: result = ',result)
             xNorm = normalizeX(np.arange(0,image.shape[0],1.))
+            #sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, lowReject, highReject, adjustSigLevels=False, useMean=False, display=False)
             coeffs, resultFit = sfit(xNorm,
                                      result,
                                      np.polynomial.legendre.legfit,
                                      np.polynomial.legendre.legval,
                                      order=7,
-                                     nIter=2,
+                                     nIterReject=2,
+                                     nIterFit=2,
                                      lowReject=3.,
                                      highReject=1.8,
                                      adjustSigLevels=True,
-                                     useMean=False)
+                                     useMean=False,
+                                     )
             if display:
                 plt.plot(result)
                 plt.plot(resultFit)
@@ -1917,7 +2007,7 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
                        peakHeight=14000.,
                        peakWidth=3.,
                       )
-    print('linesX = ',linesX)
+    print('findGoodLines: linesX = ',linesX)
 
     goodProfIndices = np.where(np.absolute( lineProfile[0] ) < np.min([np.absolute(lineProfile[0][0]), lineProfile[0][len(lineProfile[0])-1]]))
     lineProfile[0] = lineProfile[0][goodProfIndices]
@@ -1928,15 +2018,15 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
     chiSquares = []
     chiSquareLimit = 0.25#0.16
     for line in linesX:
-#        print('line = ',line)
-#        print('lineProfile[0]+line = ',lineProfile[0]+line)
-#        print('np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1) = ',np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1))
-#        print('ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)] = ',ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)])
-#        print('np.amax(lineProfile[1]) = ',np.amax(lineProfile[1]))
+#        print('findGoodLines: line = ',line)
+#        print('findGoodLines: lineProfile[0]+line = ',lineProfile[0]+line)
+#        print('findGoodLines: np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1) = ',np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1))
+#        print('findGoodLines: ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)] = ',ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)])
+#        print('findGoodLines: np.amax(lineProfile[1]) = ',np.amax(lineProfile[1]))
         xs = np.arange(int(np.amin(lineProfile[0]+line)),
                                                 int(np.amax(lineProfile[0]+line)),
                                                 1)
-        print('line = ',line,': xs = ',xs)
+        print('findGoodLines: line = ',line,': xs = ',xs)
         background = np.amin(ySpec[xs])
         top = np.amax(ySpec[xs])
         if plot:
@@ -1959,7 +2049,7 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
         xs = np.arange(int(np.amin(lineProfile[0][int(len(lineProfile[0])/4.):]+line)),
                        int(np.amax(lineProfile[0][:int(len(lineProfile[0])*3./4.)]+line)),
                        1)
-        print('line = ',line,': xs = ',xs)
+        print('findGoodLines: line = ',line,': xs = ',xs)
         background = np.amin(ySpec[xs])
         top = np.amax(ySpec[xs])
         if plot:
@@ -1980,7 +2070,7 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
         if plot and (chiSquare < chiSquareLimit):
             plt.scatter(line,0.)
 
-    print('chiSquareLimit = ',chiSquareLimit)
+    print('findGoodLines: chiSquareLimit = ',chiSquareLimit)
     if plot:
         plt.show()
 
@@ -2021,9 +2111,9 @@ def getBestLineProfile(lineProfiles,outFileName=None):
     for lineProfileIdx in np.arange(1,len(lineProfiles),1):
         if np.amax(lineProfiles[lineProfileIdx][1]) > maxValue:
             bestLineProfileIdx = lineProfileIdx
-    print('best line profile found at index ',bestLineProfileIdx)
-    print('lineProfiles = ',lineProfiles)
-    print('lineProfiles[bestLineProfileIdx] = ',lineProfiles[bestLineProfileIdx])
+    print('getBestLineProfile: best line profile found at index ',bestLineProfileIdx)
+    print('getBestLineProfile: lineProfiles = ',lineProfiles)
+    print('getBestLineProfile: lineProfiles[bestLineProfileIdx] = ',lineProfiles[bestLineProfileIdx])
     if not outFileName is None:
         with open(outFileName,'w') as f:
             for i in np.arange(0,len(lineProfiles[bestLineProfileIdx][0]),1):
@@ -2035,7 +2125,7 @@ def getBestLineProfile(lineProfiles,outFileName=None):
 #@param referenceLineList: array like (2D) [[pixel, wavelength],[...]]
 #@return: array2D [[pixel, wavelength],[...]]
 def crossCheckLines(lineList, referenceLineList):
-    print('referenceLineList = ',len(referenceLineList),': ',referenceLineList)
+    print('crossCheckLines: referenceLineList = ',len(referenceLineList),': ',referenceLineList)
     minDists = []
     minIdx = []
     for line in lineList:
@@ -2044,23 +2134,23 @@ def crossCheckLines(lineList, referenceLineList):
         for iRef in range(len(referenceLineList)):
             dists.append(np.absolute(line-referenceLineList[iRef][0]))
             idx.append(iRef)
-#        print('dists = ',dists)
-#        print('idx = ',idx)
+#        print('crossCheckLines: dists = ',dists)
+#        print('crossCheckLines: idx = ',idx)
         dists = np.array(dists)
         idx = np.array(idx)
         minDists.append(np.amin(dists))
         where = np.where(dists == minDists[len(minDists)-1])
-#        print('where = ',where)
+#        print('crossCheckLines: where = ',where)
         minIdx.append(idx[where[0][0]])
-    print('minDists = ',minDists)
-    print('minIdx = ',minIdx)
+    print('crossCheckLines: minDists = ',minDists)
+    print('crossCheckLines: minIdx = ',minIdx)
 
     meanMinDist = np.mean(minDists)/4.
-    print('meanMinDist = ',meanMinDist)
+    print('crossCheckLines: meanMinDist = ',meanMinDist)
     goodLines = []
     for i in range(len(minDists)):
         if minDists[i] < meanMinDist:
-            print('referenceLineList[',minIdx[i],'] = ',referenceLineList[minIdx[i]],', referenceLineList[',minIdx[i],'][1] = ',referenceLineList[minIdx[i]][1])
+            print('crossCheckLines: referenceLineList[',minIdx[i],'] = ',referenceLineList[minIdx[i]],', referenceLineList[',minIdx[i],'][1] = ',referenceLineList[minIdx[i]][1])
             goodLines.append([lineList[i],referenceLineList[minIdx[i]][1]])
     return goodLines
 
@@ -2138,19 +2228,19 @@ def rebin(wavelength, spectrum, newWavelength, preserveFlux = True, outFileName 
         wLenNew = newWavelength
     input_spectrum = Spectrum1D( flux=np.array(spec) * u.erg / (u.cm * u.cm) / u.s / u.AA,
                                 spectral_axis = np.array(wLen) * u.AA)
-    print('spec = ',spec)
-    print('input_spectrum = ',input_spectrum)
+    print('rebin: spec = ',spec)
+    print('rebin: input_spectrum = ',input_spectrum)
     resample_grid = np.array(wLenNew) *u.AA
-#        print('resample_grid = ',resample_grid)
+#        print('rebin: resample_grid = ',resample_grid)
     if preserveFlux:
         fluxc_resample = FluxConservingResampler(extrapolation_treatment='zero_fill')
     else:
         fluxc_resample = LinearInterpolatedResampler(extrapolation_treatment='zero_fill')
     specInterp = fluxc_resample(input_spectrum, resample_grid) # doctest: +IGNORE_OUTPUT
-    print('specInterp = ',specInterp)
-    print('specInterp.data = ',specInterp.data)
+    print('rebin: specInterp = ',specInterp)
+    print('rebin: specInterp.data = ',specInterp.data)
     naNPos = np.argwhere(np.isnan(specInterp.data))
-    print('naNPos = ',naNPos)
+    print('rebin: naNPos = ',naNPos)
     if naNPos.shape[0] > 0:
         naNPos = naNPos[0]
     if naNPos.shape[0] > 0:
@@ -2170,9 +2260,9 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
             head = header
         if 'NAXIS2' in head.keys():
             del head['NAXIS2']
-        print('dir(head) = ',dir(head))
+        print('writeFits1D: dir(head) = ',dir(head))
         for key in head:
-            print(key+': <',head[key],'>: ',type(head[key]))
+            print('writeFits1D: ',key+': <',head[key],'>: ',type(head[key]))
             if isinstance(head[key],str):
                 if '\n' in head[key]:
                     head[key].replace('\n','')
@@ -2189,11 +2279,11 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
         waveParams = {'CRVAL1': CRVAL1,
                       'CRPIX1': CRPIX1,
                       'CDELT1': CDELT1}
-    #print('flux = ',flux)
-    #print('wavelength = ',wavelength)
-    #print('waveParams = ',waveParams)
-    #print('head = ',head)
-    print('writing file <'+outFileName+'>')
+    #print('writeFits1D: flux = ',flux)
+    #print('writeFits1D: wavelength = ',wavelength)
+    #print('writeFits1D: waveParams = ',waveParams)
+    #print('writeFits1D: head = ',head)
+    print('writeFits1D: writing file <'+outFileName+'>')
     pyasl.write1dFitsSpec(outFileName, flux, wvl=wavelength, waveParams=waveParams, fluxErr=None, header=head, clobber=True, refFileName=None, refFileExt=0)
 
 def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, display=False):
@@ -2260,34 +2350,34 @@ def getClosestInTime(fitsFileName, fitsList):
 
     hdulist = pyfits.open(fitsFileName)
     headerSc = hdulist[0].header
-    print('headerSc = ',headerSc)
+    print('getClosestInTime: headerSc = ',headerSc)
     specTime = headerSc['HJD-OBS']
     timeDiffs = np.absolute(np.array(arcTimes) - specTime)
-    print('timeDiffs = ',timeDiffs)
+    print('getClosestInTime: timeDiffs = ',timeDiffs)
     closestArc = np.where(timeDiffs == np.min(timeDiffs))[0][0]
     hdulist.close()
     return closestArc
 
 #@brief: apply wavelength to extracted science spectra and resample them to linear dispersion
 def dispCor(scienceListIn, arcListIn, wavelengthsOrigIn, scienceListOut, observatoryLocation, keywordRA, keywordDEC, keywordObsTime):
-    print('scienceListIn = ',len(scienceListIn),': ',scienceListIn)
-    print('arcListIn = ',len(arcListIn),': ',arcListIn)
-    print('wavelengthsOrigIn = ',len(wavelengthsOrigIn))
+    print('dispCor: scienceListIn = ',len(scienceListIn),': ',scienceListIn)
+    print('dispCor: arcListIn = ',len(arcListIn),': ',arcListIn)
+    print('dispCor: wavelengthsOrigIn = ',len(wavelengthsOrigIn))
 
     for iSpec in range(len(scienceListIn)):
-        print('running dispCor on '+scienceListIn[iSpec])
+        print('dispCor: running dispCor on '+scienceListIn[iSpec])
         hdulist = pyfits.open(scienceListIn[iSpec])
         headerSc = hdulist[0].header
-        print('headerSc = ',headerSc)
+        print('dispCor: headerSc = ',headerSc)
         closestArc = getClosestInTime(scienceListIn[iSpec],arcListIn)
-        print('closestArc = ',closestArc)
+        print('dispCor: closestArc = ',closestArc)
 
         spec = getImageData(scienceListIn[iSpec],0)
-        print('spec = ',spec.shape,': ',spec)
+        print('dispCor: spec = ',spec.shape,': ',spec)
         arc = arcListIn[closestArc]
-        print('name of closest Arc = ',arc)
+        print('dispCor: name of closest Arc = ',arc)
         wLenSpec = wavelengthsOrigIn[closestArc]
-        print('wLenSpec = ',wLenSpec)
+        print('dispCor: wLenSpec = ',wLenSpec)
 
         #read science header and append keywords
         hdulist.close()
@@ -2316,24 +2406,24 @@ def dispCor(scienceListIn, arcListIn, wavelengthsOrigIn, scienceListOut, observa
 
 
 def heliocor(observatoryLocation, header, keywordRA, keywordDEC, keywordObsTime):
-    #print('EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
+    #print('heliocor: EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
     #GTC = EarthLocation.of_site('Roque de los Muchachos')
-    #print('GTC = ',GTC)
-    #print('GTC.lon = ',GTC.lon)
-    #print('GTC.lat = ',GTC.lat)
-    #print('dir(GTC) = ',dir(GTC))
+    #print('heliocor: GTC = ',GTC)
+    #print('heliocor: GTC.lon = ',GTC.lon)
+    #print('heliocor: GTC.lat = ',GTC.lat)
+    #print('heliocor: dir(GTC) = ',dir(GTC))
 
     obsRA = hmsToDeg(header[keywordRA])
     obsDEC = dmsToDeg(header[keywordDEC])
     sc = SkyCoord(ra=obsRA*u.deg, dec=obsDEC*u.deg)
     obsTime = Time(header[keywordObsTime])
     barycorr = sc.radial_velocity_correction(obstime=obsTime, location=observatoryLocation)
-    print('barycorr = ',barycorr.to(u.km/u.s))
+    print('heliocor: barycorr = ',barycorr.to(u.km/u.s))
     heliocorr = sc.radial_velocity_correction('heliocentric', obstime=obsTime, location=observatoryLocation)
-    print('heliocorr.value = ',heliocorr.value)
-    print('heliocorr.to_value() = ',heliocorr.to_value())
-    print('heliocorr.to(u.km/u.s) = ',heliocorr.to(u.km/u.s))
-    print('heliocorr.to(u.km/u.s).value = ',heliocorr.to(u.km/u.s).value)
+    print('heliocor: heliocorr.value = ',heliocorr.value)
+    print('heliocor: heliocorr.to_value() = ',heliocorr.to_value())
+    print('heliocor: heliocorr.to(u.km/u.s) = ',heliocorr.to(u.km/u.s))
+    print('heliocor: heliocorr.to(u.km/u.s).value = ',heliocorr.to(u.km/u.s).value)
 
     return heliocorr.to(u.km/u.s).value
 
@@ -2357,76 +2447,76 @@ def readFluxStandardFile(fName):
     #with open(fName,'r') as f:
         #lines = f.readlines()
     lines = readFileToArr(fName)[1:]#[line.rstrip('\n').strip('\t').strip(' ') for line in lines]
-    #print('lines = ',lines)
+    #print('readFluxStandardFile: lines = ',lines)
     lines = [line.replace('\t',' ') for line in lines]
     wavelengths = np.asarray([float(line[:line.find(' ')]) for line in lines])
     lines = [line[line.find(' '):].strip() for line in lines]
     fluxes = np.asarray([float(line[:line.find(' ')]) for line in lines])
     for i in range(len(lines)):
-        print('lambda = ',wavelengths[i],', flux = ',fluxes[i])
+        print('readFluxStandardFile: lambda = ',wavelengths[i],', flux = ',fluxes[i])
     return [wavelengths, fluxes]
 
 def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat', display=False):
     fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList(fluxStdandardList)
-    print('fluxStandardNames = ',fluxStandardNames)
-    print('fluxStandardDirs = ',fluxStandardDirs)
-    print('fluxStandardFileNames = ',fluxStandardFileNames)
+    print('calcResponse: fluxStandardNames = ',fluxStandardNames)
+    print('calcResponse: fluxStandardDirs = ',fluxStandardDirs)
+    print('calcResponse: fluxStandardFileNames = ',fluxStandardFileNames)
     fluxStandardNames = np.asarray(fluxStandardNames)
     fluxStandardDirs = np.asarray(fluxStandardDirs)
     fluxStandardFileNames = np.asarray(fluxStandardFileNames)
-    print('fluxStandardNames = ',fluxStandardNames)
-    print('fluxStandardDirs = ',fluxStandardDirs)
+    print('calcResponse: fluxStandardNames = ',fluxStandardNames)
+    print('calcResponse: fluxStandardDirs = ',fluxStandardDirs)
     with open(fNameList, 'r') as f:
         fNames = f.readlines()
     fNames = [n.rstrip('\n') for n in fNames]
     sensFuncs = []
 
     for fName in fNames:
-        print("fName.rfind('SCIENCE_') = ",fName.rfind('SCIENCE_'))
+        print("calcResponse: fName.rfind('SCIENCE_') = ",fName.rfind('SCIENCE_'))
         if fName.rfind('SCIENCE_') >= 0:
             stdName = fName[fName.rfind('SCIENCE_')+8:]
         else:
             stdName = fName[fName.rfind('FLUXSTDS_')+9:]
         stdName = stdName[:stdName.find('_')]
-        print('stdName = <'+stdName+'>')
+        print('calcResponse: stdName = <'+stdName+'>')
 #        wLenStd = getWavelengthArr(fName[:fName.rfind('.')]+'Ecd.fits',0)
 #        wLenStd = getWavelengthArr(fName,0)
 
         indices = np.where(fluxStandardNames == stdName.lower())[0]
-        print('indices = ',indices)
-        print('Flux standard star '+stdName+' found in ',fluxStandardDirs[indices])
-        print('Flux standard star '+stdName+' found in ',fluxStandardFileNames[indices])
+        print('calcResponse: indices = ',indices)
+        print('calcResponse: Flux standard star '+stdName+' found in ',fluxStandardDirs[indices])
+        print('calcResponse: Flux standard star '+stdName+' found in ',fluxStandardFileNames[indices])
         done = False
         for prior in fluxStdDirsByPriority:
-            print('prior = <'+prior+'>')
+            print('calcResponse: prior = <'+prior+'>')
             priorInFluxStandardDirs = False
             if prior.find('/') < 0:
-                print("prior.rfind('/') = ",prior.find('/')," < 0")
+                print("calcResponse: prior.rfind('/') = ",prior.find('/')," < 0")
                 if prior in fluxStandardDirs[indices]:
-                    print('prior( = <'+prior+'> in fluxStandardDirs[',indices,'] = ',fluxStandardDirs[indices])
+                    print('calcResponse: prior( = <'+prior+'> in fluxStandardDirs[',indices,'] = ',fluxStandardDirs[indices])
                     priorInFluxStandardDirs = True
-                    print('priorInFluxStandardDirs = True')
+                    print('calcResponse: priorInFluxStandardDirs = True')
                 else:
-                    print('prior( = <'+prior+'> NOT in fluxStandardDirs[',indices,'] = ',fluxStandardDirs[indices])
+                    print('calcResponse: prior( = <'+prior+'> NOT in fluxStandardDirs[',indices,'] = ',fluxStandardDirs[indices])
             else:
-                print("prior.rfind('/') = ",prior.rfind('/')," >= 0")
+                print("calcResponse: prior.rfind('/') = ",prior.rfind('/')," >= 0")
                 if prior[prior.rfind('/')+1:] in fluxStandardDirs[indices]:
-                    print("prior[prior.rfind('/')+1:] = <"+prior[prior.rfind('/')+1:]+"> in fluxStandardDirs[",indices,"] = ",fluxStandardDirs[indices])
+                    print("calcResponse: prior[prior.rfind('/')+1:] = <"+prior[prior.rfind('/')+1:]+"> in fluxStandardDirs[",indices,"] = ",fluxStandardDirs[indices])
                     priorInFluxStandardDirs = True
-                    print('priorInFluxStandardDirs = True')
+                    print('calcResponse: priorInFluxStandardDirs = True')
                 else:
-                    print("prior[prior.rfind('/')+1:] = <"+prior[prior.rfind('/')+1:]+"> NOT in fluxStandardDirs[",indices,"] = ",fluxStandardDirs[indices])
+                    print("calcResponse: prior[prior.rfind('/')+1:] = <"+prior[prior.rfind('/')+1:]+"> NOT in fluxStandardDirs[",indices,"] = ",fluxStandardDirs[indices])
 
-            print('priorInFluxStandardDirs = ',priorInFluxStandardDirs)
+            print('calcResponse: priorInFluxStandardDirs = ',priorInFluxStandardDirs)
             if (not done) and (priorInFluxStandardDirs):
-                print('dir = '+prior)
+                print('calcResponse: dir = '+prior)
                 img = CCDData.read(fName, unit=u.adu)
-                print('dir(img.header) = ',dir(img.header))
+                print('calcResponse: dir(img.header) = ',dir(img.header))
                 for key in img.header.keys():
                     print(key,': ',img.header[key])
-                print('img.data.shape = ',img.data.shape)
-                print('type(img.data[0]) = ',type(img.data[0]))
-                print("type(img.header['EXPTIME']) = ",type(img.header['EXPTIME']))
+                print('calcResponse: img.data.shape = ',img.data.shape)
+                print('calcResponse: type(img.data[0]) = ',type(img.data[0]))
+                print("calcResponse: type(img.header['EXPTIME']) = ",type(img.header['EXPTIME']))
                 # put in units of ADU/s
                 img.data = img.data / float(img.header['EXPTIME'])
                 img.unit = u.adu / u.s
@@ -2443,25 +2533,25 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
 
                 # obj_flux = (flux_std - sky_std) * u.adu / u.s
                 obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
-                print('obj_flux = ',obj_flux)
+                print('calcResponse: obj_flux = ',obj_flux)
 
                 if display:
                     plt.plot(wapprox, obj_flux)
                     plt.errorbar(wapprox.value, obj_flux.data, yerr=ex_tbl['fluxerr'].data, alpha=0.25)
                     plt.show()
 
-                print('prior = <'+prior+'>')
-                print("prior+'/'+stdName.lower()+'.dat' = <"+prior+'/'+stdName.lower()+'.dat'+'>')
+                print('calcResponse: prior = <'+prior+'>')
+                print("calcResponse: prior+'/'+stdName.lower()+'.dat' = <"+prior+'/'+stdName.lower()+'.dat'+'>')
                 stdstar=onedstd(prior+'/'+stdName.lower()+'.dat')
-                print('stdstar = ',stdstar)
+                print('calcResponse: stdstar = ',stdstar)
 
                 obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
-                print('obj_flux.quantity = ',obj_flux.quantity)
+                print('calcResponse: obj_flux.quantity = ',obj_flux.quantity)
                 obj_spectrum = Spectrum1D(spectral_axis=wapprox, flux=obj_flux.quantity,
                                           uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
 
                 sensfunc_lin = standard_sensfunc(obj_spectrum, stdstar, display=True, mode='linear')
-                print('sensfunc_lin = ',sensfunc_lin)
+                print('calcResponse: sensfunc_lin = ',sensfunc_lin)
                 # the actual sensitivity function(s), which in theory include some crude information about
                 # the flat fielding (response) - though the reference spectrum is very coarse.
                 if display:
@@ -2481,7 +2571,7 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
                 Xfile = obs_extinction(airmassExtCor)
 
                 AIRVAL = float(img.header['AIRMASS'])
-                print('AIRMASS = ',AIRVAL)
+                print('calcResponse: AIRMASS = ',AIRVAL)
                 Atest = airmass_cor(obj_spectrum, AIRVAL, Xfile)
 
                 if display:
@@ -2494,7 +2584,7 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
                 # Now demo how to apply a sensfuc to a new spectrum (just happens to be the same spectrum here...)
                 #Stest = apply_sensfunc(obj_spectrum, sensfunc_lin)
 
-                #print('Stest = ',Stest)
+                #print('calcResponse: Stest = ',Stest)
 
                 #plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
 
@@ -2514,14 +2604,14 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
 
 def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='apoextinct.dat'):
     for iSpec in range(len(objectSpectraIn)):
-        print('reading spectrum file <'+objectSpectraIn[iSpec]+'>')
+        print('applySensFuncs: reading spectrum file <'+objectSpectraIn[iSpec]+'>')
         img = CCDData.read(objectSpectraIn[iSpec], unit=u.adu)
         # put in units of ADU/s
         img.data = img.data / float(img.header['EXPTIME'])
         img.unit = u.adu / u.s
-#        print('img.header = ',img.header)
-#        print('dir(img.header) = ',dir(img.header))
-#        print('img.header.keys = ',img.header.keys)
+#        print('applySensFuncs: img.header = ',img.header)
+#        print('applySensFuncs: dir(img.header) = ',dir(img.header))
+#        print('applySensFuncs: img.header.keys = ',img.header.keys)
 
         wLen = getWavelengthArr(objectSpectraIn[iSpec],0) * u.angstrom
 
@@ -2530,27 +2620,27 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='
         Xfile = obs_extinction(airmassExtCor)
 
         AIRVAL = float(img.header['AIRMASS'])
-#        print('AIRMASS = ',AIRVAL)
-#        print('obj_spectrum = ',obj_spectrum)
+#        print('applySensFuncs: AIRMASS = ',AIRVAL)
+#        print('applySensFuncs: obj_spectrum = ',obj_spectrum)
         obj_spectrum = airmass_cor(obj_spectrum, AIRVAL, Xfile)
-#        print('obj_spectrum = ',obj_spectrum)
-#        print('sensFuncs[0] = ',sensFuncs[0])
+#        print('applySensFuncs: obj_spectrum = ',obj_spectrum)
+#        print('applySensFuncs: sensFuncs[0] = ',sensFuncs[0])
         objectSpectrumFluxCalibrated = apply_sensfunc(obj_spectrum, sensFuncs[0])
-#        print('objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
-#        print('dir(objectSpectrumFluxCalibrated.data) = ',dir(objectSpectrumFluxCalibrated.data))
-#        print('img.header.keys = ',img.header.keys)
+#        print('applySensFuncs: objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
+#        print('applySensFuncs: dir(objectSpectrumFluxCalibrated.data) = ',dir(objectSpectrumFluxCalibrated.data))
+#        print('applySensFuncs: img.header.keys = ',img.header.keys)
         crval = obj_spectrum.wavelength[0]
         cdelt = obj_spectrum.wavelength[1]-obj_spectrum.wavelength[0]
         crpix = 1
-#        print('crval = ',crval)
-#        print('dir(crval) = ',dir(crval))
-#        print('crval.value = ',crval.value)
-#        print('dir(crval.value) = ',dir(crval.value))
-#        print('cdelt = ',cdelt)
-#        print('dir(cdelt) = ',dir(cdelt))
-#        print('crpix = ',crpix)
-#        print('objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
-        print('writing file ',objectSpectraOut[iSpec])
+#        print('applySensFuncs: crval = ',crval)
+#        print('applySensFuncs: dir(crval) = ',dir(crval))
+#        print('applySensFuncs: crval.value = ',crval.value)
+#        print('applySensFuncs: dir(crval.value) = ',dir(crval.value))
+#        print('applySensFuncs: cdelt = ',cdelt)
+#        print('applySensFuncs: dir(cdelt) = ',dir(cdelt))
+#        print('applySensFuncs: crpix = ',crpix)
+#        print('applySensFuncs: objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
+        print('applySensFuncs: writing file ',objectSpectraOut[iSpec])
         writeFits1D(objectSpectrumFluxCalibrated.data,
                     objectSpectraOut[iSpec],
                     wavelength=None,
@@ -2567,9 +2657,9 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
                                  spectral_axis = np.array(wLen) * u.AA)
 
     FluxCal = fluxcal.FluxCalibration()
-    print('dir(FluxCal) = ',dir(FluxCal))
+    print('fluxCalibrate: dir(FluxCal) = ',dir(FluxCal))
     airmass = float(getHeaderValue(obsSpecFName,'AIRMASS'))
-    print('type(airmass) = ',type(airmass))
+    print('fluxCalibrate:type(airmass) = ',type(airmass))
     FluxCal(objectSpectrum, airmass)
 
     import matplotlib.pyplot as plt
@@ -2627,51 +2717,65 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
 
     from specreduce.calibration_data import get_reference_file_path
     kpno_extinction_file = get_reference_file_path("extinction/kpnoextinct.dat")
-    print('kpno_extinction_file = <'+kpno_extinction_file+'>')
+    print('fluxCalibrate:kpno_extinction_file = <'+kpno_extinction_file+'>')
 
-    print('dir(calibration_data) = ',dir(calibration_data))
+    print('fluxCalibrate:dir(calibration_data) = ',dir(calibration_data))
     a=calibration_data.load_MAST_calspec(kpno_extinction_file)
-    print('a = ',a)
+    print('fluxCalibrate:a = ',a)
     b=calibration_data.load_onedstds()
-    print('b = ',b)
+    print('fluxCalibrate:b = ',b)
 
 
 #    extinctionCurve = FluxCal.obs_extinction('kpno')
-#    print('extinctionCurve = ',extinctionCurve)
+#    print('fluxCalibrate:extinctionCurve = ',extinctionCurve)
 
-def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunction, order, nIter, lowReject, highReject, type='difference', adjustSigLevels=False, useMean=False):
-    spec = getImageData(spectrumFileNameIn,0)
+def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunction, order, nIterReject, nIterFit, lowReject, highReject, type='difference', adjustSigLevels=False, useMean=False, display = False):
+    specOrig = getImageData(spectrumFileNameIn,0)
 
-    xNorm = normalizeX(np.arange(0,spec.shape[0],1.))
+    if display:
+        wLen = getWavelengthArr(spectrumFileNameIn,0)
+        plt.plot(wLen, specOrig,label='original spectrum')
+        plt.show()
+
+    xNorm = normalizeX(np.arange(0,specOrig.shape[0],1.))
+    #sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, lowReject, highReject, adjustSigLevels=False, useMean=False, display=False)
     coeffs, resultFit = sfit(xNorm,
-                             spec,
+                             specOrig,
                              fittingFunction,#np.polynomial.legendre.legfit,
                              evalFunction,#np.polynomial.legendre.legval,
                              order=order,
-                             nIter=nIter,
+                             nIterReject=nIterReject,
+                             nIterFit=nIterFit,
                              lowReject=lowReject,
                              highReject=highReject,
-                             adjustSigLevels=True,
-                             useMean=False)
+                             adjustSigLevels=adjustSigLevels,
+                             useMean=useMean,
+                             display=display)
     if type == 'difference':
-        spec -= resultFit
+        spec = specOrig - resultFit
     elif type == 'ratio':
-        spec /= resultFit
+        spec = specOrig / resultFit
+
+    if display:
+        plt.plot(wLen, specOrig, label='original')
+        plt.plot(wLen, spec, label = 'continuum corrected')
+        plt.legend()
+        plt.show()
 
     writeFits1D(spec,
                 spectrumFileNameOut,
                 wavelength=None,
                 header=spectrumFileNameIn,
-                CRVAL1=None,
-                CRPIX1=None,
-                CDELT1=None,
+                CRVAL1=getHeaderValue(spectrumFileNameIn,'CRVAL1'),
+                CRPIX1=getHeaderValue(spectrumFileNameIn,'CRPIX1'),
+                CDELT1=getHeaderValue(spectrumFileNameIn,'CDELT1'),
                )
-
-
 
 def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None, highReject=None, adjustSigLevels=False, useMean=False, display=False):
     fileNames = readFileToArr(fileListName)
+    fileNames = [fileName if '/' in fileName else os.path.join(fileListName[:fileListName.rfind('/')],fileName) for fileName in fileNames]
     wLenAll = getWavelengthArr(fileNames[0],0)
+    print('scombine: wLenAll = ',wLenAll)
     spectra = []
     for fileName in fileNames:
         if fileName == fileNames[0]:
@@ -2682,16 +2786,26 @@ def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None,
             plt.plot(wLenAll, spectra[len(spectra)-1], label=fileName[fileName.rfind('/')+1:fileName.rfind('.')])
 
     goodPix = []
-    combinedSpectrum = np.array(wLenAll.shape[0])
-    if method == 'median':
-        if lowReject is not None:
-            for pix in range(wLenAll.shape[0]):
-                goodPix.append(sigmaRej([spectrum[pix] for spectrum in spectra], lowReject, highReject, adjustSigLevels, useMean=useMean))
-                print('scombine: pix = ',pix,': goodPix = ',goodPix[pix])
-                if len(goodPix[pix]) % 2 == 0:
-                    combinedSpectrum[pix] = (np.mean(np.array(goodPix[pix])))
-                else:
-                    combinedSpectrum[pix] = (np.median(np.array(goodPix[pix])))
+    combinedSpectrum = np.zeros(wLenAll.shape[0])
+    if lowReject is not None:
+        for pix in np.arange(0,wLenAll.shape[0],1):
+            goodPix.append(sigmaReject([spectrum[pix] for spectrum in spectra],
+                                        nIter=1,
+                                        lowReject=lowReject,
+                                        highReject=highReject,
+                                        replace=False,
+                                        adjustSigLevels=adjustSigLevels,
+                                        useMean=useMean,
+                                        keepFirstAndLastX=False)[0])
+    else:
+        for pix in np.arange(0,wLenAll.shape[0],1):
+            goodPix.append([spectrum[pix] for spectrum in spectra])
+    for pix in np.arange(0,wLenAll.shape[0],1):
+        if (len(goodPix[pix]) % 2 == 0) or (method == 'mean'):
+            combinedSpectrum[pix] = np.mean(np.array(goodPix[pix]))
+        else:
+            combinedSpectrum[pix] = np.median(np.array(goodPix[pix]))
+        print('scombine: pix = ',pix,': wLenAll[',pix,'] = ',wLenAll[pix],': goodPix = ',goodPix[pix],', np.mean(np.array(goodPix[pix])) = ',np.mean(np.array(goodPix[pix])),', np.median(np.array(goodPix[pix])) = ',np.median(np.array(goodPix[pix])),', combinedSpectrum[',pix,'] = ',combinedSpectrum[pix])
     if display:
         plt.plot(wLenAll, combinedSpectrum, 'g-', label = 'combined')
         plt.legend()
@@ -2701,7 +2815,7 @@ def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None,
                 spectrumFileNameOut,
                 wavelength=None,
                 header=fileNames[0],
-                CRVAL1=None,
-                CRPIX1=None,
-                CDELT1=None,
+                CRVAL1=getHeaderValue(fileNames[0],'CRVAL1'),
+                CRPIX1=getHeaderValue(fileNames[0],'CRPIX1'),
+                CDELT1=getHeaderValue(fileNames[0],'CDELT1'),
                )
