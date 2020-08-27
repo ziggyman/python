@@ -176,6 +176,7 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
         isntNames = []
         fOutName = ''
         for line in lines:
+            print('createLists: reading '+line)
             hdulist = pyfits.open(line)
 
             fOutName = line
@@ -1427,7 +1428,7 @@ def getYAt(x,y,xAt):
 # @param static: 2D array not moving [x,y]
 # @param moving: 2D moving array, must be smaller than static [x,y], x=0 in center
 def xCor(static, moving):
-    xCorVals = []
+    xCorChiSquares = []
     dxMoving = moving[0][1]-moving[0][0]
 #    print('xCor: dx = ',dxMoving)
 #    print('xCor: xMoving = ',moving[0])
@@ -1454,27 +1455,37 @@ def xCor(static, moving):
         #yStaticPlot = yStaticPlot / np.amax(yStaticPlot)
 #        plt.plot(xStaticPlot,yAt)
 #        plt.show()
-        xCorVals.append(np.sum(np.square(yStaticPlot - yAt)) / yAt.shape[0])
+        xCorChiSquares.append(np.sum(np.square(yStaticPlot - yAt)) / yAt.shape[0])
 #    print('xCor: xXCor = ',xXCor.shape,': ',xXCor)
 #    print('xCor: static[0] = ',static[0].shape,': ',static[0])
-#    yAtXCor = getYAt(xXCor,xCorVals,static[0])
+    yAtXCor = getYAt(xXCor,xCorChiSquares,static[0])
 
-#    print('xCor: xCorVals = ',xCorVals)
+#    print('xCor: xCorChiSquares = ',xCorChiSquares)
     if plot:
-        plt.plot(xXCor,xCorVals/np.amax(xCorVals), label='xCor')
-        plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
-    #    print('xCor: static[1].shape = ',static[1].shape)
-    #    print('xCor: yAtXCor.shape = ',yAtXCor.shape)
-    #    print('xCor: yAtXCor = ',yAtXCor)
-    #    yPlot = yAtXCor / static[1]
-    #    yPlot = yPlot / np.amax(yPlot)
-    #    plt.plot(static[0], yPlot, label='xCor/static')
+#        plt.plot(xXCor,xCorChiSquares/np.amax(xCorChiSquares), label='xCor')
+#        plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
+#        print('xCor: static[1].shape = ',static[1].shape)
+#        print('xCor: yAtXCor.shape = ',yAtXCor.shape)
+#        print('xCor: yAtXCor = ',yAtXCor)
+#        yPlot = yAtXCor / static[1]
+#        yPlot = yPlot / np.amax(yPlot)
+#        plt.plot(static[0], yPlot, label='xCor/static')
         plt.legend()
         plt.show()
-    return np.array(xXCor), np.array(xCorVals)
+    return np.array(xXCor), np.array(xCorChiSquares)
 
 def gauss(x,a,x0,sigma,yBackground=0.):
     return a*exp(-(x-x0)**2/(2*sigma**2))+yBackground
+
+def xCorFindMinimum(xCorX, xCorY):
+    y = xCorY - np.amax(xCorY)
+    a = np.amin(y)
+    print('xCorFindMinimum: a = ',a)
+    x0 = xCorX[np.where(y == np.amin(y))][0]
+    print('xCorFindMinimum: x0 = ',x0)
+    popt,pcov = curve_fit(gauss,xCorX,y,p0=[a,x0,1.,0.])
+    return popt[1]
+
 
 # @brief: fit Gaussians every <step> pixels and identify line positions
 # @param spec: 1D np.array:
@@ -1998,13 +2009,13 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
 #@param xSpec: np.array1d
 #@param ySpec: np.array1d
 #@param lineProfile: [x:np.array1d,y:np.array1d]
-def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGoodLines=None):
-    xXCor, xCorVals = xCor([xSpec,ySpec],lineProfile)
+def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGoodLines=None,display=False):
+    xXCor, xCorChiSquares = xCor([xSpec,ySpec],lineProfile)
     linesX = findLines(ySpec,
                        xXCor,
-                       xCorVals,
+                       xCorChiSquares,
                        3.,
-                       peakHeight=14000.,
+                       peakHeight=np.amax(ySpec) / (300000. / 14000.),
                        peakWidth=3.,
                       )
     print('findGoodLines: linesX = ',linesX)
@@ -2013,8 +2024,9 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
     lineProfile[0] = lineProfile[0][goodProfIndices]
     lineProfile[1] = lineProfile[1][goodProfIndices]
 
-    if plot:
+    if display:
         plt.plot(ySpec)
+        plt.title('findGoodLines')
     chiSquares = []
     chiSquareLimit = 0.25#0.16
     for line in linesX:
@@ -2024,17 +2036,18 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
 #        print('findGoodLines: ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)] = ',ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)])
 #        print('findGoodLines: np.amax(lineProfile[1]) = ',np.amax(lineProfile[1]))
         xs = np.arange(int(np.amin(lineProfile[0]+line)),
-                                                int(np.amax(lineProfile[0]+line)),
-                                                1)
+                       int(np.amax(lineProfile[0]+line)),
+                       1)
         print('findGoodLines: line = ',line,': xs = ',xs)
         background = np.amin(ySpec[xs])
         top = np.amax(ySpec[xs])
-        if plot:
+        if display:
             plt.plot(lineProfile[0]+line,
                      lineProfile[1]
                      * (top-background)
                      / np.amax(lineProfile[1])
-                     + background)
+                     + background,
+                     label=str(line)+'_1')
         profYatX = getYAt(lineProfile[0]+line,lineProfile[1],xs)
         profYatX = profYatX / np.amax(profYatX)
         lineY = ySpec[xs]
@@ -2046,36 +2059,38 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
 #        print('findGoodLines: line = ',line,': chiSquare = ',chiSquares[len(chiSquares)-1])
 
 
-        xs = np.arange(int(np.amin(lineProfile[0][int(len(lineProfile[0])/4.):]+line)),
-                       int(np.amax(lineProfile[0][:int(len(lineProfile[0])*3./4.)]+line)),
-                       1)
-        print('findGoodLines: line = ',line,': xs = ',xs)
-        background = np.amin(ySpec[xs])
-        top = np.amax(ySpec[xs])
-        if plot:
-            plt.plot(lineProfile[0]+line,
-                     lineProfile[1]
-                     * (top-background)
-                     / np.amax(lineProfile[1])
-                     + background)
-        profYatX = getYAt(lineProfile[0]+line,lineProfile[1],xs)
-        profYatX = profYatX / np.amax(profYatX)
-        lineY = ySpec[xs]
-        lineY = lineY - np.amin(lineY)
-        lineY = lineY / np.amax(lineY)
-        chiSquare = np.sum((profYatX - lineY) ** 2)
-        print('findGoodLines: line = ',line,': chiSquare = ',chiSquare)
+#        xs = np.arange(int(np.amin(lineProfile[0][int(len(lineProfile[0])/4.):]+line)),
+#                       int(np.amax(lineProfile[0][:int(len(lineProfile[0])*3./4.)]+line)),
+#                       1)
+#        print('findGoodLines: line = ',line,': xs = ',xs)
+#        background = np.amin(ySpec[xs])
+#        top = np.amax(ySpec[xs])
+#        if display:
+#            plt.plot(lineProfile[0]+line,
+#                     lineProfile[1]
+#                     * (top-background)
+#                     / np.amax(lineProfile[1])
+#                     + background,
+#                     label=str(line)+'_2')
+#        profYatX = getYAt(lineProfile[0]+line,lineProfile[1],xs)
+#        profYatX = profYatX / np.amax(profYatX)
+#        lineY = ySpec[xs]
+#        lineY = lineY - np.amin(lineY)
+#        lineY = lineY / np.amax(lineY)
+#        chiSquare = np.sum((profYatX - lineY) ** 2)
+#        print('findGoodLines: line = ',line,': chiSquare = ',chiSquare)
         chiSquares.append(chiSquare)#np.sum((profYatX[int(len(lineY) / 4.):int(len(lineY) * 3. / 4.)] - lineY[int(len(lineY) / 4.):int(len(lineY) * 3. / 4.)]) ** 2))
 #        print('findGoodLines: line = ',line,': chiSquare = ',chiSquares[len(chiSquares)-1])
-        if plot and (chiSquare < chiSquareLimit):
+        if display and (chiSquare < chiSquareLimit):
             plt.scatter(line,0.)
 
     print('findGoodLines: chiSquareLimit = ',chiSquareLimit)
-    if plot:
+    if display:
+        plt.legend()
         plt.show()
 
-    if plot:
         plt.scatter(linesX,chiSquares)
+        plt.title('findGoodLines chiSquares')
         plt.show()
     if not outFileNameAllLines is None:
         with open(outFileNameAllLines,'w') as f:
@@ -2094,18 +2109,36 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
                 f.write('%.5f \n' % (line))
     return goodLines
 
-def getLineProfiles(arcFitsName2D,halfWidth=7,dxFit=0.1):
+def getNumberOfApertures(databaseFileNameIn):
+    nAps = 0
+    with open(databaseFileNameIn,'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        elems = line.strip('\n').strip(' ').strip('\t').split('\t')
+        print('getNumberOfApertures: elems = ',elems)
+        if elems[0].strip(' ').strip('\t') == 'aperture':
+            nAps = int(elems[1])
+    print('getNumberOfApertures: nAps = ',nAps)
+    return nAps
+
+def getLineProfiles(arcFitsName2D,halfWidth=7,dxFit=0.1,display=False):
     lineProfiles = []
-    for apNumber in np.arange(0,7,1):
+    print('getLineProfiles: arcFitsName2D = <'+arcFitsName2D+'>')
+    tempFile = os.path.join(arcFitsName2D[0:arcFitsName2D.rfind('/')],'database','aptmp'+arcFitsName2D[arcFitsName2D.rfind('/')+1:-5])
+    print('getLineProfiles: tempFile = <'+tempFile+'>')
+
+    for apNumber in np.arange(0,getNumberOfApertures(tempFile),1):
         lineProfiles.append(calcLineProfile(arcFitsName2D, apNumber, halfWidth,dxFit))
 
-    if plot:
-        for lineProfile in lineProfiles:
-            plt.plot(lineProfile[0],lineProfile[1])
+        if display:
+            plt.plot(lineProfiles[len(lineProfiles)-1][0],lineProfiles[len(lineProfiles)-1][1],label='ap '+str(apNumber))
+    if display:
+        plt.title('getLineProfiles')
+        plt.legend()
         plt.show()
     return lineProfiles
 
-def getBestLineProfile(lineProfiles,outFileName=None):
+def getBestLineProfile(lineProfiles,outFileName=None,display=False):
     bestLineProfileIdx = 0
     maxValue = np.amax(lineProfiles[0][1])
     for lineProfileIdx in np.arange(1,len(lineProfiles),1):
@@ -2114,6 +2147,9 @@ def getBestLineProfile(lineProfiles,outFileName=None):
     print('getBestLineProfile: best line profile found at index ',bestLineProfileIdx)
     print('getBestLineProfile: lineProfiles = ',lineProfiles)
     print('getBestLineProfile: lineProfiles[bestLineProfileIdx] = ',lineProfiles[bestLineProfileIdx])
+    if display:
+        plt.plot(lineProfiles[bestLineProfileIdx][0],lineProfiles[bestLineProfileIdx][1])
+        plt.show()
     if not outFileName is None:
         with open(outFileName,'w') as f:
             for i in np.arange(0,len(lineProfiles[bestLineProfileIdx][0]),1):
@@ -2152,6 +2188,14 @@ def crossCheckLines(lineList, referenceLineList):
         if minDists[i] < meanMinDist:
             print('crossCheckLines: referenceLineList[',minIdx[i],'] = ',referenceLineList[minIdx[i]],', referenceLineList[',minIdx[i],'][1] = ',referenceLineList[minIdx[i]][1])
             goodLines.append([lineList[i],referenceLineList[minIdx[i]][1]])
+    if len(goodLines) < len(referenceLineList) / 4.:
+        meanMinDist = np.median(minDists) * 1.3
+        print('crossCheckLines: meanMinDist = ',meanMinDist)
+        goodLines = []
+        for i in range(len(minDists)):
+            if minDists[i] < meanMinDist:
+                print('crossCheckLines: referenceLineList[',minIdx[i],'] = ',referenceLineList[minIdx[i]],', referenceLineList[',minIdx[i],'][1] = ',referenceLineList[minIdx[i]][1])
+                goodLines.append([lineList[i],referenceLineList[minIdx[i]][1]])
     return goodLines
 
 # @brief: reidentify ARC lines and return new lineList
@@ -2160,29 +2204,30 @@ def crossCheckLines(lineList, referenceLineList):
 # @param profileIn: array like (2D): [x,y]: x,y: array like (1D): integral normalized emission line profile
 # @return: lineListOut: same as lineListIn with new positions
 def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefinitionFile, lineListIn, lineListOut=None, specOut=None, display=False):
+    print('referenceApertureDefinitionFile = <'+referenceApertureDefinitionFile+'>')
     tempFile = arcFitsName2DForLineProfile[:arcFitsName2DForLineProfile.rfind('/')+1]+'database/aptmp'+arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]
     print('reidentify: tempFile = <'+tempFile+'>')
 
-    if not os.path.isfile(tempFile):
-        copyfile(referenceApertureDefinitionFile,tempFile)
-        with open(tempFile,'r') as f:
-            lines = f.readlines()
-        with open(tempFile,'w') as f:
-            for line in lines:
-                f.write(line.replace(referenceApertureDefinitionFile[referenceApertureDefinitionFile.rfind('/')+3:],
-                                     arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]))
-        print('reidentify: updated new database file ',tempFile)
+    copyfile(referenceApertureDefinitionFile,tempFile)
+    with open(tempFile,'r') as f:
+        lines = f.readlines()
+    with open(tempFile,'w') as f:
+        for line in lines:
+            f.write(line.replace(referenceApertureDefinitionFile[referenceApertureDefinitionFile.rfind('/')+3:],
+                                 arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]))
+    print('reidentify: updated new database file ',tempFile)
 #        STOP
 
-    lineProfiles = getLineProfiles(arcFitsName2DForLineProfile)
-    bestLineProfile = getBestLineProfile(lineProfiles,outFileName=None)
+    lineProfiles = getLineProfiles(arcFitsName2DForLineProfile, display=display)
+    bestLineProfile = getBestLineProfile(lineProfiles,outFileName=None,display=display)
     specY = extractSum(arcFitsName2D,'row')
+    writeFits1D(specY, arcFitsName2D[:arcFitsName2D.rfind('.')]+'Ec.fits', wavelength=None, header=arcFitsName2D, CRVAL1=1., CRPIX1=1., CDELT1=1.)
     if display:
         plt.plot(specY)
         plt.show()
     print('reidentify: specIn = ',specY.shape,': ',specY)
     print('reidentify: profileIn = ',bestLineProfile)
-    goodLines = findGoodLines(np.arange(0,specY.shape[0],1),specY,bestLineProfile,outFileNameGoodLines=lineListOut)
+    goodLines = findGoodLines(np.arange(0,specY.shape[0],1),specY,bestLineProfile,outFileNameGoodLines=lineListOut,display=display)
     print('reidentify: found ',len(goodLines),' goodLines at ',goodLines)
     if not lineListOut is None:
         with open(lineListOut[:lineListOut.rfind('.')]+'_temp.dat','w') as f:
@@ -2287,6 +2332,7 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
     pyasl.write1dFitsSpec(outFileName, flux, wvl=wavelength, waveParams=waveParams, fluxErr=None, header=head, clobber=True, refFileName=None, refFileExt=0)
 
 def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, display=False):
+    print('refApDef = <'+refApDef)
     wavelengthsOrigOut = []
     wavelengthsResampledOut = []
     for arc in arcListIn:
@@ -2302,7 +2348,7 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, display=False):
                                                       lineListIn,
                                                       lineListOut=arc[:arc.rfind('.')]+'_lines.dat',
                                                       specOut=arc[:-5]+'Ecd.fits',
-                                                      display=False)
+                                                      display=display)
         xSpec = np.arange(xRange[0],xRange[1]+1,1.)
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
@@ -2730,6 +2776,7 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
 #    print('fluxCalibrate:extinctionCurve = ',extinctionCurve)
 
 def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunction, order, nIterReject, nIterFit, lowReject, highReject, type='difference', adjustSigLevels=False, useMean=False, display = False):
+    print('continuum: reading file '+spectrumFileNameIn)
     specOrig = getImageData(spectrumFileNameIn,0)
 
     if display:
@@ -2759,6 +2806,7 @@ def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunc
     if display:
         plt.plot(wLen, specOrig, label='original')
         plt.plot(wLen, spec, label = 'continuum corrected')
+        plt.title(spectrumFileNameIn[spectrumFileNameIn.rfind('/')+1:spectrumFileNameIn.rfind('_a')])
         plt.legend()
         plt.show()
 
@@ -2801,10 +2849,12 @@ def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None,
         for pix in np.arange(0,wLenAll.shape[0],1):
             goodPix.append([spectrum[pix] for spectrum in spectra])
     for pix in np.arange(0,wLenAll.shape[0],1):
+        notNaN = np.where([not np.isnan(a) for a in goodPix[pix]])
+        print('scombine: notNaN = ',notNaN)
         if (len(goodPix[pix]) % 2 == 0) or (method == 'mean'):
-            combinedSpectrum[pix] = np.mean(np.array(goodPix[pix]))
+            combinedSpectrum[pix] = np.mean(np.array(goodPix[pix][notNaN]))
         else:
-            combinedSpectrum[pix] = np.median(np.array(goodPix[pix]))
+            combinedSpectrum[pix] = np.median(np.array(goodPix[pix][notNaN]))
         print('scombine: pix = ',pix,': wLenAll[',pix,'] = ',wLenAll[pix],': goodPix = ',goodPix[pix],', np.mean(np.array(goodPix[pix])) = ',np.mean(np.array(goodPix[pix])),', np.median(np.array(goodPix[pix])) = ',np.median(np.array(goodPix[pix])),', combinedSpectrum[',pix,'] = ',combinedSpectrum[pix])
     if display:
         plt.plot(wLenAll, combinedSpectrum, 'g-', label = 'combined')

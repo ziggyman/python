@@ -14,8 +14,8 @@ import csvFree, csvData
 overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
-workPath = '/Users/azuri/spectra/saao/saao_may2019/20190501/'#saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190906/'
+#workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
+workPath = '/Users/azuri/spectra/saao/saao_may2020/20200519/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
@@ -23,9 +23,11 @@ refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
 refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_85')#16_3')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')
-lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_85')#16_3')
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3_may2020')
+#lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
+lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
 
 print('EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
 observatoryLocation = EarthLocation.of_site('SAAO')
@@ -63,7 +65,7 @@ suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxf
 #    copyfile(inList+'bak', inList)
 exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
 objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
-if True:
+if False:
     separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
     #STOP
     objectFiles = os.path.join(workPath,'SCIENCE.list')
@@ -94,7 +96,7 @@ if True:
                      masterBias,
                      fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                      overwrite=True)
-
+if True:
     # create master DomeFlat
     combinedFlat = os.path.join(workPath,'combinedFlat.fits')
     print('creating combinedFlat <'+combinedFlat+'>')
@@ -119,9 +121,10 @@ if True:
 
     # remove cosmic rays
     for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
+        cosmicParameters = {'niter':1, 'objlim':10.0}
         cleanCosmic(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
-    #                cosmicMethod='lacosmic',
-    #                cosmicParameters=None,
+                    cosmicMethod='lacosmic',
+                    cosmicParameters=cosmicParameters,
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzx.list')),
                     overwrite=True)
 
@@ -137,6 +140,7 @@ if True:
                     norm_value = 1.,
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
 
+if True:
     # interpolate images to get straight dispersion and spectral features
     for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')),
@@ -177,8 +181,12 @@ if True:
                                                                      lineList,
                                                                      display=False)
 
-    # extract science data
+    # extract arcs and science data
     #extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis)
+    inputList = getListOfFiles(os.path.join(workPath,'ARC_otzxfif.list'))
+    for inputFile in inputList:
+        extractSum(inputFile, 'row', fNameOut = inputFile[:inputFile.rfind('.')]+'Ec.fits')
+
     areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
     scienceSpectra = []#extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
     for i in range(areas.size()):
@@ -194,14 +202,15 @@ if True:
                                         dispAxis = 'row',
                                         display = False)
 
-    dispCor(getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfifEc.list')),
-            getListOfFiles(os.path.join(workPath,'ARC_otzxfiEc.list')),
-            wavelengthsOrig,
-            getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfifEcd.list')),
-            observatoryLocation,
-            'TARG-RA',
-            'TARG-DEC',
-            'DATE-OBS')
+    for inputList in ['ARC', 'SCIENCE']:
+        dispCor(getListOfFiles(os.path.join(workPath,inputList+'_otzxfifEc.list')),
+                getListOfFiles(os.path.join(workPath,'ARC_otzxfiEc.list')),
+                wavelengthsOrig,
+                getListOfFiles(os.path.join(workPath,inputList+'_otzxfifEcd.list')),
+                observatoryLocation,
+                'TARG-RA',
+                'TARG-DEC',
+                'DATE-OBS')
 
     sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzxfif.list'),
                              getListOfFiles(os.path.join(workPath,'ARC_otzxfiEc.list')),
@@ -223,6 +232,9 @@ if True:
         objectName = fileName[fileName.rfind('SCIENCE_')+8:]
         objectName = objectName[:objectName.find('_a')]
         print('objectName = ',objectName)
+        finalName = fileName[:fileName.rfind('/')+1]+objectName+'_SA'+fileName[fileName.rfind('/')-2:fileName.rfind('/')]+fileName[fileName.rfind('/')-4:fileName.rfind('/')-2]+fileName[fileName.rfind('/')-6:fileName.rfind('/')-4]+'.fits'
+        print('finalName = <'+finalName+'>')
+
         nFiles = 0
         for fName in fileList:
             objName = fName[fName.rfind('SCIENCE_')+8:]
@@ -232,8 +244,11 @@ if True:
                 nFiles += 1
         if nFiles > 1:
             listNameOut = fileName[:fileName.rfind('_a')]+'_toCombine.list'
-            toCombineLists.append(listNameOut)
-            combinedList.append(listNameOut[:listNameOut.rfind('toCombine')]+'combined.fits')
+            if listNameOut not in toCombineLists:
+                toCombineLists.append(listNameOut)
+                combinedList.append(listNameOut[:listNameOut.rfind('toCombine')]+'combined.fits')
+                toContinuumSubtract.append(combinedList[len(combinedList)-1])
+                continuumSubtracted.append(finalName)
             print('nFiles = ',nFiles,': creating <'+listNameOut+'>')
             with open(listNameOut,'w') as f:
                 for fName in fileList:
@@ -242,10 +257,10 @@ if True:
                     print('objName = ',objName)
                     if objectName == objName:
                         f.write(fName+'\n')
-            toContinuumSubtract.append()
         else:
             toContinuumSubtract.append(fileName)
-            continuumSubtracted.append(fileName[:fileName.rfind('_a')]+'c.fits')
+            continuumSubtracted.append(finalName)
+    print('toCombineLists = ',toCombineLists)
     for iList in range(len(toCombineLists)):
         inputList = toCombineLists[iList]
         outFile = combinedList[iList]
@@ -263,8 +278,8 @@ if True:
         fittingFunction = np.polynomial.legendre.legfit
         evalFunction = np.polynomial.legendre.legval
         order = 9
-        nIterReject = 3
-        nIterFit = 3
+        nIterReject = 2
+        nIterFit = 2
         lowReject = 2.
         highReject = 2.
         useMean = False
