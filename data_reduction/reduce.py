@@ -4,7 +4,7 @@ from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
 from drUtils import readFluxStandardsList,calcResponse,applySensFuncs,extractObjectAndSubtractSky
-from drUtils import scombine,continuum
+from drUtils import scombine,continuum,subtractMedianSky
 import numpy as np
 import os
 from shutil import copyfile
@@ -15,7 +15,7 @@ overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao_may2020/20200519/'
+workPath = '/Users/azuri/spectra/saao/saao_may2020/20200516/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
@@ -96,7 +96,7 @@ if False:
                      masterBias,
                      fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                      overwrite=True)
-if True:
+if False:
     # create master DomeFlat
     combinedFlat = os.path.join(workPath,'combinedFlat.fits')
     print('creating combinedFlat <'+combinedFlat+'>')
@@ -110,7 +110,6 @@ if True:
                    scaling=False,
                    minVal=0.0001,
                    fitsOutName=combinedFlat)
-
     masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
     smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
     makeMasterFlat(combinedFlat,
@@ -121,14 +120,20 @@ if True:
 
     # remove cosmic rays
     for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
-        cosmicParameters = {'niter':1, 'objlim':10.0}
+        cosmicParameters = {'niter':3, 'sigclip':4.0, 'objlim':5.0, 'gain':1.145, 'readnoise':2.245, 'sepmed':False, 'cleantype':'meanmask', 'fsmode':'convolve', 'psfmodel':'gaussy', 'psffwhm':0.75}
+        #cosmicParameters = {'thresh':5., 'rbox':3}
         cleanCosmic(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
-                    cosmicMethod='lacosmic',
-                    cosmicParameters=cosmicParameters,
+                    #cosmicMethod='lacosmic',
+                    #cosmicParameters=cosmicParameters,
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzx.list')),
                     overwrite=True)
 
     # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
+    for inputList in ['ARC','SCIENCE','FLUXSTDS']:
+        flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
+                    masterFlat,
+                    norm_value = 1.,
+                    fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
     for inputList in ['ARC','SCIENCE','FLUXSTDS']:
         flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otzx.list')),
                     masterFlat,
@@ -140,10 +145,12 @@ if True:
                     norm_value = 1.,
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
 
-if True:
     # interpolate images to get straight dispersion and spectral features
     for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')),
+                           refVerticalTraceDB,
+                           refHorizontalTraceDB)
+        interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')),
                            refVerticalTraceDB,
                            refHorizontalTraceDB)
 
@@ -170,11 +177,17 @@ if True:
                 7)
 
     for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
+        flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otzfi.list')),
+                    os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
+                    fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
         flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otzxfi.list')),
                     os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-if True:
+if False:
+    subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))
+    subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfif.list')))
+
     # extract and reidentify ARCs
     wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(getListOfFiles(os.path.join(workPath,'ARC_otzxf.list')),
                                                                      refProfApDef,
@@ -203,18 +216,23 @@ if True:
                                         display = False)
 
     for inputList in ['ARC', 'SCIENCE']:
+        doHelioCor = True if inputList == 'SCIENCE' else False
+        print('doHelioCor = ',doHelioCor)
         dispCor(getListOfFiles(os.path.join(workPath,inputList+'_otzxfifEc.list')),
                 getListOfFiles(os.path.join(workPath,'ARC_otzxfiEc.list')),
                 wavelengthsOrig,
                 getListOfFiles(os.path.join(workPath,inputList+'_otzxfifEcd.list')),
                 observatoryLocation,
-                'TARG-RA',
-                'TARG-DEC',
-                'DATE-OBS')
+                'TELRA',
+                'TELDEC',
+                'DATE-OBS',
+                doHelioCor = doHelioCor)
 
+    areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
     sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzxfif.list'),
                              getListOfFiles(os.path.join(workPath,'ARC_otzxfiEc.list')),
-                             wavelengthsOrig)
+                             wavelengthsOrig,
+                             areas)
     print('sensFuncs = ',sensFuncs)
 
     applySensFuncs(getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfifEcd.list')),

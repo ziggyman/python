@@ -71,16 +71,22 @@ def findHASHid(csvTablePaper, csvTableTargets):
         print('HMMM, NOT ALL TARGETS FOUND... :(')
     return ids
 
+def getImages(ids):
+    print('getImages: ids = ',ids)
+
 if __name__ == '__main__':
-    csvPaper = csvFree.readCSVFile('/Volumes/work/azuri/spectra/IPHAS_GTC/table_paper.csv','&',False)
+    csvPaper = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_paper.csv','&',False)
 #    print(csvPaper.header)
 #    print(csvPaper.data)
 
     csvTargets = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/Charts_IPHAS_Amateurs/Targets_GTC.cvs')
 #    print(csvTargets.header)
 #    print(csvTargets.data)
+    #    coneSearch(csvPaper)
 
     ids = findHASHid(csvPaper, csvTargets)
     print(ids)
+    getImages(ids)
 
-#    coneSearch(csvPaper)
+
+

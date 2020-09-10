@@ -87,6 +87,12 @@ def getImageData(fname,hduNum=1):
     hdulist.close()
     return scidata
 
+def getHeader(fName, hduNum=0):
+    hdulist = pyfits.open(fName)
+    header = hdulist[hduNum].header
+    hdulist.close()
+    return header
+
 def getHeaderValue(fname, keyword, hduNum=0):
     hdulist = pyfits.open(fname)
     header = hdulist[hduNum].header
@@ -1793,6 +1799,17 @@ def sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, low
             plt.show()
     return [coeffs, fittedValues]
 
+def subtractMedianSky(twoDImageFilesIn):
+    for twoDImageFileIn in twoDImageFilesIn:
+        image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
+        objectSpec = []
+        skyImage = np.zeros(image.shape)
+        for col in range(image.shape[1]):
+            skyImage[:,col] = np.ones(image.shape[0]) * np.median(image[:,col])
+        image = image - np.array(skyImage)
+        writeFits(skyImage, twoDImageFileIn, twoDImageFileIn[:-5]+'MedianSky.fits', metaKeys=None, metaData=None, overwrite=True)
+        writeFits(image, twoDImageFileIn, twoDImageFileIn[:-5]+'-MedianSky.fits', metaKeys=None, metaData=None, overwrite=True)
+
 #@brief: extract sky-subtracted object spectrum
 #@param twoDImageFileIn: string: name of 2d input fits file
 #@param specOut: string: name of 1d output fits file
@@ -2002,6 +2019,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
 
     if True:#display:
         plt.plot(objectSpec,'g-')
+        plt.title(twoDImageFileIn[twoDImageFileIn.rfind('SCIENCE')+8:twoDImageFileIn.rfind('.')])
         plt.show()
 
     writeFits1D(objectSpec, specOut, wavelength=None, header=head, CRVAL1=1., CRPIX1=1, CDELT1=1.)
@@ -2311,7 +2329,7 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
             if isinstance(head[key],str):
                 if '\n' in head[key]:
                     head[key].replace('\n','')
-            elif (key == 'COMMENT') and (head[key] == ''):
+            elif (key == 'COMMENT'):# and (head[key] == ''):
                 del head[key]
             elif '\n' in str(head[key]):
                 del head[key]
@@ -2405,7 +2423,7 @@ def getClosestInTime(fitsFileName, fitsList):
     return closestArc
 
 #@brief: apply wavelength to extracted science spectra and resample them to linear dispersion
-def dispCor(scienceListIn, arcListIn, wavelengthsOrigIn, scienceListOut, observatoryLocation, keywordRA, keywordDEC, keywordObsTime):
+def dispCor(scienceListIn, arcListIn, wavelengthsOrigIn, scienceListOut, observatoryLocation, keywordRA, keywordDEC, keywordObsTime, doHelioCor=True):
     print('dispCor: scienceListIn = ',len(scienceListIn),': ',scienceListIn)
     print('dispCor: arcListIn = ',len(arcListIn),': ',arcListIn)
     print('dispCor: wavelengthsOrigIn = ',len(wavelengthsOrigIn))
@@ -2430,9 +2448,10 @@ def dispCor(scienceListIn, arcListIn, wavelengthsOrigIn, scienceListOut, observa
         headerSc['REFSPEC1'] = arc[arc.rfind('/')+1:]
 
         #apply heliocentric radial velocity correction
-        vrad = heliocor(observatoryLocation, headerSc, keywordRA, keywordDEC, keywordObsTime)
-        headerSc['VHELIO'] = vrad
-        wLenSpec = applyVRadCorrection(wLenSpec, vrad)
+        if doHelioCor:
+            vrad = heliocor(observatoryLocation, headerSc, keywordRA, keywordDEC, keywordObsTime)
+            headerSc['VHELIO'] = vrad
+            wLenSpec = applyVRadCorrection(wLenSpec, vrad)
 
         # read wavelength information from reference ARC
         hdulist = pyfits.open(arc)
@@ -2502,7 +2521,7 @@ def readFluxStandardFile(fName):
         print('readFluxStandardFile: lambda = ',wavelengths[i],', flux = ',fluxes[i])
     return [wavelengths, fluxes]
 
-def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat', display=False):
+def calcResponse(fNameList, arcList, wLenOrig, areas, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat', display=False):
     fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList(fluxStdandardList)
     print('calcResponse: fluxStandardNames = ',fluxStandardNames)
     print('calcResponse: fluxStandardDirs = ',fluxStandardDirs)
@@ -2564,12 +2583,28 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
                 print('calcResponse: type(img.data[0]) = ',type(img.data[0]))
                 print("calcResponse: type(img.header['EXPTIME']) = ",type(img.header['EXPTIME']))
                 # put in units of ADU/s
-                img.data = img.data / float(img.header['EXPTIME'])
-                img.unit = u.adu / u.s
+                #img.data = img.data / float(img.header['EXPTIME'])
+                #img.unit = u.adu / u.s
 
                 # Trace & Extract the standard star spectrum. See the extract example demo for more details
-                tr = trace(img, display=False, nbins=25)
-                ex_tbl = extract(img, tr, display=False, apwidth=8, skysep=3, skywidth=7)
+#                tr = trace(img, display=True, nbins=25)
+#                print('calcResponse: tr = ',tr)
+#                ex_tbl = extract(img, tr, display=True, apwidth=8, skysep=3, skywidth=7)
+                #scienceSpectra = []#extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
+                extractedFileName = ''
+                print('fName = ',fName)
+                foundEx = False
+                for i in range(areas.size()):
+                    print('')
+                    if areas.getData('fName',i) == fName:
+                        extractedFileName = areas.getData('fName',i)[:-5]+'Ec.fits'
+                        print('calcResponse: reading extractedFileName = <'+extractedFileName+'>')
+                        foundEx = True
+                if not foundEx:
+                    print('calcResponse: did not find fName = <'+fName+'> in areas')
+                obj_flux = CCDData.read(extractedFileName, unit=u.adu)
+                obj_flux = obj_flux.data / float(img.header['EXPTIME'])
+                obj_flux = obj_flux * u.adu / u.s
 
                 # this data comes from the APO DIS red channel, which has wavelength axis backwards
                 # (despite not mentioning in the header)
@@ -2578,12 +2613,15 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
                 wapprox = wapprox * u.angstrom
 
                 # obj_flux = (flux_std - sky_std) * u.adu / u.s
-                obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
+                #obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
+                print('calcResponse: type(obj_flux) = ',type(obj_flux))
+                print('calcResponse: dir(obj_flux) = ',dir(obj_flux))
                 print('calcResponse: obj_flux = ',obj_flux)
+                print('calcResponse: obj_flux.data = ',obj_flux.data)
 
                 if display:
-                    plt.plot(wapprox, obj_flux)
-                    plt.errorbar(wapprox.value, obj_flux.data, yerr=ex_tbl['fluxerr'].data, alpha=0.25)
+                    plt.plot(wapprox, obj_flux.data)
+#                    plt.errorbar(wapprox.value, obj_flux.data, alpha=0.25)#, yerr=ex_tbl['fluxerr'].data
                     plt.show()
 
                 print('calcResponse: prior = <'+prior+'>')
@@ -2591,10 +2629,11 @@ def calcResponse(fNameList, arcList, wLenOrig, fluxStdandardList = '/Users/azuri
                 stdstar=onedstd(prior+'/'+stdName.lower()+'.dat')
                 print('calcResponse: stdstar = ',stdstar)
 
-                obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
-                print('calcResponse: obj_flux.quantity = ',obj_flux.quantity)
-                obj_spectrum = Spectrum1D(spectral_axis=wapprox, flux=obj_flux.quantity,
-                                          uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
+                #obj_flux = ex_tbl['flux'] - ex_tbl['skyflux']
+#                print('calcResponse: obj_flux.quantity = ',obj_flux.quantity)
+                obj_spectrum = Spectrum1D(spectral_axis=wapprox,
+                                          flux=obj_flux)#.quantity,)
+                                          #uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
 
                 sensfunc_lin = standard_sensfunc(obj_spectrum, stdstar, display=True, mode='linear')
                 print('calcResponse: sensfunc_lin = ',sensfunc_lin)
@@ -2782,6 +2821,8 @@ def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunc
     if display:
         wLen = getWavelengthArr(spectrumFileNameIn,0)
         plt.plot(wLen, specOrig,label='original spectrum')
+        plt.title(spectrumFileNameIn[spectrumFileNameIn.rfind('/')+1:spectrumFileNameIn.rfind('.')])
+        plt.legend()
         plt.show()
 
     xNorm = normalizeX(np.arange(0,specOrig.shape[0],1.))
@@ -2806,8 +2847,8 @@ def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunc
     if display:
         plt.plot(wLen, specOrig, label='original')
         plt.plot(wLen, spec, label = 'continuum corrected')
-        plt.title(spectrumFileNameIn[spectrumFileNameIn.rfind('/')+1:spectrumFileNameIn.rfind('_a')])
         plt.legend()
+        plt.title(spectrumFileNameOut[spectrumFileNameOut.rfind('/')+1:spectrumFileNameOut.rfind('.')])
         plt.show()
 
     writeFits1D(spec,
@@ -2825,37 +2866,54 @@ def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None,
     wLenAll = getWavelengthArr(fileNames[0],0)
     print('scombine: wLenAll = ',wLenAll)
     spectra = []
+    exptimes = []
     for fileName in fileNames:
+        exptimes.append(float(getHeaderValue(fileName,'EXPTIME')))
         if fileName == fileNames[0]:
             spectra.append(getImageData(fileName,0))
         else:
             spectra.append(rebin(getWavelengthArr(fileName,0), getImageData(fileName,0), wLenAll, preserveFlux = True))
         if display:
             plt.plot(wLenAll, spectra[len(spectra)-1], label=fileName[fileName.rfind('/')+1:fileName.rfind('.')])
-
+    exptimes = np.array(exptimes)
+    print('scombine: exptimes = ',exptimes)
     goodPix = []
     combinedSpectrum = np.zeros(wLenAll.shape[0])
+    exptimesPix = []
     if lowReject is not None:
         for pix in np.arange(0,wLenAll.shape[0],1):
-            goodPix.append(sigmaReject([spectrum[pix] for spectrum in spectra],
+            vPix, indices = sigmaReject([spectrum[pix] for spectrum in spectra],
                                         nIter=1,
                                         lowReject=lowReject,
                                         highReject=highReject,
                                         replace=False,
                                         adjustSigLevels=adjustSigLevels,
                                         useMean=useMean,
-                                        keepFirstAndLastX=False)[0])
+                                        keepFirstAndLastX=False)
+
+            print('scombine: vPix = ',vPix)
+            goodPix.append(vPix)
+            print('scombine: exptimes[indices = ',indices,'] = ',exptimes[indices])
+            exptimesPix.append(np.mean(exptimes[indices]))
     else:
         for pix in np.arange(0,wLenAll.shape[0],1):
             goodPix.append([spectrum[pix] for spectrum in spectra])
+            exptimesPix.append(np.mean(exptimes))
     for pix in np.arange(0,wLenAll.shape[0],1):
         notNaN = np.where([not np.isnan(a) for a in goodPix[pix]])
-        print('scombine: notNaN = ',notNaN)
+        #print('scombine: notNaN = ',notNaN)
         if (len(goodPix[pix]) % 2 == 0) or (method == 'mean'):
             combinedSpectrum[pix] = np.mean(np.array(goodPix[pix][notNaN]))
         else:
             combinedSpectrum[pix] = np.median(np.array(goodPix[pix][notNaN]))
-        print('scombine: pix = ',pix,': wLenAll[',pix,'] = ',wLenAll[pix],': goodPix = ',goodPix[pix],', np.mean(np.array(goodPix[pix])) = ',np.mean(np.array(goodPix[pix])),', np.median(np.array(goodPix[pix])) = ',np.median(np.array(goodPix[pix])),', combinedSpectrum[',pix,'] = ',combinedSpectrum[pix])
+        #print('scombine: pix = ',pix,': wLenAll[',pix,'] = ',wLenAll[pix],': goodPix = ',goodPix[pix],', np.mean(np.array(goodPix[pix])) = ',np.mean(np.array(goodPix[pix])),', np.median(np.array(goodPix[pix])) = ',np.median(np.array(goodPix[pix])),', combinedSpectrum[',pix,'] = ',combinedSpectrum[pix])
+
+    print('scombine: exptimes = ',exptimes)
+    header = getHeader(fileNames[0])
+    print('scombine: exptimesPix = ',exptimesPix)
+    header['EXPTIME'] = np.mean(exptimesPix)
+    print('scombine: set header[EXPTIME] to ',header['EXPTIME'])
+
     if display:
         plt.plot(wLenAll, combinedSpectrum, 'g-', label = 'combined')
         plt.legend()
@@ -2864,7 +2922,7 @@ def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None,
     writeFits1D(combinedSpectrum,
                 spectrumFileNameOut,
                 wavelength=None,
-                header=fileNames[0],
+                header=header,
                 CRVAL1=getHeaderValue(fileNames[0],'CRVAL1'),
                 CRPIX1=getHeaderValue(fileNames[0],'CRPIX1'),
                 CDELT1=getHeaderValue(fileNames[0],'CDELT1'),
