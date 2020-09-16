@@ -72,7 +72,38 @@ def findHASHid(csvTablePaper, csvTableTargets):
     return ids
 
 def getImages(ids):
-    print('getImages: ids = ',ids)
+    print('getImages: ids = ',len(ids),': ',ids)
+    hashPNMain = '/Users/azuri/daten/uni/HKU/HASH/PNMain_full_Aug-07-2020.csv'
+
+    outFile = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/getIPHASImages.bash'
+    with open(outFile,'w') as f:
+        f.write('mkdir iphas-gtc-images\n')
+        for survey in [['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iphas.csv','/data/kegs/pngPNImages/%s/IPHAS/%s_%s_iphas3colour*.png',['idPNMain','idPNMain','run_id']],
+                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iquotHaSr.csv','/data/kegs/pngPNImages/%s/IPHAS/%s_%s_iquot*.png',['idPNMain','idPNMain','run_id']],
+                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_2mass.csv','/data/kegs/pngPNImages/%s/TWOMASS/%s_*.png',['idPNMain','idPNMain']],
+                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_shs.csv','/data/kegs/pngPNImages/%s/SHS/%s_thre*.png',['idPNMain','idPNMain']],
+                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_quotHaSr.csv','/data/kegs/pngPNImages/%s/SHS/%s_quot*.png',['idPNMain','idPNMain']],
+                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_vphas.csv','/data/kegs/pngPNImages/%s/VPHASplus/%s_vp*.png',['idPNMain','idPNMain']],
+                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_vquotHaSr.csv','/data/fermenter/PNImages/%s/VPHASplus/quot_vphas*',['idPNMain']],
+                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_wise.csv','/data/kegs/pngPNImages/%s/WISE/%s_wise321rgb*.png',['idPNMain','idPNMain']]]:
+            csv = csvFree.readCSVFile(survey[0])
+            for id in ids:
+                hashID = id[1]
+                lineIDs = csv.find('idPNMain',hashID)
+                print('getImages: hashID = ',hashID,': lineIDs = ',lineIDs)
+                if lineIDs[0] == -1:
+                    print('getImages: PROBLEM: did not find hashID ',hashID,' in ',survey[0])
+                    #STOP
+                else:
+                    for lineID in lineIDs:
+                        if csv.getData('inuse',lineID) == '1':
+                            print('survey[1] = ',survey[1],' survey[2] = ',survey[2])
+                            tmp = [csv.getData(num,lineID) for num in survey[2]]
+                            print('tmp = ',tmp)
+                            print('dir(tmp) = ',dir(tmp))
+                            print('(num for num in survey[2]) = ',(num for num in tmp))
+                            print('survey[1] = ',survey[1],' % (',[csv.getData(num,lineID) for num in survey[2]],')')
+                            f.write('cp '+survey[1] % [csv.getData(num,lineID) for num in survey[2]]+' iphas-gtc-images/\n')
 
 if __name__ == '__main__':
     csvPaper = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_paper.csv','&',False)
@@ -85,6 +116,10 @@ if __name__ == '__main__':
     #    coneSearch(csvPaper)
 
     ids = findHASHid(csvPaper, csvTargets)
+    ids.append(['Ou 1','8458'])
+    ids.append(['IPHASX J055242.8+262116','9824'])
+    ids.append(['J190333','8506'])
+    ids.append(['IPHASX J191707.3+020010','2502'])
     print(ids)
     getImages(ids)
 
