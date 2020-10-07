@@ -1508,6 +1508,11 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
         plt.plot(spec)
         plt.scatter(peaks,spec[peaks])
         plt.show()
+
+    """Check that all peaks are within xCorX range"""
+    for i in np.arange(len(peaks)-1,-1,-1):
+        if (peaks[i] < xCorX[0]) or (peaks[i] > xCorX[len(xCorX)-1]):
+            peaks = np.delete(peaks,i)
     print('findLines: peaks = ',peaks)
     print('findLines: properties = ',properties)
     print('findLines: spec.shape = ',spec.shape)
@@ -1521,6 +1526,7 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
         plt.plot(xCorX,yNorm)
     xCorPeaks = []
     for peak in peaks:
+        print('xCorX - ',peak,' = ',xCorX-peak)
         xCorPeaks.append(np.where(np.absolute(xCorX - peak) < (xCorX[1]-xCorX[0])/2.)[0])
         print('findLines: peak = ',peak,': xCorPeaks[',len(xCorPeaks)-1,'] = ',xCorPeaks[len(xCorPeaks)-1])
     xCorPeaks = np.array(xCorPeaks)
@@ -1535,6 +1541,10 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
         plt.plot(xCorX,yNorm)
         plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
     for i in np.arange(0,xCorPeaks.shape[0],1):
+        print('findLines: xCorX.shape = ',xCorX.shape)
+        print('findLines: xCorPeaks.shape = ',xCorPeaks.shape)
+        print('findLines: xCorPeaks[',i,'] = ',xCorPeaks[i])
+        print('findLines: sigma = ',sigma)
         indices = np.where((xCorX > (xCorX[xCorPeaks[i]]-sigma)) & (xCorX < (xCorX[xCorPeaks[i]]+sigma)))
 #            print('findLines: indices = ',indices)
         xi = xCorX[indices]
@@ -1839,6 +1849,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
     if dispAxis == 'row':
         if (skyAbove is not None) and (skyBelow is not None):
             imageTransposed = image.transpose()
+            print('extractObjectAndSubtractSky: imageTransposed.shape = ',image.shape)
             if display:
                 plt.imshow(imageTransposed)
                 plt.show()
@@ -1903,6 +1914,8 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
                 objectSpec.append(np.median(image[yRange[0]:yRange[1]+1,col]) * (yRange[1]-yRange[0]+1))
             objectSpec = np.array(objectSpec)
         elif extractionMethod == 'skyMedian':
+            print('extractObjectAndSubtractSky: ERROR: "skyMedian" as method has been abandoned - use the ...MedianSky.fits image for the sky instead')
+            STOP
             objectSpec = []
             skyImage = np.zeros(image.shape)
             for col in range(image.shape[1]):
@@ -2226,7 +2239,8 @@ def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefi
     tempFile = arcFitsName2DForLineProfile[:arcFitsName2DForLineProfile.rfind('/')+1]+'database/aptmp'+arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]
     print('reidentify: tempFile = <'+tempFile+'>')
 
-    copyfile(referenceApertureDefinitionFile,tempFile)
+    gratingAngle = getHeaderValue(arcFitsName2D, 'GR-ANGLE', hduNum=0).strip()
+    copyfile(referenceApertureDefinitionFile % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])),tempFile)
     with open(tempFile,'r') as f:
         lines = f.readlines()
     with open(tempFile,'w') as f:
@@ -2252,7 +2266,7 @@ def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefi
             for line in goodLines:
                 f.write('%.5f\n' % line)
 
-    lineList = readFileToArr(lineListIn)
+    lineList = readFileToArr(lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])))
     for line in lineList:
         print('reidentify: line = <'+line+'>')
         print('reidentify: line[:line.find(' ')] = <'+line[:line.find(' ')]+'>, line[line.find(' ')+1:] = <'+line[line.find(' ')+1:]+'>')
@@ -2536,13 +2550,14 @@ def calcResponse(fNameList, arcList, wLenOrig, areas, fluxStdandardList = '/User
     fNames = [n.rstrip('\n') for n in fNames]
     sensFuncs = []
 
+    print('calcResponse: fNames = ',fNames)
     for fName in fNames:
         print("calcResponse: fName.rfind('SCIENCE_') = ",fName.rfind('SCIENCE_'))
         if fName.rfind('SCIENCE_') >= 0:
             stdName = fName[fName.rfind('SCIENCE_')+8:]
         else:
             stdName = fName[fName.rfind('FLUXSTDS_')+9:]
-        stdName = stdName[:stdName.find('_')]
+        stdName = stdName[:stdName.find('_a')].replace('_','').replace('-','')
         print('calcResponse: stdName = <'+stdName+'>')
 #        wLenStd = getWavelengthArr(fName[:fName.rfind('.')]+'Ecd.fits',0)
 #        wLenStd = getWavelengthArr(fName,0)
@@ -2848,7 +2863,10 @@ def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunc
         plt.plot(wLen, specOrig, label='original')
         plt.plot(wLen, spec, label = 'continuum corrected')
         plt.legend()
-        plt.title(spectrumFileNameOut[spectrumFileNameOut.rfind('/')+1:spectrumFileNameOut.rfind('.')])
+        xRange = [wLen[0],wLen[len(wLen)-1]]
+        yRange = [np.min([np.min(specOrig), np.min(spec)]),np.max([np.max(specOrig), np.max(spec)])]
+        plt.text(xRange[1],yRange[0],spectrumFileNameOut[spectrumFileNameOut.rfind('/')+1:spectrumFileNameOut.rfind('.')],rotation='vertical')
+        markEmissionLines(xRange, yRange)
         plt.show()
 
     writeFits1D(spec,
@@ -2927,3 +2945,75 @@ def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None,
                 CRPIX1=getHeaderValue(fileNames[0],'CRPIX1'),
                 CDELT1=getHeaderValue(fileNames[0],'CDELT1'),
                )
+
+def markEmissionLines(xRange, yRange):
+    lines = [['[OII]',3727.],
+            ['[NeIII]',3969.],
+            ['HeI',4026.],
+            ['[SII]',4072.],
+            ['Hδ',4102.],
+            ['CII',4267.],
+            ['Hγ',4340.],
+            ['[OIII]',4363.],
+            ['HeI',4388.],
+            ['HeI',4472.],
+            ['HeII',4542.],
+            ['[MgI]',4571.],
+            ['HeII',4686.],
+            ['[ArIV]',4740.],
+            ['Hβ',4861.],
+            ['HeI',4922.],
+            ['[OIII]',4959.],
+            ['[OIII]',5007.],
+            ['[NI]',5199.],
+            ['HeII',5412.],
+            ['[ClIII]',5518.],
+            ['[ClIII]',5538.],
+            ['[OI]',5577.],
+            ['[NII]',5754.],
+            ['HeI',5876.],
+            ['[OI]',6300.],
+            ['[SIII]',6312.],
+            ['[OI]',6364.],
+            ['[ArV]',6435.],
+            ['[NII]',6548.],
+            ['Hα',6563.],
+            ['[NII]',6583.],
+            ['HeI',6678.],
+            ['[SII]',6716.],
+            ['[SII]',6731.],
+            ['HeII',6891.],
+            ['[ArV]',7006.],
+            ['HeI',7065.],
+            ['[ArIII]',7136.],
+            ['HeII',7176.],
+            ['[ArIV]',7237.],
+            ['[ArIV]',7263.],
+            ['HeI',7281.],
+            ['[OII]',7325.],
+            ['[SIII]',9069.],
+            ['[SIII]',9532.],
+            ]
+
+#    if xRange is None:
+#        xRange = [0,10000]
+    for line in lines:
+        if (line[1] >= xRange[0]) and (line[1] <= xRange[1]):
+            plt.plot([line[1],line[1]],[yRange[0],yRange[1]])
+            plt.text(line[1],yRange[1]+((yRange[1]-yRange[0])/50.),line[0],rotation='vertical')
+    plt.xlim(xRange[0],xRange[1])
+    plt.ylim(yRange[0],yRange[1])
+
+def removeFilesFromListWithAngleNotEqualTo(inputFileList,outputFileList,value):
+    path = inputFileList[:inputFileList.rfind('/')]
+    with open(inputFileList,'r') as f:
+        lines = f.readlines()
+    print('inputFileList contains ',len(lines),' files')
+    lines = [line.strip() for line in lines]
+    print('lines = ',lines)
+    with open(outputFileList,'w') as f:
+        for line in lines:
+            if getHeaderValue(os.path.join(path,line), 'GR-ANGLE', hduNum=0) == value:
+                f.write(line+'\n')
+            else:
+                print('removing file '+line+': '+getHeaderValue(os.path.join(path,line), 'OBJECT', hduNum=0)+': '+getHeaderValue(os.path.join(path,line), 'EXPTYPE', hduNum=0))

@@ -78,9 +78,9 @@ def linReg(x,y):
 # axis: 0 (columns) or 1 (rows)
 # width: odd number
 def boxCarMedianSmooth(imageData, axis, width):
-    print('imageData.shape = ',imageData.shape)
-    print('len(imageData.shape) = ',len(imageData.shape))
-    print('imageData = ',imageData)
+    print('boxCarMedianSmooth: imageData.shape = ',imageData.shape)
+    print('boxCarMedianSmooth: len(imageData.shape) = ',len(imageData.shape))
+    print('boxCarMedianSmooth: imageData = ',imageData)
     newDataArray = None
     if len(imageData.shape) > 1:
         newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0,0]))
@@ -113,7 +113,7 @@ def boxCarMedianSmooth(imageData, axis, width):
                     newDataArray[iRow,iCol] = np.median(imageData[iRowStart:iRowEnd,iCol])
     #                print 'iCol = ',iCol,', iRow = ',iRow,': iRowStart = ',iRowStart,', iRowEnd = ',iRowEnd,': imageData[iRowStart:iRowEnd,iCol] = ',imageData[iRowStart:iRowEnd,iCol],': median = ',newDataArray[iRow,iCol]
         else:
-            print('ERROR: axis(=',axis,') out of bounds [0,1]')
+            print('boxCarMedianSmooth: ERROR: axis(=',axis,') out of bounds [0,1]')
     else:
         newDataArray = np.zeros(shape=imageData.shape, dtype=type(imageData[0]))
         for iCol in range(imageData.shape[0]):
@@ -412,6 +412,12 @@ def lonLatToRaDec(l, b):
 def hmsToDeg(string):
     h, m, s = [float(i) for i in string.split(':')]
     return (s / 240.) + (m / 4.) + (h * 15.)
+
+def degToHMS(degrees):
+    h = int(degrees / 15.)
+    m = int(degrees - (h * 15.)) * 4.
+    s = degrees - (m/4.) - (h/15.)
+    return '%d:%02d:%.3f' % (h,m,s)
 
 # string = xx:yy:zz.zzz
 def dmsToDeg(string):

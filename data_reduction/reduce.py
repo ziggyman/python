@@ -4,7 +4,7 @@ from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
 from drUtils import readFluxStandardsList,calcResponse,applySensFuncs,extractObjectAndSubtractSky
-from drUtils import scombine,continuum,subtractMedianSky
+from drUtils import scombine,continuum,subtractMedianSky,removeFilesFromListWithAngleNotEqualTo
 import numpy as np
 import os
 from shutil import copyfile
@@ -15,19 +15,22 @@ overscanSection = '[1983:,:]'
 trimSection = '[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao_may2020/20200516/'
+workPath = '/Users/azuri/spectra/saao/saao_may2019/20190506/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
 #refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/apvertical_trace'
-refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
+#refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
 refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_85')#16_3')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3_may2020')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
-lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
+#lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
+#lineList = os.path.join(refPath,'saao_refspec_gr7_angle15_85_lines_identified_good.dat')
+lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_may2019.dat')
 
 print('EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
 observatoryLocation = EarthLocation.of_site('SAAO')
@@ -66,8 +69,11 @@ suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxf
 exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
 objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
 if False:
+#    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
+#    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
+#    STOP
     separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
-    #STOP
+#    STOP
     objectFiles = os.path.join(workPath,'SCIENCE.list')
     # subtract overscan and trim all images
     for inputList in ['ARC', 'BIAS', 'FLAT', 'SCIENCE','FLUXSTDS']:
@@ -144,7 +150,7 @@ if False:
                     masterFlat,
                     norm_value = 1.,
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
-
+if False:
     # interpolate images to get straight dispersion and spectral features
     for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')),
@@ -184,7 +190,7 @@ if False:
                     os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-if False:
+if True:
     subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))
     subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfif.list')))
 
@@ -200,12 +206,17 @@ if False:
     for inputFile in inputList:
         extractSum(inputFile, 'row', fNameOut = inputFile[:inputFile.rfind('.')]+'Ec.fits')
 
-    areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
+    areasFileName = os.path.join(workPath,'areas.csv')
+    print('reduce: areasFileName = '+areasFileName)
+    areas = csvFree.readCSVFile(areasFileName)
+    for i in range(areas.size()):
+        print('reduce: areas.getData("fName",',i,') = '+areas.getData('fName',i),', object = ',areas.getData('object',i),', skyBelow = ',areas.getData('skyBelow',i),', skyAbove = ',areas.getData('skyAbove',i,),', method = ',areas.getData('method',i),', notes = ',areas.getData('notes',i))
     scienceSpectra = []#extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
     for i in range(areas.size()):
         if areas.getData('fName',i)[0] != '#':
             skyAbove = None if areas.getData('skyAbove',i) == '' else [int(areas.getData('skyAbove',i)[1:areas.getData('skyAbove',i).find(':')]),int(areas.getData('skyAbove',i)[areas.getData('skyAbove',i).find(':')+1:-1])]
             skyBelow = None if areas.getData('skyBelow',i) == '' else [int(areas.getData('skyBelow',i)[1:areas.getData('skyBelow',i).find(':')]),int(areas.getData('skyBelow',i)[areas.getData('skyBelow',i).find(':')+1:-1])]
+            print('reduce: i = ',i,': fName = ',areas.getData('fName',i))
             extractObjectAndSubtractSky(os.path.join(workPath,areas.getData('fName',i)) if '/' not in areas.getData('fName',i) else areas.getData('fName',i),
                                         os.path.join(workPath,areas.getData('fName',i)[:-5]+'Ec.fits'),
                                         [int(areas.getData('object',i)[1:areas.getData('object',i).find(':')]),int(areas.getData('object',i)[areas.getData('object',i).find(':')+1:-1])],
