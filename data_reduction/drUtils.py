@@ -2288,6 +2288,7 @@ def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefi
         maxY = np.amax(specY)
         for line in lineListIdentified:
             plt.plot([line[1],line[1]],[minY,maxY])
+        plt.title(arcFitsName2D[arcFitsName2D.rfind('/')+1:])
         plt.show()
 
     return [lineListIdentified, coeffs, [0,xSpec[xSpec.shape[0]-1]], rms]
@@ -2402,6 +2403,7 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, display=False):
             plt.plot(wLenSpec,oneDSpecInterp,label='original')
             plt.plot(resampled,resampledSpec,label='resampled')
             plt.legend()
+            plt.title(arc)
             plt.show()
 
         writeFits1D(resampledSpec,
@@ -2545,6 +2547,7 @@ def calcResponse(fNameList, arcList, wLenOrig, areas, fluxStdandardList = '/User
     fluxStandardFileNames = np.asarray(fluxStandardFileNames)
     print('calcResponse: fluxStandardNames = ',fluxStandardNames)
     print('calcResponse: fluxStandardDirs = ',fluxStandardDirs)
+    print('calcResponse: reading fNameList <'+fNameList+'>')
     with open(fNameList, 'r') as f:
         fNames = f.readlines()
     fNames = [n.rstrip('\n') for n in fNames]

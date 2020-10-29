@@ -79,13 +79,13 @@ for i in range(nComponents):
     plt.legend()
     plt.show()
 
-# subtrace mean as sky
+# subtract mean as sky
 hdulistCubeMinusSkyOut.data = dataCubePlusSky
 for i in np.arange(0,dataCubePlusSky.shape[0],1):
     hdulistCubeMinusSkyOut.data[i,:] = dataCubePlusSky[i,:] - pca.mean_
 hdulistCubeMinusSkyOut.writeto(cubeMinusSkyOut, clobber=True)
 
-# subtrace mean as sky
+# subtract median as sky
 hdulistCubeMinusSkyOut.data = dataCubePlusSky
 skyArr = np.zeros(dataCubePlusSky.shape,dtype=np.float32)
 for i in np.arange(0,dataCubePlusSky.shape[1],1):

@@ -13,6 +13,8 @@ hashPNMainFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_290920.csv'
 
 minDistFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_hashDists.csv'
 newPNeFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped.csv'
+sqlCommandsFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped_add_to_HASH.sql'
+iphasTable = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped_table.sql'
 
 minDist = 100.
 
@@ -131,6 +133,34 @@ def groupNewPNeAndAverageCoordinates():
                                 ddecs.append(thisddec)
                     print('found ',len(group),' different coordinates for apparently the same PN')
                     f.write('%.5f,%.5f\n' % (np.mean(dras),np.mean(ddecs)))
+
+def addNewPNeToHASH():
+    inputData = csvFree.readCSVFile(newPNeFile)
+    with open(sqlCommandsFile,'w') as f:
+        with open(iphasTable,'w') as ft:
+            f.write("USE `MainGPN`;\n")
+            f.write("INSERT INTO `PNMain`(`idPNMain`,`PNG`,`refPNG`,`RAJ2000`,`DECJ2000`,`DRAJ2000`,`DDecJ2000`,")
+            f.write("`Glon`,`Glat`,`refCoord`,`Catalogue`,`refCatalogue`,`userRecord`,`domain`,`refDomain`,`PNstat`,`refPNstat`,`refSimbadID`,`show`) ")
+            f.write("VALUES (%d,'%s','%s','%s','%s',%.5f,%.5f,%.5f,%.5f,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');\n" % (idPNMainStart+nNotFound,
+                                                                                                                                  png,#csvBarlow.getData('PNG',iRow),
+                                                                                                                                  'sys',
+                                                                                                                                  ra,
+                                                                                                                                  dec,
+                                                                                                                                  hmsToDeg(ra),
+                                                                                                                                  dmsToDeg(dec),
+                                                                                                                                  lon,
+                                                                                                                                  lat,
+                                                                                                                                  'ziggy',
+                                                                                                                                  'ziggy',
+                                                                                                                                  'ziggy',
+                                                                                                                                  'ziggy',
+                                                                                                                                  'Galaxy',
+                                                                                                                                  'ziggy',
+                                                                                                                                  'c',
+                                                                                                                                  'ziggy',
+                                                                                                                                  'sys',
+                                                                                                                                  'y'))
+
 
 if __name__ == '__main__':
 #    createHashInFile()

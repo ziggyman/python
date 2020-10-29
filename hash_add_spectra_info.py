@@ -1,19 +1,20 @@
 import csv#Free,csvData
 
-pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/PNMain_full_Aug-07-2020.csv'
-fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_240920.csv'
-namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_240920.csv'
+pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_231020.csv'
+fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_231020.csv'
+namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_231020.csv'
 
 outFile = '/Users/azuri/daten/uni/HKU/HASH/add_spectra.sql'
-catalogName = 'SAAO_May2017'
+catalogName = 'FrenchAmateurs'
 catalogFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'cat.sql'
 
 #pnMain = csvFree.readCSVFile(pnMainFile)
 #fits = csvFree.readCSVFile(fitsFile)
-fitsStartId = 1
+fitsStartId = 10141
 reference = catalogName
-instrument = 'SIT1 1CD'
-telescope = 'SAAO 1.9m'
+instrument = 'Alpy 600 - 23 micron slit'
+telescope = 'Newton Skywatcher 200 mm F/5'
+sites = ['inner_CR','outer_CR','CN','CR']#['SA']
 
 def addSpectraInfo():
     with open(outFile,'w') as f:
@@ -34,7 +35,9 @@ def addSpectraInfo():
         #        print("int(rowFits['idFitsFiles']) = ",int(rowFits['idFitsFiles']))
                 if (int(rowFits['idFitsFiles']) >= fitsStartId) and (rowFits['reference'] == reference):
                     name = rowFits['fileName']
-                    name = name[:name.find('_SA')].replace('_','').replace('-','')
+                    for site in sites:
+                        if name.find('_'+site) >= 0:
+                            name = name[:name.find('_'+site)].replace('_','').replace('-','')
                     print(rowFits['idFitsFiles'],': name = <'+name+'>, bytes = ',bytes(name,'utf-8'))
                     found = False
                     namesReader = csv.DictReader(open(namesFile))
@@ -90,6 +93,6 @@ def justMakeCatalog():
                 nFound += 1
 
 if __name__ == "__main__":
-    #ids = addSpectraInfo()
+    ids = addSpectraInfo()
     justMakeCatalog()
     print("don't forget to add entry to MainPNData.DataInfo")
