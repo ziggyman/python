@@ -190,6 +190,8 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
 
             expType = hdulist[0].header['EXPTYPE']
             objectName = hdulist[0].header['OBJECT']
+            if ' ' in objectName:
+                objectName = objectName[:objectName.find(' ')]
             if changeNames:
                 fOutName = os.path.join(fOutName[:fOutName.rfind('/')],
                                         expType+'_'+objectName+'_'+fOutName[fOutName.rfind('/')+1:])
@@ -428,6 +430,7 @@ def combine(ccdImages,
 def subtractOverscan(fitsFilesIn, overscanSection, trimSection=None, fitsFilesOut=None, overwrite=True):
     dataOut = []
     for iFile in np.arange(0,len(fitsFilesIn),1):
+        print('subtractOverscan: reading file '+fitsFilesIn[iFile])
         ccdData = CCDData.read(fitsFilesIn[iFile], unit="adu")
         ccdDataNoOverscan = ccdproc.subtract_overscan(ccdData, fits_section=overscanSection)
         if trimSection is None:
@@ -1000,9 +1003,9 @@ def calcTrace(dbFile, apNum=0, xRange = None):
 # image with centers of aperture set to zero
 def markCenter(imFileIn, trace, imFileOut=None):
     image = CCDData.read(imFileIn, unit="adu")
-    print('markCenter: image = ',image)
-    print('markCenter: trace = ',len(trace),': ',trace)
-    print('markCenter: trace[0].shape = ',trace[0].shape)
+#    print('markCenter: image = ',image)
+#    print('markCenter: trace = ',len(trace),': ',trace)
+#    print('markCenter: trace[0].shape = ',trace[0].shape)
     for i in np.arange(0,trace[0].shape[0],1):
         image.data[int(trace[0][i]), int(trace[1][i])] = 0.
     if imFileOut is not None:
@@ -1294,8 +1297,8 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     for row in np.arange(0,image.shape[0],1):
         image[row,xProfInt+int(center[row])] = image[row,xProfInt+int(center[row])] / np.sum(image[row,xProfInt+int(center[row])])
         for x in xProfInt:
-            print('calcLineProfile: x = ',x,': center[',row,',] = ',center[row],', int(center[row]) = ',int(center[row]))
-            print('calcLineProfile: x + 0.5 - center[row] + int(center[row]) = ',x + 0.5 - center[row] + int(center[row]))
+#            print('calcLineProfile: x = ',x,': center[',row,',] = ',center[row],', int(center[row]) = ',int(center[row]))
+#            print('calcLineProfile: x + 0.5 - center[row] + int(center[row]) = ',x + 0.5 - center[row] + int(center[row]))
             profileDataX.append(x + 0.5 - center[row] + int(center[row]))
             profileDataY.append(image[row,x+int(center[row])])
 
@@ -1336,9 +1339,9 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     t = np.r_[(profileDataX[0],)*(k+1),
               t,
               (profileDataX[-1],)*(k+1)]
-    print('calcLineProfile: t=',t)
-    print('calcLineProfile: profileDataX = ',profileDataX.shape,': ',profileDataX)
-    print('calcLineProfile: profileDataY = ',profileDataY.shape,': ',profileDataY)
+#    print('calcLineProfile: t=',t)
+#    print('calcLineProfile: profileDataX = ',profileDataX.shape,': ',profileDataX)
+#    print('calcLineProfile: profileDataY = ',profileDataY.shape,': ',profileDataY)
     spl = make_lsq_spline(profileDataX, profileDataY, t, k)
     yFit = spl(x)
     if plot:
@@ -1347,16 +1350,16 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
         plt.show()
 
 
-    print('calcLineProfile: rectangles = ',rectangles)
-    print('calcLineProfile: intensities = ',intensities)
+#    print('calcLineProfile: rectangles = ',rectangles)
+#    print('calcLineProfile: intensities = ',intensities)
     normal = plt.Normalize(np.array(intensities).min(), np.array(intensities).max())
-    print('calcLineProfile: normal = ',type(normal),': ',normal)
+#    print('calcLineProfile: normal = ',type(normal),': ',normal)
     colors = plt.cm.Greys(normal(intensities))
-    print('calcLineProfile: colors = ',type(colors),': ',colors)
+#    print('calcLineProfile: colors = ',type(colors),': ',colors)
     cmap=plt.cm.Greys
-    print('calcLineProfile: cmap = ',type(cmap),': ',cmap)
+#    print('calcLineProfile: cmap = ',type(cmap),': ',cmap)
     c = cmap((np.array(colors) - np.amin(colors))/(np.amax(colors) - np.amin(colors)))
-    print('calcLineProfile: c = ',type(c),': ',c)
+#    print('calcLineProfile: c = ',type(c),': ',c)
 
     if plot:
         fig = plt.figure()
@@ -1408,6 +1411,7 @@ def getYAt(x,y,xAt):
 #    print('getYAt: xAt = ',xAt.shape,': ',xAt)
 #    xArr = np.array(x)
 #    yArr = np.array(y)
+#    print('getYAt: len(x) = ',len(x),', len(y) = ',len(y))
     f = interp1d(np.array(x), np.array(y), bounds_error = False,fill_value=0.)
     yOut = f(np.array(xAt))
 #    yOut = []
@@ -1448,7 +1452,7 @@ def xCor(static, moving):
 #    print('xCor: xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
     for iX in np.arange(0,xXCor.shape[0],1):
         xMovingPlot = moving[0]+xXCor[iX]
-#        print('xCor: xMovingPlot = ',xMovingPlot)
+#        print('xCor: xMovingPlot = ',len(xMovingPlot),': ',xMovingPlot)
 #        plt.plot(xMovingPlot,moving[1])
         xStaticPlot,yStaticPlot = getInsideRange(static[0],static[1], [xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1]])
         yStaticPlot = yStaticPlot - np.amin(yStaticPlot)
@@ -1468,14 +1472,14 @@ def xCor(static, moving):
 
 #    print('xCor: xCorChiSquares = ',xCorChiSquares)
     if plot:
-#        plt.plot(xXCor,xCorChiSquares/np.amax(xCorChiSquares), label='xCor')
-#        plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
+        plt.plot(xXCor,xCorChiSquares/np.amax(xCorChiSquares), label='xCor')
+        plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
 #        print('xCor: static[1].shape = ',static[1].shape)
 #        print('xCor: yAtXCor.shape = ',yAtXCor.shape)
 #        print('xCor: yAtXCor = ',yAtXCor)
-#        yPlot = yAtXCor / static[1]
-#        yPlot = yPlot / np.amax(yPlot)
-#        plt.plot(static[0], yPlot, label='xCor/static')
+        yPlot = yAtXCor / static[1]
+        yPlot = yPlot / np.amax(yPlot)
+        plt.plot(static[0], yPlot, label='xCor/static')
         plt.legend()
         plt.show()
     return np.array(xXCor), np.array(xCorChiSquares)
@@ -2176,7 +2180,7 @@ def getBestLineProfile(lineProfiles,outFileName=None,display=False):
         if np.amax(lineProfiles[lineProfileIdx][1]) > maxValue:
             bestLineProfileIdx = lineProfileIdx
     print('getBestLineProfile: best line profile found at index ',bestLineProfileIdx)
-    print('getBestLineProfile: lineProfiles = ',lineProfiles)
+#    print('getBestLineProfile: lineProfiles = ',lineProfiles)
     print('getBestLineProfile: lineProfiles[bestLineProfileIdx] = ',lineProfiles[bestLineProfileIdx])
     if display:
         plt.plot(lineProfiles[bestLineProfileIdx][0],lineProfiles[bestLineProfileIdx][1])
@@ -2234,20 +2238,20 @@ def crossCheckLines(lineList, referenceLineList):
 # @param lineListIn: array like (2D) [[position, wavelength], [position,wavelength],...]
 # @param profileIn: array like (2D): [x,y]: x,y: array like (1D): integral normalized emission line profile
 # @return: lineListOut: same as lineListIn with new positions
-def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefinitionFile, lineListIn, lineListOut=None, specOut=None, display=False):
-    print('referenceApertureDefinitionFile = <'+referenceApertureDefinitionFile+'>')
-    tempFile = arcFitsName2DForLineProfile[:arcFitsName2DForLineProfile.rfind('/')+1]+'database/aptmp'+arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]
-    print('reidentify: tempFile = <'+tempFile+'>')
-
-    gratingAngle = getHeaderValue(arcFitsName2D, 'GR-ANGLE', hduNum=0).strip()
-    copyfile(referenceApertureDefinitionFile % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])),tempFile)
-    with open(tempFile,'r') as f:
+def reidentify(arcFitsName2D,
+               arcFitsName2DForLineProfile,
+               referenceApertureDefinitionFile,
+               lineListIn,
+               lineListOut=None,
+               specOut=None,
+               display=False):
+    with open(referenceApertureDefinitionFile,'r') as f:
         lines = f.readlines()
-    with open(tempFile,'w') as f:
+    with open(referenceApertureDefinitionFile,'w') as f:
         for line in lines:
             f.write(line.replace(referenceApertureDefinitionFile[referenceApertureDefinitionFile.rfind('/')+3:],
                                  arcFitsName2DForLineProfile[arcFitsName2DForLineProfile.rfind('/')+1:arcFitsName2DForLineProfile.rfind('.')]))
-    print('reidentify: updated new database file ',tempFile)
+    print('reidentify: updated new database file ',referenceApertureDefinitionFile)
 #        STOP
 
     lineProfiles = getLineProfiles(arcFitsName2DForLineProfile, display=display)
@@ -2266,6 +2270,10 @@ def reidentify(arcFitsName2D, arcFitsName2DForLineProfile, referenceApertureDefi
             for line in goodLines:
                 f.write('%.5f\n' % line)
 
+    try:
+        gratingAngle = getHeaderValue(arc, 'GR-ANGLE', hduNum=0).strip()
+    except:
+        gratingAngle = '0.0'
     lineList = readFileToArr(lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])))
     for line in lineList:
         print('reidentify: line = <'+line+'>')
@@ -2364,21 +2372,81 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
     print('writeFits1D: writing file <'+outFileName+'>')
     pyasl.write1dFitsSpec(outFileName, flux, wvl=wavelength, waveParams=waveParams, fluxErr=None, header=head, clobber=True, refFileName=None, refFileExt=0)
 
-def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, display=False):
+def shiftLineList(lineListIn,lineListOut,shift):
+    with open(lineListIn,'r') as f:
+        lines = f.readlines()
+    lines = [line.strip() for line in lines]
+    lines = [line.split(' ') for line in lines]
+    lines = [[float(line[0])+shift,float(line[1])] for line in lines]
+    with open(lineListOut,'w') as f:
+        for line in lines:
+            f.write('%.2f %.5f\n' % (line[0], line[1]))
+
+def shiftApertureDefs(apDefFileIn,apDefFileOut,shift):
+    with open(apDefFileIn,'r') as f:
+        lines = f.readlines()
+    with open(apDefFileOut,'w') as f:
+        for line in lines:
+            if line.find('center') >= 0:
+                oldCenterTemp = line[line.find('center')+7:]
+                print('shiftApertureDefs: oldCenterTemp = <'+oldCenterTemp+'>')
+                oldCenter = float(oldCenterTemp[:oldCenterTemp.find(' ')])
+                print('shiftApertureDefs: oldCenter = <',oldCenter,'>')
+                newLine = line[:line.find('center')+7]+'%.5f' % (oldCenter+shift)
+                f.write(newLine+oldCenterTemp[oldCenterTemp.find(' '):])
+            else:
+                f.write(line)
+
+def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, display=False):
     print('refApDef = <'+refApDef)
     wavelengthsOrigOut = []
     wavelengthsResampledOut = []
+    xCorSpec = getImageData(xCorSpecIn,0)#[12:-12]
+    xCorSpecX = np.arange(0,len(xCorSpec),1)#[12:-12] - (len(xCorSpec) / 2.)
     for arc in arcListIn:
+        try:
+            gratingAngle = getHeaderValue(arc, 'GR-ANGLE', hduNum=0).strip()
+        except:
+            gratingAngle = '0.0'
+
         arcInterp = arc[:-5]+'i.fits'
         oneDSpecInterp = extractSum(arcInterp,'row')
+        oneDSpecInterpX = np.arange(0,len(oneDSpecInterp),1)
         if display:
             plt.plot(oneDSpecInterp)
             plt.show()
+        print('extractAndReidentifyARCs: len(oneDSpecInterp) = ',len(oneDSpecInterp),', len(xCorSpec) = ',len(xCorSpec))
+        corr = np.correlate(oneDSpecInterp,xCorSpec,'same')
+        print('extractAndReidentifyARCs: corr = ',len(corr),': ',corr)
+        if display:
+            plt.plot(oneDSpecInterpX,oneDSpecInterp,label='spectrum')
+            plt.plot(xCorSpecX,xCorSpec,label='reference spectrum')
+            plt.legend()
+            plt.show()
+            plt.plot(corr)
+            plt.show()
+        maxPos = np.where(corr == np.max(corr))[0]
+        print('extractAndReidentifyARCs: maxPos = ',maxPos)
+        shift = maxPos - (len(xCorSpec) / 2.)
+        print('extractAndReidentifyARCs: shift = ',shift)
+        if display:
+            plt.plot(oneDSpecInterpX,oneDSpecInterp,label='spectrum')
+            plt.plot(xCorSpecX+shift,xCorSpec,label='reference spectrum')
+            plt.legend()
+            plt.show()
+        shiftLineList(lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])),
+                      lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:]))+'tmp',
+                      shift)
+        print('extractAndReidentifyARCs: referenceApertureDefinitionFile = <'+refApDef+'>')
+        tempFile = arc[:arc.rfind('/')+1]+'database/aptmp'+arc[arc.rfind('/')+1:arc.rfind('.')]
+        print('extractAndReidentifyARCs: tempFile = <'+tempFile+'>')
 
+        copyfile(refApDef % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])),tempFile)
+        shiftApertureDefs(tempFile,tempFile,shift)
         lineListNew, coeffs, xRange, rms = reidentify(arcInterp,
                                                       arc,
-                                                      refApDef,
-                                                      lineListIn,
+                                                      tempFile,
+                                                      lineListIn+'tmp',
                                                       lineListOut=arc[:arc.rfind('.')]+'_lines.dat',
                                                       specOut=arc[:-5]+'Ecd.fits',
                                                       display=display)
@@ -2653,6 +2721,7 @@ def calcResponse(fNameList, arcList, wLenOrig, areas, fluxStdandardList = '/User
                                           flux=obj_flux)#.quantity,)
                                           #uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
 
+                print('calcResponse: obj_spectrum = ',obj_spectrum,', stdstar = ',stdstar)
                 sensfunc_lin = standard_sensfunc(obj_spectrum, stdstar, display=True, mode='linear')
                 print('calcResponse: sensfunc_lin = ',sensfunc_lin)
                 # the actual sensitivity function(s), which in theory include some crude information about
@@ -3020,3 +3089,21 @@ def removeFilesFromListWithAngleNotEqualTo(inputFileList,outputFileList,value):
                 f.write(line+'\n')
             else:
                 print('removing file '+line+': '+getHeaderValue(os.path.join(path,line), 'OBJECT', hduNum=0)+': '+getHeaderValue(os.path.join(path,line), 'EXPTYPE', hduNum=0))
+
+def fixStdWidth(stdFileName):
+    with open(stdFileName,'r') as f:
+        lines = f.readlines()
+    with open(stdFileName+'_fixed','w') as f:
+        f.write(lines[0])
+        wLen = []
+        flux = []
+        for line in lines[1:]:
+            wLen.append(float(line[:line.find('\t')]))
+            flux.append(float(line[line.find('\t'):line.rfind('\t')].strip()))
+        for i in range(len(wLen)):
+            if i == 0:
+                f.write('%.1f\t %.2f\t %.1f\n' % (wLen[i],flux[i],wLen[1]-wLen[0]))
+            elif i == len(wLen)-1:
+                f.write('%.1f\t %.2f\t %.1f\n' % (wLen[i],flux[i], (wLen[i]-wLen[i-1]) ))
+            else:
+                f.write('%.1f\t %.2f\t %.1f\n' % (wLen[i],flux[i], ((wLen[i]-wLen[i-1]) / 2.) + ((wLen[i+1]-wLen[i]) / 2.) ))

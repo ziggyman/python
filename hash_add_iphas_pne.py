@@ -2,21 +2,33 @@ import numpy as np
 
 import csvFree
 import csvData
-from myUtils import hmsToDeg, dmsToDeg, angularDistance
+from myUtils import hmsToDeg, dmsToDeg, angularDistance, degToHMS, degToDMS, raDecToLonLat, getPNG
 
 inFileName = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort.csv'
 hashInFileName = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_check_hash'
 hashOutFileName = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_hash_output.csv'
-hashAngDiamFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_tbAngDiam_240920.csv'
+hashPNMain_tbAngDiamFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_tbAngDiam_111120.csv'
+hashAngDiamFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_tbAngDiam_111120.csv'
+hashPNMain_CNamesFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_tbCNames_111120.csv'
+hashCNamesFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_111120.csv'
 hashAngExtFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_tbAngExt_290920.csv'
-hashPNMainFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_290920.csv'
+hashPNMainFileName = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_111120.csv'
 
 minDistFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_hashDists.csv'
 newPNeFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped.csv'
+newHashOutFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped_hashout.csv'
 sqlCommandsFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped_add_to_HASH.sql'
 iphasTable = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped_table.sql'
+catalogName = 'Sabin_IPHASPNe_Nov2020'
+hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/IPHAS_listALL2_MASPN_sort_new_grouped_table.hash'
 
 minDist = 100.
+csv = csvFree.readCSVFile(hashPNMainFileName)
+idPNMainStart = int(csv.getData('idPNMain',csv.size()-1))+1
+csv = csvFree.readCSVFile(hashPNMain_CNamesFileName)
+idtbCNamesStart = int(csv.getData('idtbCNames',csv.size()-1)) + 1
+csv = csvFree.readCSVFile(hashPNMain_tbAngDiamFileName)
+idtbAngDiamStart = int(csv.getData('idtbAngDiam',csv.size()-1)) + 1
 
 def createHashInFile():
     csvIphas = csvFree.readCSVFile(inFileName)
@@ -134,36 +146,139 @@ def groupNewPNeAndAverageCoordinates():
                     print('found ',len(group),' different coordinates for apparently the same PN')
                     f.write('%.5f,%.5f\n' % (np.mean(dras),np.mean(ddecs)))
 
+def makeHashFile():
+    inputData = csvFree.readCSVFile(newPNeFile)
+    with open(newPNeFile[:newPNeFile.rfind('.')]+'.hash','w') as fh:
+        for i in range(inputData.size()):
+            dra = float(inputData.getData('DRAJ2000',i))
+            ddec = float(inputData.getData('DDECJ2000',i))
+            lon, lat = raDecToLonLat(dra, ddec)
+            ra = degToHMS(dra)
+            dec = degToDMS(ddec)
+            print('lon = ',lon,', lat = ',lat,', dra = ',dra,', ddec = ',ddec,', ra = ',ra,', dec = ',dec)
+            png = getPNG(lon,lat)
+            fh.write(png+','+ra+','+dec+'\n')
+
+def getIPHASName(ra,dec):
+    hRa,mRa,sRa = ra.split(':')
+    dDec,mDec,sDec = dec.split(':')
+    sign = '+' if int(dDec) >= 0 else ''
+    return 'J'+hRa+mRa+sRa[:sRa.find('.')+3]+sign+dDec+mDec+sDec[:sDec.find('.')+2]
+
 def addNewPNeToHASH():
     inputData = csvFree.readCSVFile(newPNeFile)
+    PNMain = csvFree.readCSVFile(hashPNMainFileName)
+    hashOut = csvFree.readCSVFile(newHashOutFile)
+    pneInHash = hashOut.getData('id')
+    pngs = PNMain.getData('PNG')
+    pngsInHash = []
     with open(sqlCommandsFile,'w') as f:
         with open(iphasTable,'w') as ft:
+            ft.write('CREATE TABLE IF NOT EXISTS MainPNData.'+catalogName+' (\n')
+            ft.write('id'+catalogName+' INT AUTO_INCREMENT PRIMARY KEY UNIQUE,\n')
+            ft.write('idPNMain INT,\n')
+            ft.write('mapFlag VARCHAR(1) NOT NULL\n')
+            ft.write(');\n')
+
+            ft.write("USE `MainPNData`;\n")
+
+            ids = []
             f.write("USE `MainGPN`;\n")
-            f.write("INSERT INTO `PNMain`(`idPNMain`,`PNG`,`refPNG`,`RAJ2000`,`DECJ2000`,`DRAJ2000`,`DDecJ2000`,")
-            f.write("`Glon`,`Glat`,`refCoord`,`Catalogue`,`refCatalogue`,`userRecord`,`domain`,`refDomain`,`PNstat`,`refPNstat`,`refSimbadID`,`show`) ")
-            f.write("VALUES (%d,'%s','%s','%s','%s',%.5f,%.5f,%.5f,%.5f,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');\n" % (idPNMainStart+nNotFound,
-                                                                                                                                  png,#csvBarlow.getData('PNG',iRow),
-                                                                                                                                  'sys',
-                                                                                                                                  ra,
-                                                                                                                                  dec,
-                                                                                                                                  hmsToDeg(ra),
-                                                                                                                                  dmsToDeg(dec),
-                                                                                                                                  lon,
-                                                                                                                                  lat,
-                                                                                                                                  'ziggy',
-                                                                                                                                  'ziggy',
-                                                                                                                                  'ziggy',
-                                                                                                                                  'ziggy',
-                                                                                                                                  'Galaxy',
-                                                                                                                                  'ziggy',
-                                                                                                                                  'c',
-                                                                                                                                  'ziggy',
-                                                                                                                                  'sys',
-                                                                                                                                  'y'))
+            for i in range(inputData.size()):
+                dra = float(inputData.getData('DRAJ2000',i))
+                ddec = float(inputData.getData('DDECJ2000',i))
+                lon, lat = raDecToLonLat(dra, ddec)
+                ra = degToHMS(dra)
+                dec = degToDMS(ddec)
+                print('lon = ',lon,', lat = ',lat)
+                png = getPNG(lon,lat)
+                print('png = <'+png+'>')
+                if png in pngs:
+                    print('PNG '+png+' already in HASH')
+                    pngsInHash.append(png)
+                    png = png+'a'
+                if png in pngs:
+                    pngsInHash.append(png)
+                    print('PNG '+png+' already in HASH')
+                    png = png[:-1]+'b'
+                if png in pngs:
+                    pngsInHash.append(png)
+                    print('PNG '+png+' already in HASH')
+                    png = png[:-1]+'c'
+                if png in pngs:
+                    pngsInHash.append(png)
+                    print('PNG '+png+' already in HASH')
+                    png = png[:-1]+'d'
+                if png in pngs:
+                    pngsInHash.append(png)
+                    print('PNG '+png+' already in HASH')
+                    png = png[:-1]+'e'
+
+                if (png in pneInHash) and (hashOut.getData('pndb',pneInHash.index(png)) != ''):
+                    print('PNG '+png,' found in pneInHash: pneInHash.index(',png,') = ',pneInHash.index(png))
+                    idPNMain = int(hashOut.getData('pndb',pneInHash.index(png)))
+                    # add IPHAS name to common names
+                else:
+                    idPNMain = idPNMainStart+i
+                    ids.append(idPNMain)
+                    f.write("INSERT INTO `PNMain`(`idPNMain`,`PNG`,`refPNG`,`RAJ2000`,`DECJ2000`,`DRAJ2000`,`DDecJ2000`,")
+                    f.write("`Glon`,`Glat`,`refCoord`,`Catalogue`,`refCatalogue`,`userRecord`,`domain`,`refDomain`,`PNstat`,`refPNstat`,`refSimbadID`,`show`) ")
+                    f.write("VALUES (%d,'%s','%s','%s','%s',%.5f,%.5f,%.5f,%.5f,'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s');\n" % (idPNMain,
+                                                                                                                                          png,#csvBarlow.getData('PNG',iRow),
+                                                                                                                                          'sys',
+                                                                                                                                          ra,
+                                                                                                                                          dec,
+                                                                                                                                          dra,
+                                                                                                                                          ddec,
+                                                                                                                                          lon,
+                                                                                                                                          lat,
+                                                                                                                                          'ziggy',
+                                                                                                                                          'ziggy',
+                                                                                                                                          'ziggy',
+                                                                                                                                          'ziggy',
+                                                                                                                                          'Galaxy',
+                                                                                                                                          'ziggy',
+                                                                                                                                          'c',
+                                                                                                                                          'ziggy',
+                                                                                                                                          'sys',
+                                                                                                                                          'y'))
+
+                ft.write("INSERT INTO `"+catalogName+"`(`idPNMain`,`mapflag`) ")
+                ft.write("VALUES (%d,'%s');\n" % (idPNMain,
+                                                  'y'))
+                iphasName = getIPHASName(ra,dec)
+                f.write("INSERT INTO `PNMain_tbCNames`(`idPNMain`,`idtbCnames`) VALUES (%d,%d);\n" % (idPNMain,idtbCNamesStart + i))
+                f.write("INSERT INTO `tbCNames`(`idtbCNames`,`Name`,`InUse`,`refInUse`,`userRecord`,`idPNMain`,`simbadID`,`flag`) ")
+                f.write("VALUES (%d,'%s',%d,'%s','%s',%d,'%s','%s');\n" % (idtbCNamesStart+1,
+                                                                           iphasName,
+                                                                           1,
+                                                                           'sys',
+                                                                           'sys',
+                                                                           idPNMain,
+                                                                           'n',
+                                                                           'n'))
+                f.write("INSERT INTO `PNMain_tbAngDiam`(`idPNMain`,`idtbAngDiam`) VALUES (%d,%d);\n" % (idPNMain,idtbAngDiamStart + i))
+                f.write("INSERT INTO `tbAngDiam`(`idtbAngDiam`,`MajDiam`,`InUse`,`userRecord`,`idPNMain`,`tempflag`) ")
+                f.write("VALUES (%d,%.0f,%d,'%s',%d,'%s');\n" % (idtbAngDiamStart + i,
+                                                                 300.,
+                                                                 1,
+                                                                 'sys',
+                                                                 idPNMain,
+                                                                 'n'))
+
+    with open(hashpnFile,'w') as hf:
+        for id in ids:
+            hf.write('hashpn fetch all '+str(id)+' -w force\n')
+            hf.write('hashpn brew all '+str(id)+' -w\n')
+            hf.write('echo "finished HASH ID %d" >> logfile_IPHAS.log\n' % id)
+
+    print('pngsInHash = ',pngsInHash)
 
 
 if __name__ == '__main__':
 #    createHashInFile()
 #    checkHashOutFileRadii()
 #    findInsidePN()
-    groupNewPNeAndAverageCoordinates()
+#    groupNewPNeAndAverageCoordinates()
+#    makeHashFile()
+    addNewPNeToHASH()

@@ -384,6 +384,10 @@ def getRaDecXY(string):
 #    print('getRaDecXY: strs = ',strs)
     return [strs[0], strs[1], float(strs[len(strs)-2]), float(strs[len(strs)-1])]
 
+#@brief convert RA and DEC to Galactic Longitude and Latitude
+#@param ra: RA in degrees
+#@param dec: DEC in degrees
+#@return [lon, lat]
 def raDecToLonLat(ra, dec):
     c = SkyCoord(ra=ra*u.degree, dec=dec*u.degree, frame='icrs')
 #    print('c.galactic = ',type(c.galactic),': ',c.galactic)
@@ -411,13 +415,15 @@ def lonLatToRaDec(l, b):
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
     h, m, s = [float(i) for i in string.split(':')]
-    return (s / 240.) + (m / 4.) + (h * 15.)
+    return (15. * s / 3600.) + (15. * m / 60.) + (h * 15.)
 
 def degToHMS(degrees):
     h = int(degrees / 15.)
-    m = int(degrees - (h * 15.)) * 4.
-    s = degrees - (m/4.) - (h/15.)
-    return '%d:%02d:%.3f' % (h,m,s)
+    m = int((degrees - (h * 15.)) * 4.)
+    s = (degrees - (m/4.) - (h*15.)) * 240.
+    sStr = '%.3f' % (s)
+    sStr = sStr.zfill(6)
+    return '%02d:%02d:%s' % (h,m,sStr)
 
 # string = xx:yy:zz.zzz
 def dmsToDeg(string):
@@ -427,6 +433,14 @@ def dmsToDeg(string):
         return 0. - (s / 3600. + m / 60. + d)
     return s / 3600. + m / 60. + d
 
+def degToDMS(degrees):
+    d = int(degrees)
+    m = int((degrees - d) * 60)
+    s = (degrees - d - (m/60.)) * 3600.
+    sStr = '%.3f' % abs(s)
+    sStr = sStr.zfill(6)
+    return '%02d:%02d:%s' % (d,abs(m),sStr)
+
 def hmsToCoordStr(string):
     h, m, s = [i for i in string.split(':')]
     return h+'h'+m+'m'+s+'s'
@@ -434,6 +448,9 @@ def hmsToCoordStr(string):
 def dmsToCoordStr(string):
     d, m, s = [i for i in string.split(':')]
     return d+'d'+m+'m'+s+'s'
+
+def getPNG(lon,lat):
+    return str(lon)[:str(lon).find('.')+2].zfill(5)+('+'if lat >= 0. else '-')+str(abs(lat))[:str(abs(lat)).find('.')+2].zfill(4)
 
 # all angles must be in degrees
 #@return: angular distance in arc degrees

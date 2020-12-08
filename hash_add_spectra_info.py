@@ -1,20 +1,21 @@
 import csv#Free,csvData
 
-pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_231020.csv'
-fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_231020.csv'
-namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_231020.csv'
+pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_091120.csv'
+fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_091120.csv'
+namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_091120.csv'
 
 outFile = '/Users/azuri/daten/uni/HKU/HASH/add_spectra.sql'
-catalogName = 'FrenchAmateurs'
+catalogName = 'SAAO_Aug2018'
 catalogFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'cat.sql'
+hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'_hashpn.sql'
 
 #pnMain = csvFree.readCSVFile(pnMainFile)
 #fits = csvFree.readCSVFile(fitsFile)
 fitsStartId = 10141
 reference = catalogName
-instrument = 'Alpy 600 - 23 micron slit'
-telescope = 'Newton Skywatcher 200 mm F/5'
-sites = ['inner_CR','outer_CR','CN','CR']#['SA']
+instrument = 'SpUpNIC SIT1 1CD'
+telescope = 'SAAO 1.9m'
+sites = ['SA']#['inner_CR','outer_CR','CN','CR']#
 
 def addSpectraInfo():
     with open(outFile,'w') as f:
@@ -38,6 +39,8 @@ def addSpectraInfo():
                     for site in sites:
                         if name.find('_'+site) >= 0:
                             name = name[:name.find('_'+site)].replace('_','').replace('-','')
+                    if name[:-1] == 'NGC246':
+                        name = 'NGC246'
                     print(rowFits['idFitsFiles'],': name = <'+name+'>, bytes = ',bytes(name,'utf-8'))
                     found = False
                     namesReader = csv.DictReader(open(namesFile))
@@ -48,7 +51,7 @@ def addSpectraInfo():
                         if thisName == name:
                             found = True
                             idPNMain = rowNames['idPNMain']
-                            print('found ',name,' in idPNMain = ',idPNMain)
+                            print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
                             ids.append([rowFits['idFitsFiles'],idPNMain])
 
                             pnMainReader = csv.DictReader(open(pnMainFile))
@@ -91,8 +94,14 @@ def justMakeCatalog():
                     print('id ',idPNMain,' already in catalog')
                 ids.append(idPNMain)
                 nFound += 1
+    with open(hashpnFile,'w') as hf:
+        hf.write('hashpn spetch all ')
+        hf.write(str(ids[0]))
+        for id in ids[1:]:
+            hf.write(','+str(id))
+        hf.write(' -w')
 
 if __name__ == "__main__":
-    ids = addSpectraInfo()
+#    ids = addSpectraInfo()
     justMakeCatalog()
     print("don't forget to add entry to MainPNData.DataInfo")

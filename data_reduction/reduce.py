@@ -11,11 +11,11 @@ from shutil import copyfile
 
 import csvFree, csvData
 
-overscanSection = '[1983:,:]'
-trimSection = '[17:1982,38:97]'
+overscanSection = '[4:21,1:133]'#'[1983:,:]'
+trimSection = '[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao_aug2018/20180811/'
+workPath = '/Users/azuri/spectra/saao/saao_mar2014/night1/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
@@ -30,7 +30,10 @@ refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle15_85_lines_identified_good.dat')
-lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2018.dat')
+#lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2018.dat')
+lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_mar2014.dat')
+#referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
+referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
 
 print('EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
 observatoryLocation = EarthLocation.of_site('SAAO')
@@ -159,7 +162,7 @@ if False:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')),
                            refVerticalTraceDB,
                            refHorizontalTraceDB)
-
+if False:
     # create master SkyFlat
     combinedSkyFlat = os.path.join(workPath,'combinedSkyFlat.fits')
     print('creating combinedSkyFlat <'+combinedSkyFlat+'>')
@@ -177,7 +180,7 @@ if False:
     interpolateTraceIm([combinedSkyFlat],
                         refVerticalTraceDB,
                         refHorizontalTraceDB)
-
+if False:
     makeSkyFlat(os.path.join(workPath,'combinedSkyFlati.fits'),
                 os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                 7)
@@ -198,8 +201,9 @@ if True:
     wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(getListOfFiles(os.path.join(workPath,'ARC_otzxf.list')),
                                                                      refProfApDef,
                                                                      lineList,
+                                                                     referenceSpectrum,
                                                                      display=True)
-
+if True:
     # extract arcs and science data
     #extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis)
     inputList = getListOfFiles(os.path.join(workPath,'ARC_otzxfif.list'))
