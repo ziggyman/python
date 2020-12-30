@@ -1504,13 +1504,15 @@ def xCorFindMinimum(xCorX, xCorY):
 # @param sigma: sigma of Gaussians to fit
 # @param peakHeight: float: minimum peak height in spec for find_peaks
 # @param peakWidth: float: minimum peak width in spec for find_peaks
-def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False):
+def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, threshold=None, plot=False):
     maxPosDiff = 0.67
-    maxSigDiff = sigma / 2.
-    peaks,properties = find_peaks(spec, height = peakHeight, width=peakWidth)#, threshold=100)#
+    maxSigDiff = sigma * 0.6
+    print('findLines: peakHeight = ',peakHeight,', peakWidth = ',peakWidth,', threshold = ',threshold)
+    peaks,properties = find_peaks(spec, height = peakHeight, width=peakWidth, threshold=threshold)#
     if plot:
         plt.plot(spec)
         plt.scatter(peaks,spec[peaks])
+        plt.title('peaks')
         plt.show()
 
     """Check that all peaks are within xCorX range"""
@@ -1536,6 +1538,7 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
     xCorPeaks = np.array(xCorPeaks)
     if plot:
         plt.scatter(xCorX[xCorPeaks],yNorm[xCorPeaks])
+        plt.title('scaled peak profile centers')
         plt.show()
 
     xDiff = []
@@ -1582,15 +1585,16 @@ def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, plot=False
             if popt[0] >= maxAmp:
                 print('findLines: amplitude >= ',maxAmp)
             if np.absolute(xCenter - popt[1]) >= maxPosDiff:
-                print('findLines: np.absolute(xCenter - popt[1]) >= maxPosDiff=',maxPosDiff)
+                print('findLines: np.absolute(xCenter - popt[1])(=',np.absolute(xCenter - popt[1]),') >= maxPosDiff=',maxPosDiff)
             if np.absolute(sigma - popt[2]) >= maxSigDiff:
-                print('findLines: np.absolute(sigma - popt[2]) >= maxSigDiff=',maxSigDiff)
+                print('findLines: np.absolute(sigma - popt[2])(=',np.absolute(sigma - popt[2]),') >= maxSigDiff=',maxSigDiff)
             xDiff.append(xi[int(xi.shape[0]/2)])
             yFit = gauss(xi,*popt)
             if plot:
                 plt.plot(xi,yi)
                 plt.plot(xi,yFit)
                 plt.scatter(xCorX[xCorPeaks[i]],yNorm[xCorPeaks[i]])
+                plt.title('rejected line at %.2f' % (xCenter))
                 plt.show()
             yDiff.append(np.sum(((yi-yFit) / np.amax(yi))**2) / yi.shape[0])
     if plot:
@@ -1813,13 +1817,14 @@ def sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, low
             plt.show()
     return [coeffs, fittedValues]
 
+# NOTE: only takes the median of the lower half of the sorted values in order to allow the sky subtraction for extended objects
 def subtractMedianSky(twoDImageFilesIn):
     for twoDImageFileIn in twoDImageFilesIn:
         image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
         objectSpec = []
         skyImage = np.zeros(image.shape)
         for col in range(image.shape[1]):
-            skyImage[:,col] = np.ones(image.shape[0]) * np.median(image[:,col])
+            skyImage[:,col] = np.ones(image.shape[0]) * np.median(np.sort(image[:,col])[0:int(image.shape[0]/2)])
         image = image - np.array(skyImage)
         writeFits(skyImage, twoDImageFileIn, twoDImageFileIn[:-5]+'MedianSky.fits', metaKeys=None, metaData=None, overwrite=True)
         writeFits(image, twoDImageFileIn, twoDImageFileIn[:-5]+'-MedianSky.fits', metaKeys=None, metaData=None, overwrite=True)
@@ -1949,7 +1954,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
                 plt.show()
 
             for iCol in range(image.shape[1]):
-                image[:,iCol] = image[:,iCol] - (skyImage[:,iCol] * resultFit[iCol])
+                image[:,iCol] = image[:,iCol] - (skyImage[:,iCol])# * resultFit[iCol])
             objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
     else:
         if display:
@@ -2050,8 +2055,10 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
                        xXCor,
                        xCorChiSquares,
                        3.,
-                       peakHeight=np.amax(ySpec) / (300000. / 14000.),
-                       peakWidth=3.,
+                       peakHeight=np.amax(ySpec) * 0.0025,#/ (300000. / 14000.),
+                       peakWidth=2.5,#3.,
+                       threshold=300.,
+                       plot=display,
                       )
     print('findGoodLines: linesX = ',linesX)
 
@@ -2280,7 +2287,7 @@ def reidentify(arcFitsName2D,
         print('reidentify: line[:line.find(' ')] = <'+line[:line.find(' ')]+'>, line[line.find(' ')+1:] = <'+line[line.find(' ')+1:]+'>')
     refLineList = [[float(line[:line.find(' ')]),float(line[line.find(' ')+1:])] for line in lineList]
     lineListIdentified = crossCheckLines(goodLines,refLineList)
-    print('reidentify: lineListIdentified = ',len(lineListIdentified),': ',lineListIdentified)
+    print('reidentify: ',arcFitsName2D,': lineListIdentified = ',len(lineListIdentified),': ',lineListIdentified)
     if not lineListOut is None:
         with open(lineListOut,'w') as f:
             for line in lineListIdentified:
@@ -2494,12 +2501,18 @@ def getClosestInTime(fitsFileName, fitsList):
     for iArc in range(len(fitsList)):
         hdulist = pyfits.open(fitsList[iArc])
         head = hdulist[0].header
-        arcTimes.append(head['HJD-OBS'])
+        try:
+            arcTimes.append(head['HJD-OBS'])
+        except:
+            arcTimes.append(head['MJD-OBS'])
 
     hdulist = pyfits.open(fitsFileName)
     headerSc = hdulist[0].header
     print('getClosestInTime: headerSc = ',headerSc)
-    specTime = headerSc['HJD-OBS']
+    try:
+        specTime = headerSc['HJD-OBS']
+    except:
+        specTime = headerSc['MJD-OBS']
     timeDiffs = np.absolute(np.array(arcTimes) - specTime)
     print('getClosestInTime: timeDiffs = ',timeDiffs)
     closestArc = np.where(timeDiffs == np.min(timeDiffs))[0][0]
@@ -2742,7 +2755,10 @@ def calcResponse(fNameList, arcList, wLenOrig, areas, fluxStdandardList = '/User
                 # now let's demo the Airmass correction
                 Xfile = obs_extinction(airmassExtCor)
 
-                AIRVAL = float(img.header['AIRMASS'])
+                try:
+                    AIRVAL = float(img.header['AIRMASS'])
+                except:
+                    AIRVAL = float(img.header['SECZ'])
                 print('calcResponse: AIRMASS = ',AIRVAL)
                 Atest = airmass_cor(obj_spectrum, AIRVAL, Xfile)
 
@@ -2791,7 +2807,10 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='
  #                                 uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
         Xfile = obs_extinction(airmassExtCor)
 
-        AIRVAL = float(img.header['AIRMASS'])
+        try:
+            AIRVAL = float(img.header['AIRMASS'])
+        except:
+            AIRVAL = float(img.header['SECZ'])
 #        print('applySensFuncs: AIRMASS = ',AIRVAL)
 #        print('applySensFuncs: obj_spectrum = ',obj_spectrum)
         obj_spectrum = airmass_cor(obj_spectrum, AIRVAL, Xfile)
@@ -2830,7 +2849,10 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
 
     FluxCal = fluxcal.FluxCalibration()
     print('fluxCalibrate: dir(FluxCal) = ',dir(FluxCal))
-    airmass = float(getHeaderValue(obsSpecFName,'AIRMASS'))
+    try:
+        airmass = float(getHeaderValue(obsSpecFName,'AIRMASS'))
+    except:
+        airmass = float(getHeaderValue(obsSpecFName, 'SECZ'))
     print('fluxCalibrate:type(airmass) = ',type(airmass))
     FluxCal(objectSpectrum, airmass)
 

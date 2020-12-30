@@ -21,9 +21,11 @@ refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 
 #refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/apvertical_trace'
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
-refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
+#refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_2014')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
+#refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_2014_transposed')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_85')#16_3')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')
 refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d')
@@ -105,7 +107,7 @@ if False:
                      masterBias,
                      fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                      overwrite=True)
-if False:
+
     # create master DomeFlat
     combinedFlat = os.path.join(workPath,'combinedFlat.fits')
     print('creating combinedFlat <'+combinedFlat+'>')
@@ -153,7 +155,7 @@ if False:
                     masterFlat,
                     norm_value = 1.,
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')))
-if False:
+
     # interpolate images to get straight dispersion and spectral features
     for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')),
@@ -162,7 +164,7 @@ if False:
         interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzf.list')),
                            refVerticalTraceDB,
                            refHorizontalTraceDB)
-if False:
+
     # create master SkyFlat
     combinedSkyFlat = os.path.join(workPath,'combinedSkyFlat.fits')
     print('creating combinedSkyFlat <'+combinedSkyFlat+'>')
@@ -180,7 +182,7 @@ if False:
     interpolateTraceIm([combinedSkyFlat],
                         refVerticalTraceDB,
                         refHorizontalTraceDB)
-if False:
+
     makeSkyFlat(os.path.join(workPath,'combinedSkyFlati.fits'),
                 os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                 7)
@@ -193,17 +195,17 @@ if False:
                     os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                     fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-if True:
     subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))
     subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfif.list')))
 
+if True:
     # extract and reidentify ARCs
     wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(getListOfFiles(os.path.join(workPath,'ARC_otzxf.list')),
                                                                      refProfApDef,
                                                                      lineList,
                                                                      referenceSpectrum,
-                                                                     display=True)
-if True:
+                                                                     display=False)
+
     # extract arcs and science data
     #extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis)
     inputList = getListOfFiles(os.path.join(workPath,'ARC_otzxfif.list'))
@@ -238,13 +240,13 @@ if True:
                 wavelengthsOrig,
                 getListOfFiles(os.path.join(workPath,inputList+'_otzxfifEcd.list')),
                 observatoryLocation,
-                'TELRA',
-                'TELDEC',
+                'RA',#TELRA',
+                'DEC',#TELDEC',
                 'DATE-OBS',
                 doHelioCor = doHelioCor)
 
     areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
-    sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzxfif.list'),
+    sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfif.list'),
                              getListOfFiles(os.path.join(workPath,'ARC_otzxfiEc.list')),
                              wavelengthsOrig,
                              areas)
