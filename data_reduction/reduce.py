@@ -15,7 +15,7 @@ overscanSection = '[4:21,1:133]'#'[1983:,:]'
 trimSection = '[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao_mar2014/night1/'
+workPath = '/Users/azuri/spectra/saao/saao-aug2013/night3/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
@@ -27,15 +27,17 @@ refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_2
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
 refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_2014_transposed')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_85')#16_3')
-#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d')
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d_aug2013')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle15_85_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2018.dat')
-lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_mar2014.dat')
+#lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_mar2014.dat')
+lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2013.dat')
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
-referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
+#referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
+referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_aug2013.fits'
 
 print('EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
 observatoryLocation = EarthLocation.of_site('SAAO')
@@ -198,7 +200,7 @@ if False:
     subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list')))
     subtractMedianSky(getListOfFiles(os.path.join(workPath,'SCIENCE_otzxfif.list')))
 
-if True:
+if False:
     # extract and reidentify ARCs
     wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(getListOfFiles(os.path.join(workPath,'ARC_otzxf.list')),
                                                                      refProfApDef,
@@ -211,6 +213,14 @@ if True:
     inputList = getListOfFiles(os.path.join(workPath,'ARC_otzxfif.list'))
     for inputFile in inputList:
         extractSum(inputFile, 'row', fNameOut = inputFile[:inputFile.rfind('.')]+'Ec.fits')
+
+    print('wavelengthsOrig = ',wavelengthsOrig)
+    print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
+    inputList = getListOfFiles(os.path.join(workPath,'ARC_otzxfifEc.list'))
+    for i in range(len(inputList)):
+        with open(inputList[i][:inputList[i].rfind('.')]+'_wLenOrig.dat','w') as f:
+            for wLen in wavelengthsOrig[i]:
+                f.write('%.8f\n' % (wLen))
 
     areasFileName = os.path.join(workPath,'areas.csv')
     print('reduce: areasFileName = '+areasFileName)
@@ -244,6 +254,15 @@ if True:
                 'DEC',#TELDEC',
                 'DATE-OBS',
                 doHelioCor = doHelioCor)
+if True:
+    inputList = getListOfFiles(os.path.join(workPath,'ARC_otzxfifEc.list'))
+    wavelengthsOrig = []
+    for i in range(len(inputList)):
+        wLenStr = readFileToArr(inputList[i][:inputList[i].rfind('.')]+'_wLenOrig.dat')
+        wLens = [float(wLen) for wLen in wLenStr]
+        wavelengthsOrig.append(np.asarray(wLens))
+    print('wavelengthsOrig = ',wavelengthsOrig)
+    print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
 
     areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
     sensFuncs = calcResponse(os.path.join(workPath,'FLUXSTDS_otzfif.list'),

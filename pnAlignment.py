@@ -1,4 +1,5 @@
 #import glob
+import csv
 import numpy as np
 import os
 import matplotlib
@@ -11,6 +12,8 @@ from astropy.stats import circstats
 import pycircstat
 import subprocess
 
+from PIL import Image, ImageDraw
+
 import csvData
 import csvFree
 #from galaxyMath import raDecToLB, parallaxToDistance,degToRad,radToDeg
@@ -21,8 +24,12 @@ reesZijlstra = False
 mockSample = False
 mockRandomSample = False
 
+rotateBipolars = False
+
 path = '/Users/azuri/daten/uni/HKU/PN alignment'
-outPath = '/Volumes/work/azuri/data/pnAlignment'
+outPath = '/Volumes/discovery/azuri/data/pnAlignment'
+if rotateBipolars:
+    outPath = outPath + '/bipolars_rotated'
 xRangeMax = [-2.83,2.83]
 yRangeMax = [-1.4143,1.4143]
 
@@ -42,7 +49,7 @@ if reesZijlstra:
 
 else:
     #my data:
-    dataFileName = os.path.join(path, 'PN-alignments4.csv')
+    dataFileName = os.path.join(path, 'PN-alignments_finished.csv')
 #    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
     if mockSample:
         hashFileName = os.path.join(path, 'mock/HASH_bipolar+elliptical_true_PNe_withPA_Bmean45_sdev10_Emean135_sdev20.csv')
@@ -55,15 +62,15 @@ else:
     #xRange = [-0.263,0.263]
     #yRange = [-0.0873,0.0873]#yRangeMax#
     areas = [[xRangeMax,yRangeMax],                       # all sky
-#             [[0.,xRangeMax[1]],[0.,yRangeMax[1]]],       # all sky 1st quadrant
-#             [[xRangeMax[0],0],[0.,yRangeMax[1]]],        # all sky 2nd quadrant
-#             [[xRangeMax[0],0],[yRangeMax[0],0.]],        # all sky 3rd quadrant
-#             [[0.,xRangeMax[1]],[yRangeMax[0],0.]],       # all sky 4th quadrant
-#             [[-0.172482,0.172482],[-0.174476,0.174476]], # bulge
-#             [[0.,0.172482],[0.,0.174476]],               # bulge 1st quadrant
-#             [[-0.172482,0.],[0.,0.174476]],              # bulge 2nd quadrant
-#             [[-0.172482,0.],[-0.174476,0.]],             # bulge 3rd quadrant
-#             [[0.,0.172482],[-0.174476,0.]],              # bulge 4th quadrant
+             #[[0.,xRangeMax[1]],[0.,yRangeMax[1]]],       # all sky 1st quadrant
+             #[[xRangeMax[0],0],[0.,yRangeMax[1]]],        # all sky 2nd quadrant
+             #[[xRangeMax[0],0],[yRangeMax[0],0.]],        # all sky 3rd quadrant
+             #[[0.,xRangeMax[1]],[yRangeMax[0],0.]],       # all sky 4th quadrant
+             #[[-0.172482,0.172482],[-0.174476,0.174476]], # bulge
+             #[[0.,0.172482],[0.,0.174476]],               # bulge 1st quadrant
+             #[[-0.172482,0.],[0.,0.174476]],              # bulge 2nd quadrant
+             #[[-0.172482,0.],[-0.174476,0.]],             # bulge 3rd quadrant
+             #[[0.,0.172482],[-0.174476,0.]],              # bulge 4th quadrant
             ]
     nBins = 36
 
@@ -492,6 +499,33 @@ def makeLatexName(inputStr):
         tempStr = tmpStr
     return tempStr
 
+def plotEPA(imageName,imageNameEPA,epa):
+    if os.path.isfile(imageName):
+        print('imageName = ',imageName)
+        im = Image.open(imageName)
+        width, height = im.size
+        d = ImageDraw.Draw(im)
+
+        if width < height:
+            r = width / 2.
+        else:
+            r = height / 2.
+        print('r = ',r)
+        center = [width/2,height/2]
+
+        epaRad = math.radians(epa)
+
+        topLeft = (center[0] - r*math.sin(epaRad), center[1] - r*math.cos(epaRad))
+        bottomRight = (center[0] + r*math.sin(epaRad), center[1] + r*math.cos(epaRad))
+        print('width = ',width,', height = ',height,': center = ',center,'; topLeft = ',topLeft,', bottomRight = ',bottomRight)
+
+        line_color = (255, 255, 0)
+
+    #    d.line([(center[0]-(width/10.),center[1]),(center[0]+(width/10.),center[1])],fill=line_color, width=2)
+    #    d.line([(center[0],center[1]-(width/10.)),(center[0],center[1]+(width/10.))],fill=line_color, width=2)
+        d.line([topLeft,bottomRight], fill=line_color, width=2)
+
+        im.save(imageNameEPA)
 
 if __name__ == "__main__":
     #print('data.getData("EPA") = ',data.getData('EPA'))
@@ -523,9 +557,10 @@ if __name__ == "__main__":
             with open(latexFileNameSummary,'w') as texFileSummary:
                 texFileSummary.write('\\documentclass{article}\n')
                 texFileSummary.write('\\usepackage{graphicx}\n')
+                texFileSummary.write('\\usepackage{xcolor}\n')
                 texFileSummary.write('\\usepackage{float}\n')
                 texFileSummary.write('\\begin{document}\n')
-                for maxFlag in np.arange(1,4,1):
+                for maxFlag in [3]:#np.arange(1,4,1):
                     for mainClass in mainClasses:
                         for rosePlotArea in [True,]:#False,True]:#,False]:
                             for rosePlotSmooth in [False,]:#True,False]:
@@ -557,17 +592,19 @@ if __name__ == "__main__":
 
                                     lbxyGPA = [] #Glon, Glat, x, y, GPA, flag, csGlon, csGlat, [dist,...]
             #                        hashIDs = []
+                                    latexFileName = os.path.join(imOutPath, 'PN-alignments.tex')
 
                                     with open(latexFileName,'w') as texFile:
                                         texFile.write('\\documentclass{article}\n')
                                         texFile.write('\\usepackage{longtable}\n')
+                                        texFile.write('\\usepackage{xcolor}\n')
                                         texFile.write('\\usepackage{graphicx}\n')
                                         texFile.write('\\usepackage[space]{grffile}')
                                         texFile.write('\\usepackage[legalpaper, landscape, margin=0.5in]{geometry}\n')
                                         texFile.write('\\begin{document}\n')
-                                        texFile.write('\\begin{longtable}{| p{.03\\textwidth} | p{.05\\textwidth} | p{.05\\textwidth} | p{.05\\textwidth} | p{.05\\textwidth} | p{.03\\textwidth} | p{.02\\textwidth} | p{.06\\textwidth} | p{.04\\textwidth} | p{.03\\textwidth} | p{.12\\textwidth} | p{.30\\textwidth} |}\n')
+                                        texFile.write('\\begin{longtable}{| p{.03\\textwidth} | p{.05\\textwidth} | p{.05\\textwidth} | p{.05\\textwidth} | p{.05\\textwidth} | p{.03\\textwidth} | p{.03\\textwidth} | p{.03\\textwidth} | p{.02\\textwidth} | p{.06\\textwidth} | p{.04\\textwidth} | p{.03\\textwidth} | p{.06\\textwidth} | p{.30\\textwidth} |}\n')
                                         texFile.write('\\hline\n')
-                                        texFile.write('HASH ID & DRAJ2000 & DDECJ2000 & l & b & EPA & flag & GPA & class & majDiam & source & image\\\\ \n')
+                                        texFile.write('HASH ID & DRAJ2000 & DDECJ2000 & l & b & EPA & QAP & diff & flag & GPA & class & majDiam & source & image\\\\ \n')
                                         texFile.write('\\hline\n')
                                         prev = -1
                                         prevPrev = -1
@@ -591,19 +628,40 @@ if __name__ == "__main__":
                                                     imageName = os.path.join(path, 'thumbnails/'+hashID+'a.png')
                                                 if not os.path.isfile(imageName):
                                                     print('file <'+imageName+'> not found')
+                                            imageNameEPA = imageName[:imageName.rfind('.')]+'_EPA.png'
+                                            plotEPA(imageName,imageNameEPA,float(hashData.getData('EPA', iLine)))
                                             texFile.write(hashID+' & ')
                                             texFile.write(hashData.getData('DRAJ2000', iLine)+' & ')
                                             texFile.write(hashData.getData('DDECJ2000', iLine)+' & ')
                                             texFile.write(hashData.getData('Glon', iLine)+' & ')
                                             texFile.write(hashData.getData('Glat', iLine) + ' & ')
                                             texFile.write(hashData.getData('EPA', iLine)+' & ')
-                                            texFile.write(hashData.getData('flag', iLine)+' & ')
-                                            texFile.write(hashData.getData('GPA', iLine)+' & ')
-                                            texFile.write(hashData.getData('mainClass', iLine) + hashData.getData('subClass', iLine) + ' & ')
-                                            texFile.write(hashData.getData('MajDiam', iLine) + ' & ')
-                                            texFile.write(hashData.getData('source', iLine)+' & ')
+                                            qapTable = csv.DictReader(open('/Users/azuri/daten/uni/HKU/PN_orientation_angles/HASH-True-PN-EPA-measures.csv'))
+                                            color = 'black'
+                                            foundQAP = False
+                                            for row in qapTable:
+                                                if (row['HASH ID'] == hashID) and (row['EPA Ziggy'] == hashData.getData('EPA', iLine)):
+                                                    texFile.write(row['QAP EPA']+' & ')
+                                                    difference = row['ZIG-QAP(EPA)']
+                                                    if (difference == '#VALUE!') or (difference == '') or (difference == ' '):
+                                                        difference = '0'
+                                                    difference = float(difference)
+                                                    if (abs(difference) > 20) and (abs(180.-abs(difference)) > 20.):
+                                                        color='red'
+                                                    texFile.write(row['ZIG-QAP(EPA)'].strip('#')+' & ')
+                                                    foundQAP = True
+                                                    break
+                                            if not foundQAP:
+                                                texFile.write('N/A & ')
+                                                texFile.write('N/A & ')
+
+                                            texFile.write('\\textcolor{'+color+'}{'+hashData.getData('flag', iLine)+'} & ')
+                                            texFile.write('\\textcolor{'+color+'}{'+hashData.getData('GPA', iLine)+'} & ')
+                                            texFile.write('\\textcolor{'+color+'}{'+hashData.getData('mainClass', iLine) + hashData.getData('subClass', iLine) + '} & ')
+                                            texFile.write('\\textcolor{'+color+'}{'+hashData.getData('MajDiam', iLine) + '} & ')
+                                            texFile.write('\\textcolor{'+color+'}{'+hashData.getData('source', iLine)+'} & ')
                                             if os.path.isfile(imageName):
-                                                texFile.write('\\centerline{\\includegraphics[height=0.3\\textheight]{'+imageName+'}}\n')
+                                                texFile.write('\\centerline{\\includegraphics[height=0.3\\textheight]{'+imageNameEPA+'}}\n')
                                             texFile.write('\\\\ \\hline\n')
                                             prevPrev = prev
                                             prev = hashID
@@ -619,9 +677,11 @@ if __name__ == "__main__":
                 #                                    print('x = ',x,', y = ',y)
 
                                                     gpa = float(hashData.getData('GPA', iLine))
+                                                    if rotateBipolars and (hashData.getData('mainClass', iLine) == 'B'):
+                                                        gpa += 90.
                                                     if gpa < 0.:
-                                                        gpa += 180
-                                                    if gpa > 180:
+                                                        gpa += 180.
+                                                    if gpa > 180.:
                                                         gpa -= 180.
 
                                                     csGlon = hashData.getData('CS_Glon', iLine)

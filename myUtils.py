@@ -14,6 +14,7 @@ import os
 #from pyraf import iraf
 import re
 import subprocess
+from time import sleep
 
 def multikeysort(items, columns):
     from operator import itemgetter
@@ -335,10 +336,14 @@ def specCombineMinimum(imA, imB):
     return imOut
 
 def getHeader(imName, hdu=1):
-    hdulist = apyfits.open(imName)
-    print('len(hdulist) = ',len(hdulist))
+    hdulist = apyfits.open(imName, ignore_missing_end=True)
+    #print('len(hdulist) = ',len(hdulist))
+    hdulist[hdu].verify('fix')
     header = hdulist[hdu].header
     return header
+
+def setHeaderKeyWord(fName, keyWord, value, hdu=0):
+    apyfits.setval(fName, keyWord, value=value, ext=hdu, ignore_missing_end=True, output_verify='ignore')
 
 # --- get date from string of the form yyyy-mm-ddThh:mm:ss.mmm
 def getDate(dateStr):
@@ -548,166 +553,166 @@ if False:
 #        print('setRowNaNs: row with nans = ',row)
         return row
 
-    hdulist1 = None
-    hdulist2 = None
-    data1 = None
-    data2 = None
-    if offset > 0:
-        hdulist1 = apyfits.open(fitsName1)
-        hdulist2 = apyfits.open(fitsName2)
-    else:
-        hdulist2 = apyfits.open(fitsName1)
-        hdulist1 = apyfits.open(fitsName2)
-        offset = 0 - offset
-        print('changed offset to ',offset)
-    data1 = hdulist1[0].data
-    data2 = hdulist2[0].data
-    data1 = np.nan_to_num(data1)
-    data2 = np.nan_to_num(data2)
-    print('data1.shape = ',data1.shape,', data2.shape = ',data2.shape)
-#    if scale:
-#        data1median = np.median(data1)
-#        data2median = np.median(data2)
-#        print('data1median = ',data1median)
-#        print('data2median = ',data2median)
-#        print('data1median / data2median = ',data1median / data2median,', data2median / data1median = ',data2median / data1median)
-#        if data1median < data2median:
-#            data1 = data1 * data2median / data1median
-#        else:
-#            data2 = data2 * data1median / data2median
-
-    nColsIn = data1.shape[1]
-    nRows = data1.shape[0]
-    print('nColsIn = ',nColsIn,', nRows = ',nRows)
-
-    outArr = np.ndarray(shape=(nRows, nColsIn+offset), dtype=type(data1[0][0]))
-    print('outArr.shape = ',outArr.shape)
-    nColsOut = outArr.shape[1]
-    print('nColsOut = ',nColsOut)
-
-    if scale:
-        medians1 = np.zeros(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
-        medians2 = np.zeros(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
-        dataToMedian1 = np.zeros(shape=outArr.shape, dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
-        dataToMedian2 = np.zeros(shape=outArr.shape, dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
-        print('dataToMedian1.shape = ',dataToMedian1.shape)
-        for row in range(nRows):
-            dataToMedian1[row,:nColsOut-offset] = data1[row, :].copy()
-            dataToMedian1[row,:] = setRowNaNs(dataToMedian1[row,:])
-            if row == 0:
-                print('row =',row,': after setRowNaNs: nNaNs = ',countNaNs(dataToMedian1[row,:]))
-            medians1[row] = np.nanmedian(dataToMedian1[row,:])
-
-            dataToMedian2[row,offset:] = data2[row,:].copy()
-            dataToMedian2[row,:] = setRowNaNs(dataToMedian2[row,:])
-            medians2[row] = np.nanmedian(dataToMedian2[row,:])
-
-        nNaNs = countNaNs(dataToMedian1[0,:])
-        x = np.ndarray(shape=(dataToMedian2[0,:].shape[0] - nNaNs), dtype=type(data1[500,500]))
-        iX = 0
-        for i in range(dataToMedian1[0,:].shape[0]):
-#            print('dataToMedian1[0,',i,'] = ',dataToMedian1[0,i])
-            if not math.isnan(dataToMedian1[0,i]):
-                x[iX] = i
-                iX += 1
-#                print('iX = ',iX)
-        y = np.arange(nRows)
-        print('medians1 = ',medians1)
-        print('medians2 = ',medians2)
-        ratio = None
-        medians1mean = np.mean(medians1)
-        medians2mean = np.mean(medians2)
-        print('medians1mean = ',medians1mean,', medians2mean = ',medians2mean)
-        if medians1mean < medians2mean:
-            ratio = dataToMedian2 / dataToMedian1
+        hdulist1 = None
+        hdulist2 = None
+        data1 = None
+        data2 = None
+        if offset > 0:
+            hdulist1 = apyfits.open(fitsName1)
+            hdulist2 = apyfits.open(fitsName2)
         else:
-            ratio = dataToMedian1 / dataToMedian2
-        z = np.ndarray(shape=(len(y), x.shape[0]), dtype=type(x[0]))
-        print('z.shape = ',z.shape)
-        iCol = 0
-        for col in x:
-#            print('type(col) = ',type(col),', type(iCol) = ',type(iCol))
-#            print('z.shape = ',z.shape,', ratio.shape = ',ratio.shape)
-            z[:,iCol] = ratio[:,int(col)]
-            iCol += 1
-        print('x.shape = ',x.shape,', y.shape = ',np.asarray(y).shape,', z.shape = ',z.shape,', ratio.shape = ',ratio.shape)
-        #deg = [1,1]
-        pathOut = fitsName1[:fitsName1.rfind('/')]
-        if outFileName is not None:
-            pathOut = outFileName[:outFileName.rfind('/')]
-        polyFitIn = os.path.join(pathOut,'polyFitIn.fits')
-        polyFitOut = os.path.join(pathOut,'polyFitOut.fits')
-        z = np.nan_to_num(z)
-        hdulist1[0].data = ratio
-        hdulist1.writeto(polyFitIn, clobber=True)
-#        coeffs = nppolyfit2d(y, x, z, deg)
-#        print('coeffs = ',coeffs)
-#        xFit = np.arange(nColsOut)
-#        zFit = nppolyval2d(xFit, y, coeffs, deg)
-#        hdulist1[0].data = zFit
-#        hdulist1.writeto('/Users/azuri/daten/uni/HKU/Pa30/ratioFit.fits', clobber=True)
-        if os.path.exists(polyFitOut):
-            os.remove(polyFitOut)
-        iraf.imfit.imsurfit(polyFitIn,
-                            polyFitOut,
-                            3,
-                            5,
-                            type_ou='fit',
-                            function='leg',
-                            cross_t='yes',
-                            xmedian=10,
-                            ymedian=10,
-                            median_=50.,
-                            lower=2.0,
-                            upper=2.0,
-                            ngrow=1,
-                            niter=3,
-                            regions='all',
-                            rows='[132:2051]',
-                            columns='[209:1038,1138:2029]',
-                            border=50,
-                            section='',
-                            circle='',
-                            div_min='INDEF')
-        hdulistPolyFitOut = apyfits.open(polyFitOut)
-        zFit = hdulistPolyFitOut[0].data
-        print('data1.shape = ',data1.shape)
-        print('data1.shape = ',data1.shape)
-        print('zFit.shape = ',zFit.shape)
-        for row in range(nRows):
-            for col in range(nColsIn):
-#                print('row = ',row,', col = ',col)
-                if medians1mean < medians2mean:
-                    data1[row, col] = data1[row, col] * zFit[row, col]
-                else:
-                    data2[row, col] = data2[row, col] * zFit[row, col+offset]
+            hdulist2 = apyfits.open(fitsName1)
+            hdulist1 = apyfits.open(fitsName2)
+            offset = 0 - offset
+            print('changed offset to ',offset)
+        data1 = hdulist1[0].data
+        data2 = hdulist2[0].data
+        data1 = np.nan_to_num(data1)
+        data2 = np.nan_to_num(data2)
+        print('data1.shape = ',data1.shape,', data2.shape = ',data2.shape)
+    #    if scale:
+    #        data1median = np.median(data1)
+    #        data2median = np.median(data2)
+    #        print('data1median = ',data1median)
+    #        print('data2median = ',data2median)
+    #        print('data1median / data2median = ',data1median / data2median,', data2median / data1median = ',data2median / data1median)
+    #        if data1median < data2median:
+    #            data1 = data1 * data2median / data1median
+    #        else:
+    #            data2 = data2 * data1median / data2median
 
-    for col in range(nColsOut):
-        if col < offset:
-            outArr[:,col] = data1[:,col]
-            print('col(=',col,') < offset(=',offset,')')
-#        elif col > (nCols - offset):
-#            print('outArr[:,',col,'].shape = ',outArr[:,col].shape,', data2[:,',col,'] = ',data2[:,col].shape)
-#            outArr[:,col] = data2[:,col]
-#            print('col(=',col,') > (nCols(=',nCols,') - offset(=',offset,')) = ',nCols-offset)
-        elif (gap is not None) and (col >= gap[0]) and (col <= gap[1]):
-            outArr[:,col] = data2[:,col-offset]
-            print('col(=',col,') >= gap[0](=',gap[0],') and col <= gap[1](=',gap[1],'), setting outArr[:,',col,'] to data2[:,',col-offset,']')
-        elif (gap is not None) and (col >= (gap[0]+offset)) and (col <= (gap[1]+offset)):
-            outArr[:,col] = data1[:,col]
-            print('col(=',col,') >= gap[0]+offset(=',gap[0]+offset,') and col <= gap[1]+offset(=',gap[1]+offset,'), setting outArr[:,',col,'] to data1[:,',col,']')
-        elif col >= nColsIn:
-            outArr[:,col] = data2[:,col-offset]
-        else:
-            print('col = ',col,': taking minimum of each pixel')
-            outArr[:,col] = data1[:,col]
+        nColsIn = data1.shape[1]
+        nRows = data1.shape[0]
+        print('nColsIn = ',nColsIn,', nRows = ',nRows)
+
+        outArr = np.ndarray(shape=(nRows, nColsIn+offset), dtype=type(data1[0][0]))
+        print('outArr.shape = ',outArr.shape)
+        nColsOut = outArr.shape[1]
+        print('nColsOut = ',nColsOut)
+
+        if scale:
+            medians1 = np.zeros(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+            medians2 = np.zeros(shape=(data1[:,0].shape), dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+            dataToMedian1 = np.zeros(shape=outArr.shape, dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+            dataToMedian2 = np.zeros(shape=outArr.shape, dtype=type(data1[int(nRows/2),int(nColsIn/2)]))
+            print('dataToMedian1.shape = ',dataToMedian1.shape)
             for row in range(nRows):
-                if data2[row,col-offset] < outArr[row,col]:
-                    outArr[row,col] = data2[row,col-offset]
-    hdulist1[0].data = outArr
-    if outFileName:
-        hdulist1.writeto(outFileName, clobber=True)
-    return hdulist1
+                dataToMedian1[row,:nColsOut-offset] = data1[row, :].copy()
+                dataToMedian1[row,:] = setRowNaNs(dataToMedian1[row,:])
+                if row == 0:
+                    print('row =',row,': after setRowNaNs: nNaNs = ',countNaNs(dataToMedian1[row,:]))
+                medians1[row] = np.nanmedian(dataToMedian1[row,:])
+
+                dataToMedian2[row,offset:] = data2[row,:].copy()
+                dataToMedian2[row,:] = setRowNaNs(dataToMedian2[row,:])
+                medians2[row] = np.nanmedian(dataToMedian2[row,:])
+
+            nNaNs = countNaNs(dataToMedian1[0,:])
+            x = np.ndarray(shape=(dataToMedian2[0,:].shape[0] - nNaNs), dtype=type(data1[500,500]))
+            iX = 0
+            for i in range(dataToMedian1[0,:].shape[0]):
+    #            print('dataToMedian1[0,',i,'] = ',dataToMedian1[0,i])
+                if not math.isnan(dataToMedian1[0,i]):
+                    x[iX] = i
+                    iX += 1
+    #                print('iX = ',iX)
+            y = np.arange(nRows)
+            print('medians1 = ',medians1)
+            print('medians2 = ',medians2)
+            ratio = None
+            medians1mean = np.mean(medians1)
+            medians2mean = np.mean(medians2)
+            print('medians1mean = ',medians1mean,', medians2mean = ',medians2mean)
+            if medians1mean < medians2mean:
+                ratio = dataToMedian2 / dataToMedian1
+            else:
+                ratio = dataToMedian1 / dataToMedian2
+            z = np.ndarray(shape=(len(y), x.shape[0]), dtype=type(x[0]))
+            print('z.shape = ',z.shape)
+            iCol = 0
+            for col in x:
+    #            print('type(col) = ',type(col),', type(iCol) = ',type(iCol))
+    #            print('z.shape = ',z.shape,', ratio.shape = ',ratio.shape)
+                z[:,iCol] = ratio[:,int(col)]
+                iCol += 1
+            print('x.shape = ',x.shape,', y.shape = ',np.asarray(y).shape,', z.shape = ',z.shape,', ratio.shape = ',ratio.shape)
+            #deg = [1,1]
+            pathOut = fitsName1[:fitsName1.rfind('/')]
+            if outFileName is not None:
+                pathOut = outFileName[:outFileName.rfind('/')]
+            polyFitIn = os.path.join(pathOut,'polyFitIn.fits')
+            polyFitOut = os.path.join(pathOut,'polyFitOut.fits')
+            z = np.nan_to_num(z)
+            hdulist1[0].data = ratio
+            hdulist1.writeto(polyFitIn, clobber=True)
+    #        coeffs = nppolyfit2d(y, x, z, deg)
+    #        print('coeffs = ',coeffs)
+    #        xFit = np.arange(nColsOut)
+    #        zFit = nppolyval2d(xFit, y, coeffs, deg)
+    #        hdulist1[0].data = zFit
+    #        hdulist1.writeto('/Users/azuri/daten/uni/HKU/Pa30/ratioFit.fits', clobber=True)
+            if os.path.exists(polyFitOut):
+                os.remove(polyFitOut)
+            iraf.imfit.imsurfit(polyFitIn,
+                                polyFitOut,
+                                3,
+                                5,
+                                type_ou='fit',
+                                function='leg',
+                                cross_t='yes',
+                                xmedian=10,
+                                ymedian=10,
+                                median_=50.,
+                                lower=2.0,
+                                upper=2.0,
+                                ngrow=1,
+                                niter=3,
+                                regions='all',
+                                rows='[132:2051]',
+                                columns='[209:1038,1138:2029]',
+                                border=50,
+                                section='',
+                                circle='',
+                                div_min='INDEF')
+            hdulistPolyFitOut = apyfits.open(polyFitOut)
+            zFit = hdulistPolyFitOut[0].data
+            print('data1.shape = ',data1.shape)
+            print('data1.shape = ',data1.shape)
+            print('zFit.shape = ',zFit.shape)
+            for row in range(nRows):
+                for col in range(nColsIn):
+    #                print('row = ',row,', col = ',col)
+                    if medians1mean < medians2mean:
+                        data1[row, col] = data1[row, col] * zFit[row, col]
+                    else:
+                        data2[row, col] = data2[row, col] * zFit[row, col+offset]
+
+        for col in range(nColsOut):
+            if col < offset:
+                outArr[:,col] = data1[:,col]
+                print('col(=',col,') < offset(=',offset,')')
+    #        elif col > (nCols - offset):
+    #            print('outArr[:,',col,'].shape = ',outArr[:,col].shape,', data2[:,',col,'] = ',data2[:,col].shape)
+    #            outArr[:,col] = data2[:,col]
+    #            print('col(=',col,') > (nCols(=',nCols,') - offset(=',offset,')) = ',nCols-offset)
+            elif (gap is not None) and (col >= gap[0]) and (col <= gap[1]):
+                outArr[:,col] = data2[:,col-offset]
+                print('col(=',col,') >= gap[0](=',gap[0],') and col <= gap[1](=',gap[1],'), setting outArr[:,',col,'] to data2[:,',col-offset,']')
+            elif (gap is not None) and (col >= (gap[0]+offset)) and (col <= (gap[1]+offset)):
+                outArr[:,col] = data1[:,col]
+                print('col(=',col,') >= gap[0]+offset(=',gap[0]+offset,') and col <= gap[1]+offset(=',gap[1]+offset,'), setting outArr[:,',col,'] to data1[:,',col,']')
+            elif col >= nColsIn:
+                outArr[:,col] = data2[:,col-offset]
+            else:
+                print('col = ',col,': taking minimum of each pixel')
+                outArr[:,col] = data1[:,col]
+                for row in range(nRows):
+                    if data2[row,col-offset] < outArr[row,col]:
+                        outArr[row,col] = data2[row,col-offset]
+        hdulist1[0].data = outArr
+        if outFileName:
+            hdulist1.writeto(outFileName, clobber=True)
+        return hdulist1
 
 def polyfit2d(x, y, z, order=3):
     ncols = (order + 1)**2
@@ -1027,3 +1032,30 @@ def readFileToArr(fname):
 
     linesOut = [line.strip() for line in lines]
     return linesOut
+
+def lockAndWriteToFile(filename,flag,lockName,textToWrite):
+    while os.path.isfile(lockName):
+        print('lockName <'+lockName+'> exists, waiting 0.01 seconds')
+        sleep(0.010)#ms
+    open(lockName,'w').close()
+    with open(filename, flag) as f:
+        f.write(textToWrite)
+    os.remove(lockName)
+
+def find_nth(haystack, needle, n):
+    start = haystack.find(needle)
+    while start >= 0 and n > 1:
+        start = haystack.find(needle, start+len(needle))
+        n -= 1
+    return start
+
+def getPNGName(lon,lat):
+    png = '%010.6f' % lon
+    png = png[:png.find('.')+2]
+    #png = png.zfill(3)
+    if lat > 0:
+        png = png+'+'
+    png = png + '%08.6g' % lat
+    png = png[:png.rfind('.')+2]
+    print('lon = ',lon,', lat = ',lat,', png = <'+png+'>')
+    return png

@@ -117,12 +117,17 @@ def getWavelengthArr(fname, hduNum=0):
 def writeFits(ccdData, inputFileName, outputFileName, metaKeys=None, metaData=None, overwrite=True):
     hdulist = pyfits.open(inputFileName)
     print('writeFits: len(hdulist) = ',len(hdulist),', inputFileName = ',inputFileName,', outputFileName = ',outputFileName,', old mean = ',hdulist[len(hdulist)-1].data,', mean(ccdData) = ',np.mean(ccdData.data))
+    print('len(hdulist) = ',len(hdulist))
     hdulist[len(hdulist)-1].data = ccdData.data
     hdulist[len(hdulist)-1].header['NAXIS1'] = np.asarray(ccdData.data).shape[1]
     hdulist[len(hdulist)-1].header['NAXIS2'] = np.asarray(ccdData.data).shape[0]
     if metaKeys is not None:
         for iKey in np.arange(0,len(metaKeys),1):
             hdulist[len(hdulist)-1].header[metaKeys[iKey]] = metaData[iKey]
+#    print('hdulist[len(hdulist)-1].header.keys() = ',hdulist[len(hdulist)-1].header.keys())
+    if 'OBSERVER' in hdulist[len(hdulist)-1].header.keys():
+        hdulist[len(hdulist)-1].header['OBSERVER'] = 'Quentin Parker + Travis Stenborg'
+        print("hdulist[",len(hdulist)-1,"].header['OBSERVER'] = ",hdulist[len(hdulist)-1].header['OBSERVER'])
     print('writeFits: mean(hdulist[',len(hdulist)-1,'].data) = ',np.mean(hdulist[len(hdulist)-1].data))
     hdulist.writeto(outputFileName, overwrite=overwrite)
     print('writeFits: new mean after writing image = ',np.mean(getImageData(outputFileName,len(hdulist)-1)))
@@ -187,8 +192,12 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
 
             fOutName = line
 #            fOutName = addSuffixToFileName(fOutName, suffix)
-
-            expType = hdulist[0].header['EXPTYPE']
+            try:
+                expType = hdulist[0].header['EXPTYPE']
+            except:
+                expType = hdulist[0].header['OBJECT']
+            if ' ' in expType:
+                expType = expType[:expType.find(' ')]
             objectName = hdulist[0].header['OBJECT']
             if ' ' in objectName:
                 objectName = objectName[:objectName.find(' ')]
@@ -322,9 +331,16 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                     if  object == 'individual':
                         for line in lines:
                             hdulist = pyfits.open(line)
-                            expType = hdulist[0].header['EXPTYPE']
+                            try:
+                                expType = hdulist[0].header['EXPTYPE']
+                            except:
+                                expType = hdulist[0].header['OBJECT']
+                            if ' ' in expType:
+                                expType = expType[:expType.find(' ')]
                             if expType == exptype:
                                 objectName = hdulist[0].header['OBJECT']
+                                if ' ' in objectName:
+                                    objectName = objectName[:objectName.find(' ')]
                                 if objectName not in individualLists:
                                     individualLists.append(objectName)
                     else:
@@ -2294,7 +2310,7 @@ def reidentify(arcFitsName2D,
                 f.write('%.5f %.5f\n' % (line[0],line[1]))
 
     xSpec = np.arange(0,specY.shape[0],1.)
-    coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=3, display=display)
+    coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=5, display=display)
     if display:
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)

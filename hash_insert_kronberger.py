@@ -1,21 +1,11 @@
 import csv
+from myUtils import getPNGName
 
 inputFile = '/Users/azuri/daten/uni/HKU/HASH/DSH_PNe_20160303  (updated version_  Aug. 7, 2020).csv'
 
 idPNMain_start = 32709
 idAngDiam_start = 39407
 idtbCNames_start = 121596
-
-def getPNGName(lon,lat):
-    png = '%010.6f' % lon
-    png = png[:png.find('.')+2]
-    #png = png.zfill(3)
-    if lat > 0:
-        png = png+'+'
-    png = png + '%08.6g' % lat
-    png = png[:png.rfind('.')+2]
-    print('lon = ',lon,', lat = ',lat,', png = <'+png+'>')
-    return png
 
 with open('/Users/azuri/daten/uni/HKU/HASH/ingestDSH.sql','w') as ingest:
     with open('/Users/azuri/daten/uni/HKU/HASH/ingestDSHNames.sql','w') as ingestNames:
@@ -143,4 +133,3 @@ with open('/Users/azuri/daten/uni/HKU/HASH/ingestDSH.sql','w') as ingest:
                                                                                        'From DSH Kronberger list'))
 
                     ingestNames.write("INSERT INTO `PNMain_tbCNames`(`idPNMain`,`idtbCNames`) Values (%d,%d);\n" % (idPNMain, idtbCNames_start+j))
-
