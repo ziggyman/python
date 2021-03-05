@@ -14,7 +14,11 @@ def gauss(x,a,x0,sigma,yBackground=0.):
 
 #calculate 2 Gaussians
 def gauss2(x,a1,a2,x01,x02,sigma1,sigma2,yBackground=0.):
-    return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground) + yBackground
+    return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground)
+
+#calculate 3 Gaussians
+def gauss3(x,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,yBackground=0.):
+    return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground) + gauss(x,a3,x03,sigma3,yBackground)
 
 # read image data from fits file
 def getImageData(fname, hduNum=1):
@@ -88,12 +92,95 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True):
 
     if show:
         plt.plot(x,imageData)
-#    plt.plot(x,yGauss1)
-#    plt.plot(x,yGauss2)
+        plt.plot(x,yGauss1)
+        plt.plot(x,yGauss2)
 
     gauss12 = gauss2(x,*popt)
-    plt.plot(x,gauss12)
     if show:
+        plt.plot(x,gauss12)
         plt.show()
 
     return [areaUnderCurve1,areaUnderCurve2,popt]
+
+
+def getAreaGauss(x,imageData,a1,x01,sigma1,show=True):
+    # fit 2 Gaussians
+    try:
+        popt,pcov = curve_fit(gauss,x,imageData,p0=[a1,
+                                                    x01,
+                                                    sigma1,
+                                                   ])
+    except Exception as e:
+        print(e)
+        STOP
+#    print('popt = ',popt)
+
+    print('amplitude a1 = ',popt[0])
+    print('position x01 = ',popt[1])
+    print('sigma1 = ',popt[2])
+
+    #calculate fitted gaussians and overplot them
+    yGauss1 = gauss(x,popt[0],popt[1],popt[2])
+
+    areaUnderCurve1 = np.trapz(yGauss1,x=x)
+    print('areaUnderCurve1 = ',areaUnderCurve1)
+    if show:
+        plt.plot(x,imageData)
+        plt.plot(x,yGauss1)
+        plt.show()
+
+    return [areaUnderCurve1,popt]
+
+
+def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=True):
+    # fit 2 Gaussians
+    try:
+        popt,pcov = curve_fit(gauss3,x,imageData,p0=[a1,
+                                                     a2,
+                                                     a3,
+                                                     x01,
+                                                     x02,
+                                                     x03,
+                                                     sigma1,
+                                                     sigma2,
+                                                     sigma3,
+                                                     ])
+    except Exception as e:
+        print(e)
+        STOP
+#    print('popt = ',popt)
+
+    print('amplitude a1 = ',popt[0])
+    print('amplitude a2 = ',popt[1])
+    print('amplitude a3 = ',popt[2])
+    print('position x01 = ',popt[3])
+    print('position x02 = ',popt[4])
+    print('position x03 = ',popt[5])
+    print('sigma1 = ',popt[6])
+    print('sigma2 = ',popt[7])
+    print('sigma3 = ',popt[8])
+
+    #calculate fitted gaussians and overplot them
+    yGauss1 = gauss(x,popt[0],popt[3],popt[6])
+    yGauss2 = gauss(x,popt[1],popt[4],popt[7])
+    yGauss3 = gauss(x,popt[2],popt[5],popt[8])
+
+    areaUnderCurve1 = np.trapz(yGauss1,x=x)
+    print('areaUnderCurve1 = ',areaUnderCurve1)
+    areaUnderCurve2 = np.trapz(yGauss2,x=x)
+    print('areaUnderCurve2 = ',areaUnderCurve2)
+    areaUnderCurve3 = np.trapz(yGauss3,x=x)
+    print('areaUnderCurve3 = ',areaUnderCurve3)
+
+    if show:
+        plt.plot(x,imageData)
+        plt.plot(x,yGauss1)
+        plt.plot(x,yGauss2)
+        plt.plot(x,yGauss3)
+
+    gauss123 = gauss3(x,*popt)
+    if show:
+        plt.plot(x,gauss123)
+        plt.show()
+
+    return [areaUnderCurve1,areaUnderCurve2,areaUnderCurve3,popt]

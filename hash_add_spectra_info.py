@@ -7,15 +7,15 @@ pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_190221.csv'
 fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_190221.csv'
 namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_190221.csv'
 
-inputSpectraDir = '/Users/azuri/spectra/saao/saao_jul2002/hash/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
+inputSpectraDir = '/Users/azuri/spectra/MSO/wifes_jul2011/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
 fibreFile = None#'556Rcomb.fibres.lis'
 doneFile = '/Users/azuri/spectra/mash_spectra.txt'#None
 searchFile = '/Users/azuri/daten/uni/HKU/HASH/hash_search.csv'
 searchFileOut = '/Users/azuri/daten/uni/HKU/HASH/hash_found.csv'
 
 outFile = '/Users/azuri/daten/uni/HKU/HASH/add_spectra.sql'
-catalogName = '2dF_Jun2014'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
-setName = '2dF_Jun2014'
+catalogName = 'WiFeS_Jul2011'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
+setName = 'WiFeS_Jul2011'
 catalogFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'cat.sql'
 hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'_hashpn.txt'
 
@@ -23,9 +23,9 @@ hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'_hashpn.txt'
 #fits = csvFree.readCSVFile(fitsFile)
 fitsStartId = 10625
 reference = catalogName#'FrenchAmateurs'#
-instrument = '2dF'#'DBS'#
-telescope = 'Anglo-Australian Telescope'#'AAO 2.3m'#
-sites = ['2D']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
+instrument = 'WiFeS'#'DBS'#
+telescope = 'MSSO'#'AAO 2.3m'#
+sites = ['MS']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
 
 def getHashIDsFromNames():
     (_, _, filenames) = next(os.walk(inputSpectraDir))
@@ -366,6 +366,6 @@ if __name__ == "__main__":
 #    getIDs()
 #    ids = getHashIDsFromNames()
 #    print(ids)
-#    ids = addSpectraInfo()
-    justMakeCatalog()
+    ids = addSpectraInfo()
+#    justMakeCatalog()
 #    print("don't forget to add entry to MainPNData.DataInfo")

@@ -18,7 +18,7 @@ import csvData
 import csvFree
 #from galaxyMath import raDecToLB, parallaxToDistance,degToRad,radToDeg
 from hammer import Pixel,XY,LonLat,Hammer
-#from myUtils import getStarWithMinDist
+from myUtils import plotLBMarks
 
 reesZijlstra = False
 mockSample = False
@@ -460,30 +460,6 @@ def selectXY(lbxyGPA_in, x0, x1, y0, y1):
         if (x[i] >= x0) and (x[i] <= x1) and (y[i] >= y0) and (y[i] <= y1):
             lbxyGPA_out.append(lbxyGPA_in[i])
     return lbxyGPA_out
-
-# @brief plot l and b every x degrees
-def plotLBMarks(x):
-    lArr = np.arange(0,360.1,0.1)
-    bArr = np.arange(-90, 90.1, 0.1)
-    xArr = []
-    yArr = []
-    for l in lArr:
-        for b in np.arange(-90,91,x):
-            xy = ham.lonLatToXY(l,b)
-            xArr.append(xy.x)
-            yArr.append(xy.y)
-    for b in bArr:
-        for l in np.arange(0,361,x):
-            xy = ham.lonLatToXY(l,b)
-            xArr.append(xy.x)
-            yArr.append(xy.y)
-        l=180.0001
-        xy = ham.lonLatToXY(l,b)
-        xArr.append(xy.x)
-        yArr.append(xy.y)
-    plt.scatter(xArr,yArr,s=0.1)
-#    xy = ham.lonLatToXY(181.,0.)
-#    plt.scatter([xy.x],[xy.y],s=100)
 
 def makeLatexName(inputStr):
     tempStr = inputStr

@@ -1,9 +1,64 @@
-import numpy as np
+print('starting to import things')
 from astroquery.vo_conesearch.conesearch import conesearch
+import csv
+import numpy as np
+import os
+import shutil
+import math
+import matplotlib.pyplot as plt
+from PIL import Image
+import pyneb as pn
+from scipy.optimize import curve_fit
+import subprocess
 
 import csvData
 import csvFree
-from myUtils import hmsToDeg, dmsToDeg
+from hammer import Pixel,XY,LonLat,Hammer
+
+#from drUtils import applyVRadCorrection
+from myUtils import hmsToDeg, dmsToDeg, getImageData, getWavelength, getHeader,plotLBMarks,applyVRadCorrection
+from fits_fit_2gauss import gauss,gauss2,gauss3,getAreaGauss,getAreas2Gauss,getAreas3Gauss
+
+print('imports done')
+
+imPath = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/iphas-gtc-images'
+latexPath = '/Users/azuri/entwicklung/tex/IPHAS-GTC'
+publicationImagesPath = os.path.join(latexPath,'images')
+spectraPath = '/Users/azuri/spectra/GTC'
+
+surveys = [
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_shs.csv','/data/kegs/pngPNImages/%s/SHS/%s_thre*.png',['idPNMain','idPNMain'],'SHS'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_quotHaSr.csv','/data/kegs/pngPNImages/%s/SHS/%s_quot*.png',['idPNMain','idPNMain'],'quot'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iphas.csv','/data/kegs/pngPNImages/%s/IPHAS/%s_r%s_iphas3colour*.png',['idPNMain','idPNMain','run_id'],'IPHAS'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iquotHaSr.csv','/data/kegs/pngPNImages/%s/IPHAS/%s_r%s_iquot*.png',['idPNMain','idPNMain','run_id'],'iquot'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_vphas.csv','/data/kegs/pngPNImages/%s/VPHASplus/%s_vp*.png',['idPNMain','idPNMain'],'VPHAS'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_vquotHaSr.csv','/data/fermenter/PNImages/%s/VPHASplus/quot_vphas*',['idPNMain'],'vquot'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_sss.csv','/data/kegs/pngPNImages/%s/SSS_irb/%s_sss_irb*.png',['idPNMain','idPNMain'],'SSS_irb'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_sss.csv','/data/kegs/pngPNImages/%s/SSS_irb2/%s_sss_irb2*.png',['idPNMain','idPNMain'],'SSS_irb2'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_2mass.csv','/data/kegs/pngPNImages/%s/TWOMASS/%s_2mass*.png',['idPNMain','idPNMain'],'2MASS'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_nvss.csv','/data/kegs/pngPNImages/%s/NVSS/%s_nvss*.png',['idPNMain','idPNMain'],'NVSS'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_galex_rgb.csv','/data/kegs/pngPNImages/%s/Galex/%s_galex_rgb*.png',['idPNMain','idPNMain'],'GALEX_rgb'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_galex_nd.csv','/data/kegs/pngPNImages/%s/GALEX%s_galex_nd*.png',['idPNMain','idPNMain'],'GALEX_nd'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_wise.csv','/data/kegs/pngPNImages/%s/WISE/%s_wise321*.png',['idPNMain','idPNMain'],'WISE321'],
+           ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_wise.csv','/data/kegs/pngPNImages/%s/WISE/%s_wise432*.png',['idPNMain','idPNMain'],'WISE432'],
+           ]
+
+diags = pn.Diagnostics()
+c0 = 299792.458 #km/s
+o3 = pn.Atom('O', 3)
+s2 = pn.Atom('S', 2)
+n2 = pn.Atom('N', 2)
+
+linesOfInterest = {'SIIa':6716.44,
+                    'SIIb':6730.82,
+                    'Halpha':6562.801,
+                    'NII':5754.59,
+                    'NIIa':6548.05,
+                    'NIIb':6583.45,
+                    'OIIIa':4363.209,
+                    'OIIIb':5006.843	,
+                    'Hbeta':4861.363,
+                    }
 
 def coneSearch(csv):
     searches = []
@@ -31,6 +86,43 @@ def coneSearch(csv):
     print('not found: ',len(notFound),': ',notFound)
 
 def findHASHid(csvTablePaper, csvTableTargets):
+    print('plotLBMarks starting')
+    ham = Hammer()
+    fig = plt.figure(figsize=(25,10))
+    plotLBMarks(10.)
+    print('plotLBMarks finished')
+    pnMain = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'PNMain.csv'))
+    pnStat = pnMain.getData('PNstat')
+    idx = []#np.where(np.array(pnStat).all() in ['T','L','P'])[0]
+    for i in range(pnMain.size()):
+        if pnMain.getData('PNstat',i) in ['T','L','P']:
+            idx.append(i)
+    print('idx = ',len(idx),': ',idx)
+    xsT = []
+    xsL = []
+    xsP = []
+    ysT = []
+    ysL = []
+    ysP = []
+    for i in idx:
+        lon = float(pnMain.getData('Glon',i))
+        lat = float(pnMain.getData('Glat',i))
+        xy = ham.lonLatToXY(lon,lat)
+        x = xy.x
+        y = xy.y
+        if pnStat[i] == 'L':
+            xsL.append(x)
+            ysL.append(y)
+        elif pnStat[i] == 'P':
+            xsP.append(x)
+            ysP.append(y)
+        else:
+            xsT.append(x)
+            ysT.append(y)
+    print('found ',len(xsT),' True, ',len(xsL),' Likely, and ',len(xsP),' Possible PNe')
+    plt.scatter(xsL,ysL,c='g',s=5,marker='v')
+    plt.scatter(xsP,ysP,c='r',s=5,marker='s')
+    plt.scatter(xsT,ysT,c='b',s=5,marker='o')
     ids = []
     for iObs in range(csvTablePaper.size()):
         name = csvTablePaper.getData("Name ",iObs).strip(' ')
@@ -65,10 +157,43 @@ def findHASHid(csvTablePaper, csvTableTargets):
         if not found:
             print('PROBLEM: did not find object named <'+name+'>')
             print('object data: ',csvTablePaper.getData(iObs))
+        lon = float(csvTablePaper.getData(' l ',iObs))
+        lat = float(csvTablePaper.getData(' b ',iObs))
+        xy = ham.lonLatToXY(lon,lat)
+        x = xy.x
+        y = xy.y
+        stat = csvTablePaper.getData(' Status ',iObs)
+        if stat == 'T':
+            color = 'b'
+        elif stat == 'L':
+            color = 'g'
+        else:
+            color = 'r'
+        plt.scatter(x,y,c=color,s=60,marker='D', edgecolors='k',)
     if len(ids) == csvTablePaper.size():
         print('FOUND ALL TARGETS!')
     else:
         print('HMMM, NOT ALL TARGETS FOUND... :(')
+    pdfNameTemp = os.path.join(latexPath,'images/hammer_tmp.pdf')
+    plt.savefig(pdfNameTemp,bbox_inches='tight')
+    plt.show()
+    plt.close()
+#    subprocess.run(["gs","-sDEVICE=pdfwrite","-dCompatibilityLevel=1.4","-dPDFSETTINGS=/ebook","-dNOPAUSE", "-dQUIET", "-dBATCH", "-sOutputFile="+pdfNameTemp[:pdfNameTemp.rfind('_tmp')]+'.pdf', pdfNameTemp])
+#    subprocess.run(["rm",pdfNameTemp])
+
+    """Set name from tbCNames"""
+    tbCNames = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'tbCNames.csv'))
+    for id in ids:
+        idPNMain = id[1]
+        found = False
+        for i in range(tbCNames.size()):
+            if (tbCNames.getData('idPNMain',i) == idPNMain) & (tbCNames.getData('InUse',i) == '1'):
+                id[0] = tbCNames.getData('Name',i)
+                found = True
+        if not found:
+            print('Hmmm, did not find idPNMain ',idPNMain,' in tbCNames with an InUse name')
+            STOP
+
     return ids
 
 def getImages(ids):
@@ -78,14 +203,7 @@ def getImages(ids):
     outFile = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/getIPHASImages.bash'
     with open(outFile,'w') as f:
         f.write('mkdir iphas-gtc-images\n')
-        for survey in [['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iphas.csv','/data/kegs/pngPNImages/%s/IPHAS/%s_%s_iphas3colour*.png',['idPNMain','idPNMain','run_id']],
-                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iquotHaSr.csv','/data/kegs/pngPNImages/%s/IPHAS/%s_%s_iquot*.png',['idPNMain','idPNMain','run_id']],
-                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_2mass.csv','/data/kegs/pngPNImages/%s/TWOMASS/%s_*.png',['idPNMain','idPNMain']],
-                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_shs.csv','/data/kegs/pngPNImages/%s/SHS/%s_thre*.png',['idPNMain','idPNMain']],
-                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_quotHaSr.csv','/data/kegs/pngPNImages/%s/SHS/%s_quot*.png',['idPNMain','idPNMain']],
-                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_vphas.csv','/data/kegs/pngPNImages/%s/VPHASplus/%s_vp*.png',['idPNMain','idPNMain']],
-                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_vquotHaSr.csv','/data/fermenter/PNImages/%s/VPHASplus/quot_vphas*',['idPNMain']],
-                        ['/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_wise.csv','/data/kegs/pngPNImages/%s/WISE/%s_wise321rgb*.png',['idPNMain','idPNMain']]]:
+        for survey in surveys:
             csv = csvFree.readCSVFile(survey[0])
             for id in ids:
                 hashID = id[1]
@@ -100,28 +218,758 @@ def getImages(ids):
                             print('survey[1] = ',survey[1],' survey[2] = ',survey[2])
                             tmp = [csv.getData(num,lineID) for num in survey[2]]
                             print('tmp = ',tmp)
-                            print('dir(tmp) = ',dir(tmp))
+#                            print('dir(tmp) = ',dir(tmp))
                             print('(num for num in survey[2]) = ',(num for num in tmp))
-                            print('survey[1] = ',survey[1],' % (',[csv.getData(num,lineID) for num in survey[2]],')')
-                            f.write('cp '+survey[1] % [csv.getData(num,lineID) for num in survey[2]]+' iphas-gtc-images/\n')
+                            print('survey = ',survey)
+                            print('survey[1] = ',survey[1],' % (',tuple([csv.getData(num,lineID) for num in survey[2]]),')')
+                            print('[csv.getData(num,lineID) for num in survey[2]] = ',[csv.getData(num,lineID) for num in survey[2]])
+                            f.write('cp '+survey[1] % tuple([csv.getData(num,lineID) for num in survey[2]])+' iphas-gtc-images/\n')
+
+def filterIphasImagesInBashFile():
+    bashFile = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/getIPHASImages.bash'
+    with open(bashFile,'r') as f:
+        lines = f.readlines()
+    with open(bashFile[:bashFile.rfind('.')]+'_iphas.bash','w') as f:
+        for line in lines:
+            if 'IPHAS' in line:
+                f.write(line)
+
+def filterSSSImagesInBashFile():
+    bashFile = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/getIPHASImages.bash'
+    with open(bashFile,'r') as f:
+        lines = f.readlines()
+    with open(bashFile[:bashFile.rfind('.')]+'_sss.bash','w') as f:
+        for line in lines:
+            if 'SSS' in line:
+                f.write(line)
+
+def filterWISE432ImagesInBashFile():
+    bashFile = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/getIPHASImages.bash'
+    with open(bashFile,'r') as f:
+        lines = f.readlines()
+    with open(bashFile[:bashFile.rfind('.')]+'_wise432.bash','w') as f:
+        for line in lines:
+            if 'wise432' in line:
+                f.write(line)
+
+def filterNVSSImagesInBashFile():
+    bashFile = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/getIPHASImages.bash'
+    with open(bashFile,'r') as f:
+        lines = f.readlines()
+    with open(bashFile[:bashFile.rfind('.')]+'_nvss.bash','w') as f:
+        for line in lines:
+            if 'nvss' in line:
+                f.write(line)
+
+def filterGalexImagesInBashFile():
+    bashFile = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/getIPHASImages.bash'
+    with open(bashFile,'r') as f:
+        lines = f.readlines()
+    with open(bashFile[:bashFile.rfind('.')]+'_galex.bash','w') as f:
+        for line in lines:
+            if 'galex' in line:
+                f.write(line)
+
+def combineImages(idPNMain):
+    (_, _, filenames) = next(os.walk(imPath))
+    for survey in surveys:
+        print("survey[1][survey[1].rfind('/')+1:] = ",survey[1][survey[1].rfind('/')+1:])
+        print("survey[2][1:] = ",survey[2][1:])
+        print("tuple([idPNMain[1] for i in survey[2][1:]]) = ",tuple(survey[2][1:]))
+        filename = survey[1][survey[1].rfind('/')+1:]
+        filenameSearch = filename[filename.rfind('%s')+2:filename.find('*')]
+        print('idPNMain = ',idPNMain,': looking for filenameSearch <'+filenameSearch+'> in filesnames')
+        imagenames = []
+        for filename in filenames:
+            filename = filename[filename.rfind('/')+1:]
+            if (filename[:filename.find('_')] == str(idPNMain)) and (filenameSearch in filename):
+                print('found filename <'+filename+'>')
+                imagenames.append(filename)
+        if len(imagenames) > 1:
+            background = ''
+            foreground = []
+            lens = [len(imagename) for imagename in imagenames]
+            minLen = min(lens)
+            for i in range(len(imagenames)):
+                if lens[i] == minLen:
+                    background = os.path.join(imPath,imagenames[i])
+                else:
+                    if ('overlay' not in imagenames[i]) and ('combined' not in imagenames[i]):
+                        foreground.append(os.path.join(imPath,imagenames[i]))
+            backgroundIm = Image.open(background)
+            print('combining ',background,' and ',foreground)
+            for f in foreground:
+                f = Image.open(f)
+                backgroundIm.paste(f, (0, 0), f)
+            backgroundIm.save(os.path.join(publicationImagesPath,background[background.rfind('/')+1:background.rfind('.')]+'_combined.png'))
+    #if idPNMain == '8214':
+    #    STOP
+
+def createImageTable(ids):
+    (_, _, filenames) = next(os.walk(publicationImagesPath))
+#    print('filenames = ',filenames)
+    with open(os.path.join(latexPath,'image_table.tex'),'w') as f:
+        f.write('\\documentclass[12pt]{article}\n')
+        f.write('\\usepackage{graphicx}\n')
+        f.write('\\usepackage{natbib}\n')
+        f.write('\\usepackage{longtable}\n')
+        f.write('\\usepackage{pdflscape}\n')
+        f.write('\\setcitestyle{numbers}\n')
+        f.write('\\setcitestyle{square}\n')
+        f.write('\\begin{document}\n')
+        f.write('\\begin{landscape}\n')
+        f.write('\\clearpage\n')
+        f.write('\\onecolumn\n')
+        f.write('\\begin{longtable}{ | *{7}{l|} }\n')
+        f.write('\\hline\n')
+        f.write('Target Name & optical & $\\mathrm{H_\\alpha/Sr}$ & WISE321 & NVSS & GALEX & spectrum\\\\\n')
+        f.write('\\endhead  % header material\n')
+        f.write('\\hline\\endfoot  % footer material\n')
+        f.write('\\hline\n')
+        for id in ids:
+            print('id = ',id)
+            imNames = [None,None,None,None,None,None]
+            idPNMain = id[1]
+            for survey in surveys:
+                for filename in filenames:
+                    if filename[:filename.find('_')] == idPNMain:
+                        fNameSur = survey[1][survey[1].rfind('%s')+2:survey[1].rfind('*')]
+                        if '/' in fNameSur:
+                            fNameSur = fNameSur[fNameSur.rfind('/')+1:]
+                        print('fNameSur = <'+fNameSur+'>')
+                        if fNameSur in filename:
+                            if survey[3] == 'SHS':
+                                imNames[0] = filename
+                            elif survey[3] == 'quot':
+                                imNames[1] = filename
+                            elif survey[3] == 'IPHAS':
+                                imNames[0] = filename
+                            elif survey[3] == 'iquot':
+                                imNames[1] = filename
+                            elif survey[3] == 'VPHAS':
+                                imNames[0] = filename
+                            elif survey[3] == 'vquot':
+                                imNames[1] = filename
+                            elif survey[3] == 'WISE321':
+                                imNames[2] = filename
+                            elif survey[3] == 'NVSS':
+                                imNames[3] = filename
+                            elif survey[3] == 'GALEX_nd':
+                                imNames[4] = filename
+                            elif survey[3] == 'GALEX_rgb':
+                                imNames[4] = filename
+                            elif survey[3] == 'SSS_irb2':
+                                if imNames[0] is None:
+                                    imNames[0] = filename
+                            elif survey[3] == 'SSS_irb':
+                                if imNames[0] is None:
+                                    imNames[0] = filename
+                        imNames[5] = id[2]
+
+#                            else:
+#                                if len(imNames) < 4:
+#                                    if filename not in imNames:
+#                                        imNames.append(filename)
+            print('id = ',id,': imNames = ',imNames)
+            f.write('%s & ' % (id[0]))
+            for imName in imNames[:5]:
+                if imName is None:
+                    f.write('& ')
+                else:
+                    f.write('\\includegraphics[width=2.2cm,height=2cm]{%s} &' % (os.path.join('images',imName)))
+            if imNames[5] is None:
+                f.write('\\\\\n')
+            else:
+                f.write('\\includegraphics[width=2.3cm,height=2cm]{%s}\\\\\n' % (os.path.join('images',imNames[5])))
+            f.write('\\hline\n')
+        f.write('\\end{longtable}\n')
+        f.write('\\end{landscape}\n')
+        f.write('\\clearpage\n')
+        f.write('\\twocolumn\n')
+        f.write('\\end{document}\n')
+
+def fixInUseInIquote():
+    iphasCSV = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iphas.csv')
+    iquotCSV = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/PNImages_iquotHaSr.csv')
+    idPNe = iphasCSV.getData('idPNMain')
+    print('len(idPNe) = ',len(idPNe))
+    idPNeUnique = np.unique(idPNe)
+    print('len(idPNeUnique) = ',len(idPNeUnique))
+    problematic = []
+    linesOut = []
+    idsOut = []
+    for idPN in idPNeUnique:
+        lineIDsIphas = iphasCSV.find('idPNMain',idPN,0)
+        print('idPNMain = ',idPN,': lineIDsIphas = ',lineIDsIphas)
+        lineIDsIquot = iquotCSV.find('idPNMain',idPN,0)
+        print('idPNMain = ',idPN,': lineIDsIquot = ',lineIDsIquot)
+        for lineIDIphas in lineIDsIphas:
+            if (iphasCSV.getData('inuse',lineIDIphas) == '1') and (iquotCSV.find('run_id',iphasCSV.getData('run_id',lineIDIphas))[0] == -1):
+                print('ERROR: could not find run_id ',iphasCSV.getData('run_id',lineIDIphas),' in iquot')
+                thisProblem = [iphasCSV.getData('idPNMain',lineIDIphas),iphasCSV.getData('run_id',lineIDIphas)]
+                if thisProblem not in problematic:
+                    problematic.append(thisProblem)
+                #STOP
+            if lineIDsIquot[0] != -1:
+                for lineIDIquot in lineIDsIquot:
+                    if iphasCSV.getData('run_id',lineIDIphas) == iquotCSV.getData('run_id',lineIDIquot):
+                        if iphasCSV.getData('inuse',lineIDIphas) != iquotCSV.getData('inuse',lineIDIquot):
+                            line = 'UPDATE `iquot_HaSr` SET `InUse` = %d WHERE `idiquot_HaSr` = %d;\n' % (int(iphasCSV.getData('inuse',lineIDIphas)),
+                                                                                                           int(iquotCSV.getData('idiquot_HaSr',lineIDIquot)))
+                            if line not in linesOut:
+                                if iphasCSV.getData('idPNMain',lineIDIphas) not in idsOut:
+                                    idsOut.append(iphasCSV.getData('idPNMain',lineIDIphas))
+                                linesOut.append(line)
+    with open('/Users/azuri/daten/uni/HKU/HASH/fixInUseInIquote.sql','w') as f:
+        f.write('USE PNImages;\n')
+        for line in linesOut:
+            f.write(line)
+    print('idsOut = ',idsOut)
+    print('problematic = ',len(problematic),': ',problematic)
+
+#        for i in range(iquoteCSV.size()):
+#
+#        for i in range(iphasCSV.size()):
+
+def makeSpectraTable(ids):
+    (_, _, filenames) = next(os.walk(spectraPath))
+
+    areasSII6716 = []
+    areasSII6731 = []
+    areasHalpha = []
+    areasHbeta = []
+    areasNII5755 = []
+    areasNII6548 = []
+    areasNII6583 = []
+    areasOIII4363 = []
+    areasOIII5007 = []
+
+    csvOut = csvData.CSVData()
+    csvOut.header = ['idPNMain',
+                     '$\mathrm{H_\\alpha}$',
+                     '$\mathrm{H_\\beta}$',
+                     '$\mathrm{[SII]_{6716}}$',
+                     '$\mathrm{[SII]_{6730}}$',
+                     '$\mathrm{[NII]_{5755}}$',
+                     '$\mathrm{[NII]_{6548}}$',
+                     '$\mathrm{[NII]_{6583}}$',
+                     '$\mathrm{[OIII]_{4363}}$',
+                     '$\mathrm{[OIII]_{5007}}$',
+#                     '$\mathrm{T_{e^-}}$',
+#                     '$\mathrm{\\rho_{e^-}}$',
+                     ]
+
+    has = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'h_a.csv'))
+
+    with open(os.path.join(imPath[:imPath.rfind('/')],'lines.csv'),'w') as fl:
+        fl.write('fileName,line,strength\n')
+        with open(os.path.join(imPath[:imPath.rfind('/')],'vrad.csv'),'w') as fv:
+            fv.write('fileName,vrad\n')
+            with open(os.path.join(latexPath,'spectra_table.tex'),'w') as f:
+                f.write('\\documentclass[12pt]{article}\n')
+                f.write('\\usepackage{graphicx}\n')
+                f.write('\\usepackage{natbib}\n')
+                f.write('\\usepackage{longtable}\n')
+                f.write('\\setcitestyle{numbers}\n')
+                f.write('\\setcitestyle{square}\n')
+
+                f.write('\\begin{document}\n')
+
+                f.write('\\begin{longtable}{ | *{3}{l|} }\n')
+                f.write('\\hline\n')
+        #        f.write('Target Name & image 1 & image 2 & image 3 & image 4\\\\\n')
+                f.write('\\endhead  % header material\n')
+                f.write('\\hline\\endfoot  % footer material\n')
+                f.write('\\hline\n')
+
+                idPNMains = [id[1] for id in ids]
+                nSpec = 0
+                for filename in filenames:
+                    if '.fits' in filename:
+                        idPNMain = None
+                        if filename == 'Pa30_GT080716.fits':
+                            idPNMain = '15569'
+                        else:
+                            hashFitsFiles = csv.DictReader(open('/Users/azuri/daten/uni/HKU/IPHAS-GTC/fitsfiles.csv'))
+                            for hashFitsFile in hashFitsFiles:
+                                if hashFitsFile['fileName'] == filename:
+                                    idPNMain = hashFitsFile['idPNMain']
+                        if idPNMain is None:
+                            print('could not find filename ',filename,' in hashFitsFiles')
+                            STOP
+                        if idPNMain in idPNMains:
+                            pdfFileName = os.path.join(latexPath,'images',filename[:filename.rfind('.')].replace('.','_')+'.pdf')
+                            print('filename = ',filename,': idPNMain = ',idPNMain,' is a good one')
+                            for id in ids:
+                                if id[1] == idPNMain:
+                                    objectName = id[0]
+                                    if filename in ['LDu1_sum.fits',
+                                                    'We2-260_GT210816.fits',
+                                                    'Kn24_GT230616.fits',
+                                                    'IPHASXJ194301_GT120417.fits',
+                                                    'We2-5_GT260816.fits',
+                                                    ]:
+                                        if len(id) > 2:
+                                            id[2] = pdfFileName[pdfFileName.rfind('/')+1:]
+                                        else:
+                                            id.append(pdfFileName[pdfFileName.rfind('/')+1:])
+                                    else:
+                                        id.append(pdfFileName[pdfFileName.rfind('/')+1:])
+                            lam = getWavelength(getHeader(os.path.join(spectraPath,filename),0),axis=1)
+                            flux = getImageData(os.path.join(spectraPath,filename),0)
+                            idx = np.where(lam < 7350.)[0]
+                            idx = np.where(lam[idx] > 3950.)[0]
+                            plt.plot(lam[idx], flux[idx], 'k-')
+                            plt.xlabel('wavelength [$\mathrm{\AA}$]')
+                            plt.ylabel('$\mathrm{F_\lambda}$ [$\mathrm{ergs/s/cm^2/\AA}$]')
+                            plt.title(objectName)
+                            plt.savefig(pdfFileName,bbox_inches='tight')
+                            plt.close()
+                            f.write('\\includegraphics[width=3.5cm,height=3cm]{%s}\n ' % (os.path.join('images',pdfFileName[pdfFileName.rfind('/')+1:])))
+                            if nSpec < 3:
+                                f.write(' & ')
+                            if nSpec == 2:
+                                f.write('\\\\')
+                                f.write('    \\hline\n')
+                                nSpec = 0
+                            else:
+                                nSpec += 1
+
+                            hasPos = has.find('fileName',filename,0)
+                            print('hasPos = ',hasPos)
+                            if hasPos[0] != -1:
+                                HalphaPos = float(has.getData('H_alpha',hasPos[0]))
+                                vrad = c0 * (HalphaPos - linesOfInterest['Halpha'])/ linesOfInterest['Halpha']
+                                fv.write(filename+','+str(vrad)+'\n')
+                                print('HalphaPos = ',HalphaPos,': vrad = ',vrad)
+                                lam = applyVRadCorrection(lam,vrad)
+                                #plt.xlim(linesOfInterest['Halpha'] - 30.,linesOfInterest['Halpha'] + 30.)
+                                if True:
+                                    indices = np.where(abs(lam-linesOfInterest['Halpha'])<9.)[0]
+                                    print('indices = ',indices)
+                                    try:
+                                        areaHalpha,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                           linesOfInterest['Halpha'],
+                                                                           10.,
+                                                                           show=False)
+                                        if areaHalpha < 0. or abs(popt[1] - linesOfInterest['Halpha']) > 3.:
+                                            areaHalpha = 0.
+                                    except:
+                                        areaHalpha = 0.
+                                    fl.write(filename+',Halpha,%s\n' % (str(areaHalpha)))
+                                    indices = np.where(abs(lam-linesOfInterest['Hbeta'])<10.)[0]
+                                    print('indices = ',indices)
+                                    try:
+                                        areaHbeta,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                           linesOfInterest['Hbeta'],
+                                                                           10.,
+                                                                           show=False)
+                                        if idPNMain == '4386':
+                                            print('idPNMain = 4386: areaHbeta = ',areaHbeta,', popt = ',popt)
+                                            STOP
+                                        if areaHbeta < 0. or abs(popt[1]-linesOfInterest['Hbeta']) > 3.:
+                                            areaHbeta = 0.
+                                    except:
+                                        areaHbeta = 0.
+                                    fl.write(filename+',Hbeta,%s\n' % (str(areaHbeta)))
+
+                                    indices = np.where(abs(lam-linesOfInterest['OIIIa'])<10.)[0]
+                                    try:
+                                        areaOIII4363,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                           linesOfInterest['OIIIa'],
+                                                                           10.,
+                                                                           show=False)
+                                        if areaOIII4363 < 0. or abs(popt[1]-linesOfInterest['OIIIa']) > 3.:
+                                            areaOIII4363 = 0.
+                                    except:
+                                        areaOIII4363 = 0.
+                                    fl.write(filename+',OIII4363,%s\n' % (str(areaOIII4363)))
+
+                                    indices = np.where(abs(lam-linesOfInterest['OIIIb'])<10.)[0]
+                                    try:
+                                        areaOIII5007,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                           linesOfInterest['OIIIb'],
+                                                                           10.,
+                                                                           show=False)
+                                        if areaOIII5007 < 0. or abs(popt[1]-linesOfInterest['OIIIb']) > 3.:
+                                            areaOIII5007 = 0.
+                                    except:
+                                        areaOIII5007 = 0.
+                                    fl.write(filename+',OIII5007,%s\n' % (str(areaOIII5007)))
+
+                                    indices = np.where(abs(lam-linesOfInterest['NII'])<10.)[0]
+                                    try:
+                                        areaNII5755,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                           linesOfInterest['NII'],
+                                                                           10.,
+                                                                           show=False)
+                                        if areaNII5755 < 0. or abs(popt[1]-linesOfInterest['NII']) > 3.:
+                                            areaNII5755 = 0.
+                                    except:
+                                        areaNII5755 = 0.
+                                    fl.write(filename+',NII5755,%s\n' % (str(areaNII5755)))
+
+                                    indices = np.where(abs(lam-linesOfInterest['NIIa'])<7.)[0]
+                                    try:
+                                        areaNII6548,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                           linesOfInterest['NIIa'],
+                                                                           10.,
+                                                                           show=False)
+                                        if areaNII6548 < 0. or abs(popt[1]-linesOfInterest['NIIa']) > 3.:
+                                            areaNII6548 = 0.
+                                    except:
+                                        areaNII6548 = 0.
+                                    fl.write(filename+',NII6548,%s\n' % (str(areaNII6548)))
+
+                                    indices = np.where(abs(lam-linesOfInterest['NIIb'])<7.)[0]
+                                    try:
+                                        areaNII6583,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                           linesOfInterest['NIIb'],
+                                                                           10.,
+                                                                           show=False)
+                                        if areaNII6583 < 0. or abs(popt[1]-linesOfInterest['NIIb']) > 3.:
+                                            areaNII6583 = 0.
+                                    except:
+                                        areaNII6583 = 0.
+                                    fl.write(filename+',NII6583,%s\n' % (str(areaNII6583)))
+
+        #                            areaNII6548,areaHalpha,areaNII6583,popt = getAreas3Gauss(lam,flux,np.max(flux[np.where(abs(lam-linesOfInterest['NIIa'])<5.)[0]]),
+        #                                                                                              np.max(flux[np.where(abs(lam-linesOfInterest['Halpha'])<5.)[0]]),
+        #                                                                                              np.max(flux[np.where(abs(lam-linesOfInterest['NIIb'])<5.)[0]]),
+        #                                                                                              linesOfInterest['NIIa'],
+        #                                                                                              linesOfInterest['Halpha'],
+        #                                                                                              linesOfInterest['NIIb'],
+        #                                                                                              10.,
+        #                                                                                              10.,
+        #                                                                                              10.,
+        #                                                                                              show=True)
+                                    indices = np.where(lam < linesOfInterest['SIIb'] + 10.)[0]
+                                    print('indicesL = ',indices)
+                                    indices = np.where(lam[indices] > linesOfInterest['SIIa'] - 10.)[0]
+                                    print('indicesG = ',indices)
+        #                            plt.plot(lam[indices],flux[indices])
+        #                            plt.show()
+                                    try:
+                                        areaSII6716,areaSII6731,popt = getAreas2Gauss(lam[indices],flux[indices],np.max(flux[np.where(abs(lam-linesOfInterest['SIIa'])<5.)[0]]),
+                                                                                                          np.max(flux[np.where(abs(lam-linesOfInterest['SIIb'])<5.)[0]]),
+                                                                                                          linesOfInterest['SIIa'],
+                                                                                                          linesOfInterest['SIIb'],
+                                                                                                          10.,
+                                                                                                          10.,
+                                                                                                          show=False
+                                                                                      )
+                                        if areaSII6716 < 0. or abs(popt[2]-linesOfInterest['SIIa']) > 3.:
+                                            areaSII6716 = 0.
+                                        if areaSII6731 < 0. or abs(popt[3]-linesOfInterest['SIIb']) > 3.:
+                                            areaSII6731 = 0.
+                                    except:
+                                        areaSII6716,areaSII6731 = [0.,0.]
+                                    fl.write(filename+',SII6716,%s\n' % (str(areaSII6716)))
+                                    fl.write(filename+',SII6731,%s\n' % (str(areaSII6731)))
+                                    print('areaHalpha = ',areaHalpha)
+                                    areasHalpha.append(areaHalpha)
+                                    areasHbeta.append(areaHbeta)
+                                    areasOIII4363.append(areaOIII4363)
+                                    areasOIII5007.append(areaOIII5007)
+                                    areasNII5755.append(areaNII5755)
+                                    areasNII6548.append(areaNII6548)
+                                    areasNII6583.append(areaNII6583)
+                                    areasSII6716.append(areaSII6716)
+                                    areasSII6731.append(areaSII6731)
+#                                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
+#                                                                    diag_den='[SII] 6731/6716',
+#                                                                    value_tem=areaNII5755 / (areaNII6548 if areaNII6548 > 0. else 0.00001),
+#                                                                    value_den=areaSII6731 / (areaSII6716 if areaSII6716 > 0. else 0.00001),
+#                                                                   )
+#                                    print('areaNII5755 = ',areaNII5755,', areaNII6548 = ',areaNII6548,', areaSII6731 = ',areaSII6731,', areaSII6716 = ',areaSII6716,': tem = ',tem,', den = ',den)
+#                                    fl.write(filename+',tem,%s\n' % (str(tem)))
+#                                    fl.write(filename+',den,%s\n' % (str(den)))
+                                    #csvOut.header = ['idPNMain','Halpha','Hbeta','SII6716','SII6730','NII5755','NII6548','NII6583','OIII4363','OIII5007','$T_{e^-}$','$\rho_{e^-}$']
+                                    rowStr = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (str(idPNMain),
+                                                                                str(areaHalpha),
+                                                                                str(areaHbeta),
+                                                                                str(areaSII6716),
+                                                                                str(areaSII6731),
+                                                                                str(areaNII5755),
+                                                                                str(areaNII6548),
+                                                                                str(areaNII6583),
+                                                                                str(areaOIII4363),
+                                                                                str(areaOIII5007),
+ #                                                                                          str(tem) if not math.isnan(tem) else '-',
+ #                                                                                          str(den) if not math.isnan(den) else '-',
+                                    )
+                                    #if idPNMain == '15569':
+                                    #    print('rowStr = ',rowStr)
+                                    #    STOP
+                                    csvOut.append(rowStr.split(','))
+                f.write('\\end{longtable}\n')
+                f.write('\\end{document}\n')
+
+                for i in range(len(areasHalpha)):
+                    if (areasSII6716[i] + areasSII6731[i] > 0.) and (areasNII6548[i] + areasNII6583[i] > 0.):
+                        plt.scatter(np.log10(areasHalpha[i] / (areasSII6716[i]+areasSII6731[i])),np.log10(areasHalpha[i] / (areasNII6548[i]+areasNII6583[i])),c='k')
+                plt.xlabel(r'log($\mathrm{H_\alpha} / \mathrm{[SII]}$)')
+                plt.ylabel(r'log($\mathrm{H_\alpha} / \mathrm{[NII]}$)')
+                plt.show()
+    csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'lines_id.csv'))
+    return csvOut
+
+def addLinesToTable(csvPaper,csvLines=None):
+    idsPaper = csvPaper.getData(' HASH ID ')
+    idsPaper = [id.strip() for id in idsPaper]
+    print('idsPaper = ',len(idsPaper),': ',idsPaper)
+
+    if csvLines is None:
+        csvLines = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'lines_id.csv'))
+    idsLines = csvLines.getData('idPNMain')
+    print('idsLines = ',len(idsLines),': ',idsLines)
+#    idsLines.header = ['idPNMain',
+#                     '$\mathrm{H_\\alpha}$',
+#                     '$\mathrm{H_\\beta}$',
+#                     '$\mathrm{[SII]_{6716}}$',
+#                     '$\mathrm{[SII]_{6730}}$',
+#                     '$\mathrm{[NII]_{5755}}$',
+#                     '$\mathrm{[NII]_{6548}}$',
+#                     '$\mathrm{[NII]_{6583}}$',
+#                     '$\mathrm{[OIII]_{4363}}$',
+#                     '$\mathrm{[OIII]_{5007}}$',
+
+    csvPaper.removeColumn(' comments')
+
+    csvOut = csvData.CSVData()
+    csvOut.header = csvLines.header
+    csvOut.data = csvLines.data
+    csvOut.addColumn('$\mathrm{(H_\\alpha)/(H_\\beta)}$')
+    csvOut.addColumn('$\mathrm{(6717,31)/(H_\\alpha)}$')
+    csvOut.addColumn('$\mathrm{(5007)/(H_\\beta)}$')
+    csvOut.addColumn('$\mathrm{(6584)/(H_\\alpha)}$')
+    csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])}$')
+    csvOut.addColumn('$\mathrm{T_{e^-}([OIII],[SII])}$')
+    csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])}$')
+    csvOut.addColumn('$\mathrm{\\rho_{e^-}([OIII],[SII])}$')
+    csvOut.addColumn('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$')
+    csvOut.addColumn('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$')
+    csvOut.addColumn('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$')
+    
+    obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat')
+    with open(obsFileName,'w') as f:
+        f.write('NAME\tH1r_4861A\tH1r_4861Ae\tH1r_6563A\tH1r_6563Ae\tN2_5755A\tN2_5755Ae\tN2_6548A\tN2_6548Ae\tN2_6584A\tN2_6584Ae\tO3_4363A\tO3_4363Ae\tO3_5007A\tO3_5007Ae\tS2_6716A\tS2_6716Ae\tS2_6731A\tS2_6731Ae\n')
+        for id in idsPaper:
+            print('id = ',type(id),': <'+id+'>')
+            idx = -1
+            for i in range(len(idsLines)):
+                if idsLines[i] == id:
+                    idx = i
+            print('idx = ',idx)
+    #        print('np.where(',idsLines,' == <'+id+'>) = ',np.where(idsLines == id))
+    #        idx = np.where(idsLines == id)[0]
+            if idx == -1:
+                STOP
+    #        print("csvLines.getData('$\mathrm{[NII]_{5755}}$') = ",csvLines.getData('$\mathrm{[NII]_{5755}}$'))
+            NII5755 = float(csvLines.getData('$\mathrm{[NII]_{5755}}$',idx))
+            NII6548 = float(csvLines.getData('$\mathrm{[NII]_{6548}}$',idx))
+            NII6583 = float(csvLines.getData('$\mathrm{[NII]_{6583}}$',idx))
+            print('NII5755 = ',NII5755)
+            print('NII6548 = ',NII6548)
+            print('NII6583 = ',NII6583)
+
+            SII6716 = float(csvLines.getData('$\mathrm{[SII]_{6716}}$',idx))
+            SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6730}}$',idx))
+            print('SII6716 = ',SII6716)
+            print('SII6731 = ',SII6731)
+
+            OIII4363 = float(csvLines.getData('$\mathrm{[OIII]_{4363}}$',idx))
+            OIII5007 = float(csvLines.getData('$\mathrm{[OIII]_{5007}}$',idx))
+            print('OIII4363 = ',OIII4363)
+            print('OIII5007 = ',OIII5007)
+
+            Halpha = float(csvLines.getData('$\mathrm{H_\\alpha}$',idx))
+            Hbeta = float(csvLines.getData('$\mathrm{H_\\beta}$',idx))
+
+#            f.write('NAME\tH1_4861A\tH1_6563A\tN2_5755A\tN2_6548A\tN2_6584A\tO3_4363A\tO3_5007A\tS2_6716A\tS2_6731A\n')
+            f.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (id,
+                                                                  str(Hbeta),
+                                                                  str(Hbeta*0.1),
+                                                                  str(Halpha),
+                                                                  str(Halpha*0.1),
+                                                                  str(NII5755),
+                                                                  str(NII5755*0.1),
+                                                                  str(NII6548),
+                                                                  str(NII6548*0.1),
+                                                                  str(NII6583),
+                                                                  str(NII6583*0.1),
+                                                                  str(OIII4363),
+                                                                  str(OIII4363*0.1),
+                                                                  str(OIII5007),
+                                                                  str(OIII5007*0.1),
+                                                                  str(SII6716),
+                                                                  str(SII6716*0.1),
+                                                                  str(SII6731),
+                                                                  str(SII6731*0.1),
+                                                                 ))
+    obs = pn.Observation(obsFileName,fileFormat='lines_in_cols')
+    obs.extinction.law = 'F99'
+    obs.def_EBV(label1='H1r_6563A',label2='H1r_4861',r_theo=2.85)
+    obs.correctData()
+    obs.printIntens(returnObs=True)
+    obs.printIntens()
+
+    for id in idsPaper:
+        print('id = ',type(id),': <'+id+'>')
+        idx = -1
+        for i in range(len(idsLines)):
+            if idsLines[i] == id:
+                idx = i
+        print('idx = ',idx)
+#        print('np.where(',idsLines,' == <'+id+'>) = ',np.where(idsLines == id))
+#        idx = np.where(idsLines == id)[0]
+        if idx == -1:
+            STOP
+#        print("csvLines.getData('$\mathrm{[NII]_{5755}}$') = ",csvLines.getData('$\mathrm{[NII]_{5755}}$'))
+        NII5755 = float(csvLines.getData('$\mathrm{[NII]_{5755}}$',idx))
+        NII6548 = float(csvLines.getData('$\mathrm{[NII]_{6548}}$',idx))
+        NII6583 = float(csvLines.getData('$\mathrm{[NII]_{6583}}$',idx))
+        print('NII5755 = ',NII5755)
+        print('NII6548 = ',NII6548)
+        print('NII6583 = ',NII6583)
+
+        SII6716 = float(csvLines.getData('$\mathrm{[SII]_{6716}}$',idx))
+        SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6730}}$',idx))
+        print('SII6716 = ',SII6716)
+        print('SII6731 = ',SII6731)
+
+        OIII4363 = float(csvLines.getData('$\mathrm{[OIII]_{4363}}$',idx))
+        OIII5007 = float(csvLines.getData('$\mathrm{[OIII]_{5007}}$',idx))
+        print('OIII4363 = ',OIII4363)
+        print('OIII5007 = ',OIII5007)
+
+        Halpha = float(csvLines.getData('$\mathrm{H_\\alpha}$',idx))
+        Hbeta = float(csvLines.getData('$\mathrm{H_\\beta}$',idx))
+
+        rc = pn.RedCorr(E_BV = 1.2, R_V = 3.2, law = 'F99')
+        rc.setCorr(Halpha / Hbeta, 6563., 4861.)
+        wave = [linesOfInterest['SIIa'],
+                linesOfInterest['SIIb'],
+                linesOfInterest['NII'],
+                linesOfInterest['NIIa'],
+                linesOfInterest['NIIb'],
+                linesOfInterest['OIIIa'],
+                linesOfInterest['OIIIb'],
+                linesOfInterest['Halpha'],
+                linesOfInterest['Hbeta'],]
+        correc = rc.getCorr(wave)
+        print('wave = ',wave,': correc = ',correc)
+        STOP
+
+        temNS,denNS = [None,None]
+        temOS,denOS = [None,None]
+        denS = None
+        denO = None
+        denN = None
+        NIIHa = None
+        OIIIHb = None
+        SIIHa = None
+        HaHb = None
+        if (NII5755 > 0.) and (NII6548 > 0.):
+            if Halpha > 0.:
+                NIIHa = NII6583 / Halpha
+            denN = n2.getTemDen((NII6548 + NII6548) / NII5755, tem=10000., to_eval = '(L(6584) + L(6548)) / L(5755)')
+            print('idPNMain = ',id,': denN = ',denN)
+        if (OIII4363 > 0.) and (OIII5007 > 0.):
+            if Hbeta > 0.:
+                OIIIHb = OIII5007 / Hbeta
+            denO = o3.getTemDen(OIII5007 / OIII4363, tem=10000., wave1=5007, wave2=4363, maxIter=100)
+            print('idPNMain = ',id,': denO = ',denO)
+        if  (SII6716 > 0.) and (SII6731 > 0.):
+            if Halpha > 0.:
+                SIIHa = (SII6716 + SII6731) / Halpha
+            denS = s2.getTemDen(int_ratio=SII6716/SII6731,tem=10000.,wave1=6716,wave2=6731,maxIter=100)
+            print('idPNMain = ',id,': denS = ',denS)
+            if (NII5755 > 0.) and (NII6548 > 0.):
+                temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
+                                                    diag_den='[SII] 6731/6716',
+                                                    value_tem=NII5755 / NII6548,
+                                                    value_den=SII6731 / SII6716)
+            if (OIII4363 > 0.) and (OIII5007 > 0.):
+                temOS, denOS = diags.getCrossTemDen(diag_tem='[OIII] 4363/5007',
+                                                    diag_den='[SII] 6731/6716',
+                                                    value_tem=OIII4363 / OIII5007,
+                                                    value_den=SII6731 / SII6716)
+        print('idPNMain = ',id,': temNS = ',temNS,', denNS = ',denNS)
+        print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
+        if (Halpha > 0.) and (Hbeta > 0.):
+            HaHb = Halpha / Hbeta
+        csvOut.setData('$\mathrm{(H_\\alpha)/(H_\\beta)}$',idx,'%.2f' % (HaHb) if HaHb is not None else ' ')
+        csvOut.setData('$\mathrm{(6717,31)/(H_\\alpha)}$',idx,'%.2f' % (SIIHa) if SIIHa is not None else ' ')
+        csvOut.setData('$\mathrm{(5007)/(H_\\beta)}$',idx,'%.2f' % (OIIIHb) if OIIIHb is not None else ' ')
+        csvOut.setData('$\mathrm{(6584)/(H_\\alpha)}$',idx,'%.2f' % (NIIHa) if NIIHa is not None else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'%d' % int(temNS) if temNS is not None else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'%d' % int(temOS) if temOS is not None else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'%d' % int(denNS) if denNS is not None else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'%d' % int(denOS) if denOS is not None else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$',idx,'%d' % int(denS) if denS is not None else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$',idx,'%d' % int(denO) if denO is not None else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$',idx,'%d' % int(denN) if denN is not None else ' ')
+    csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'lines_and_temden.csv'))
+    NIIHa = csvOut.getData('$\mathrm{(6584)/(H_\\alpha)}$')
+    SIIHa = csvOut.getData('$\mathrm{(6717,31)/(H_\\alpha)}$')
+    OIIIHb = csvOut.getData('$\mathrm{(5007)/(H_\\beta)}$')
+    n = []
+    s = []
+    o = []
+    for i in range(len(NIIHa)):
+        if (NIIHa[i] != ' ') and (SIIHa[i] != ' ') and (OIIIHb[i] != ' '):
+            n.append(NIIHa)
+            s.append(SIIHa)
+            o.append(OIIIHb)
+    plt.scatter(np.log10(np.array(NIIHa)),np.log10(np.array(OIIIHb)),color='k',s=10,marker='D')
+    plt.xlabel = r'log $\mathrm{(6584)/H_\\alpha}$'
+    plt.ylabel = r'log $\mathrm{(5007)/H_\\beta}$'
+    plt.savefig(os.path.join(latexPath,'images/OIIIHbetaVsNIIHalpha.pdf'),bbox_inches='tight')
+    plt.show()
+    plt.close()
+
+    plt.scatter(np.log10(np.array(SIIHa)),np.log10(np.array(OIIIHb)),color='k',s=10,marker='D')
+    plt.xlabel = r'log $\mathrm{(6716,31)/H_\\alpha}$'
+    plt.ylabel = r'log $\mathrm{(5007)/H_\\beta}$'
+    plt.savefig(os.path.join(latexPath,'images/OIIIHbetaVsSIIHalpha.pdf'),bbox_inches='tight')
+    plt.show()
+    plt.close()
+
+
+    return csvOut
 
 if __name__ == '__main__':
-    csvPaper = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_paper.csv','&',False)
-#    print(csvPaper.header)
+    print('reading table_paper_sorted')
+    csvPaper = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_paper_sorted.csv','&',False)
+    print(csvPaper.header)
 #    print(csvPaper.data)
 
     csvTargets = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/Charts_IPHAS_Amateurs/Targets_GTC.cvs')
-#    print(csvTargets.header)
+    print(csvTargets.header)
 #    print(csvTargets.data)
     #    coneSearch(csvPaper)
 
-    ids = findHASHid(csvPaper, csvTargets)
-    ids.append(['Ou 1','8458'])
-    ids.append(['IPHASX J055242.8+262116','9824'])
-    ids.append(['J190333','8506'])
-    ids.append(['IPHASX J191707.3+020010','2502'])
-    print(ids)
-    getImages(ids)
-
-
-
+    #fixInUseInIquote()
+    if True:
+        ids = findHASHid(csvPaper, csvTargets)
+        ids.append(['Ou 1','8458'])
+        ids.append(['IPHASX J055242.8+262116','9824'])
+        ids.append(['J190333','8506'])
+        ids.append(['IPHASX J191707.3+020010','2502'])
+        print(ids)
+        #STOP
+        getImages(ids)
+#        filterIphasImagesInBashFile()
+#        filterSSSImagesInBashFile()
+#        filterWISE432ImagesInBashFile()
+#        filterNVSSImagesInBashFile()
+#        filterGalexImagesInBashFile()
+        csvLines = makeSpectraTable(ids)
+#        for id in ids:
+#            print('id = ',id)
+#        STOP
+#        for id in ids:
+#            combineImages(id[1])
+        createImageTable(ids)
+        addLinesToTable(csvPaper)

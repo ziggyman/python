@@ -15,6 +15,9 @@ import os
 import re
 import subprocess
 from time import sleep
+from hammer import Pixel,XY,LonLat,Hammer
+
+c0 = 299792.458 #km/s
 
 def multikeysort(items, columns):
     from operator import itemgetter
@@ -1059,3 +1062,33 @@ def getPNGName(lon,lat):
     png = png[:png.rfind('.')+2]
     print('lon = ',lon,', lat = ',lat,', png = <'+png+'>')
     return png
+
+
+# @brief plot l and b every x degrees
+def plotLBMarks(x):
+    ham = Hammer()
+    pixels = ham.getPixels()
+    lArr = np.arange(0,360.1,0.1)
+    bArr = np.arange(-90, 90.1, 0.1)
+    xArr = []
+    yArr = []
+    for l in lArr:
+        for b in np.arange(-90,91,x):
+            xy = ham.lonLatToXY(l,b)
+            xArr.append(xy.x)
+            yArr.append(xy.y)
+    for b in bArr:
+        for l in np.arange(0,361,x):
+            xy = ham.lonLatToXY(l,b)
+            xArr.append(xy.x)
+            yArr.append(xy.y)
+        l=180.0001
+        xy = ham.lonLatToXY(l,b)
+        xArr.append(xy.x)
+        yArr.append(xy.y)
+    plt.scatter(xArr,yArr,s=0.1)
+#    xy = ham.lonLatToXY(181.,0.)
+#    plt.scatter([xy.x],[xy.y],s=100)
+
+def applyVRadCorrection(wavelength, vRad):
+    return np.array([wLen - (vRad * wLen / c0) for wLen in wavelength])
