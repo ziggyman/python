@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
     areas = getAreas2Gauss(x,imageData,565,2891,6548.7,6563.7,4.5,4.5)
 
-def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True):
+def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True,save=None):
     # fit 2 Gaussians
     try:
         popt,pcov = curve_fit(gauss2,x,imageData,p0=[a1,
@@ -90,20 +90,24 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True):
     areaUnderCurve2 = np.trapz(yGauss2,x=x)
     print('areaUnderCurve2 = ',areaUnderCurve2)
 
-    if show:
+    gauss12 = gauss2(x,*popt)
+
+    if show or (save is not None):
         plt.plot(x,imageData)
         plt.plot(x,yGauss1)
         plt.plot(x,yGauss2)
-
-    gauss12 = gauss2(x,*popt)
-    if show:
         plt.plot(x,gauss12)
+    if save is not None:
+        plt.savefig(save,bbox_inches='tight')
+    if show:
         plt.show()
+    if save is not None:
+        plt.close()
 
     return [areaUnderCurve1,areaUnderCurve2,popt]
 
 
-def getAreaGauss(x,imageData,a1,x01,sigma1,show=True):
+def getAreaGauss(x,imageData,a1,x01,sigma1,show=True,save=None):
     # fit 2 Gaussians
     try:
         popt,pcov = curve_fit(gauss,x,imageData,p0=[a1,
@@ -124,15 +128,20 @@ def getAreaGauss(x,imageData,a1,x01,sigma1,show=True):
 
     areaUnderCurve1 = np.trapz(yGauss1,x=x)
     print('areaUnderCurve1 = ',areaUnderCurve1)
-    if show:
+    if show or (save is not None):
         plt.plot(x,imageData)
         plt.plot(x,yGauss1)
+    if save is not None:
+        plt.savefig(save,bbox_inches='tight')
+    if show:
         plt.show()
+    if save is not None:
+        plt.close()
 
     return [areaUnderCurve1,popt]
 
 
-def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=True):
+def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=True,save=None):
     # fit 2 Gaussians
     try:
         popt,pcov = curve_fit(gauss3,x,imageData,p0=[a1,
@@ -172,15 +181,19 @@ def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=Tr
     areaUnderCurve3 = np.trapz(yGauss3,x=x)
     print('areaUnderCurve3 = ',areaUnderCurve3)
 
-    if show:
+    gauss123 = gauss3(x,*popt)
+
+    if show or (save is not None):
         plt.plot(x,imageData)
         plt.plot(x,yGauss1)
         plt.plot(x,yGauss2)
         plt.plot(x,yGauss3)
-
-    gauss123 = gauss3(x,*popt)
-    if show:
         plt.plot(x,gauss123)
+    if save is not None:
+        plt.savefig(save,bbox_inches='tight')
+    if show:
         plt.show()
+    if save is not None:
+        plt.close()
 
     return [areaUnderCurve1,areaUnderCurve2,areaUnderCurve3,popt]
