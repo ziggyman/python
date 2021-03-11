@@ -97,7 +97,7 @@ def findHASHid(csvTablePaper, csvTableTargets):
     pnStat = pnMain.getData('PNstat')
     idx = []#np.where(np.array(pnStat).all() in ['T','L','P'])[0]
     for i in range(pnMain.size()):
-        if pnMain.getData('PNstat',i) in ['T','L','P']:
+        if (pnMain.getData('PNstat',i) in ['T','L','P']) and (pnMain.getData('domain',i) == 'Galaxy'):
             idx.append(i)
     print('idx = ',len(idx),': ',idx)
     xsT = []
@@ -125,6 +125,7 @@ def findHASHid(csvTablePaper, csvTableTargets):
     plt.scatter(xsL,ysL,c='g',s=5,marker='v')
     plt.scatter(xsP,ysP,c='r',s=5,marker='s')
     plt.scatter(xsT,ysT,c='b',s=5,marker='o')
+    plt.axis('off')
     ids = []
     for iObs in range(csvTablePaper.size()):
         name = csvTablePaper.getData("Name ",iObs).strip(' ')
@@ -155,8 +156,8 @@ def findHASHid(csvTablePaper, csvTableTargets):
             if name == targetName:
 #                print('found it!')
                 for iName in range(tbCNames.size()):
-                    if (tbCNames.getData('idPNMain',iName) == csvTableTargets.getData('idPNMain', iTarget)) & (tbCNames.getData('InUse',i) == '1'):
-                        name = tbCNames.getData('Name',i)
+                    if (tbCNames.getData('idPNMain',iName) == csvTableTargets.getData('idPNMain', iTarget)) & (tbCNames.getData('InUse',iName) == '1'):
+                        name = tbCNames.getData('Name',iName)
                         csvTablePaper.setData("Name ",iObs,name)
                 ids.append([name,csvTableTargets.getData('idPNMain', iTarget)])
                 found = True
@@ -183,7 +184,7 @@ def findHASHid(csvTablePaper, csvTableTargets):
         print('HMMM, NOT ALL TARGETS FOUND... :(')
     pdfNameTemp = os.path.join(latexPath,'images/hammer_tmp.pdf')
     plt.savefig(pdfNameTemp,bbox_inches='tight')
-    plt.show()
+    #plt.show()
     plt.close()
 #    subprocess.run(["gs","-sDEVICE=pdfwrite","-dCompatibilityLevel=1.4","-dPDFSETTINGS=/ebook","-dNOPAUSE", "-dQUIET", "-dBATCH", "-sOutputFile="+pdfNameTemp[:pdfNameTemp.rfind('_tmp')]+'.pdf', pdfNameTemp])
 #    subprocess.run(["rm",pdfNameTemp])
@@ -201,9 +202,14 @@ def findHASHid(csvTablePaper, csvTableTargets):
 #            print('Hmmm, did not find idPNMain ',idPNMain,' in tbCNames with an InUse name')
 #            STOP
 
-    sortedIndices = np.argsort(csvTablePaper.getData('Name '))
+    sortedIndices = np.argsort(np.array([nam.lower() for nam in csvTablePaper.getData('Name ')]))
+    print('sortedIndices = ',type(sortedIndices),': ',sortedIndices)
+    print('sortedIndices[0] = ',type(sortedIndices[0]),': ',sortedIndices[0])
+    
+    csvTablePaper.sort(sortedIndices)
+    csvFree.writeCSVFile(csvTablePaper,os.path.join(latexPath,'table_true_names_sorted.tex'),'&')
 
-    return ids
+    return [ids[i] for i in sortedIndices]
 
 def getImages(ids):
     print('getImages: ids = ',len(ids),': ',ids)
@@ -440,8 +446,10 @@ def fixInUseInIquote():
 #
 #        for i in range(iphasCSV.size()):
 
-def makeSpectraTable(ids):
+def makeSpectraTable(ids, calculateLineIntensities = False):
     (_, _, filenames) = next(os.walk(spectraPath))
+    print('filenames = ',filenames)
+    #STOP
 
     areasSII6716 = []
     areasSII6731 = []
@@ -458,7 +466,7 @@ def makeSpectraTable(ids):
                      '$\mathrm{H_\\alpha}$',
                      '$\mathrm{H_\\beta}$',
                      '$\mathrm{[SII]_{6716}}$',
-                     '$\mathrm{[SII]_{6730}}$',
+                     '$\mathrm{[SII]_{6731}}$',
                      '$\mathrm{[NII]_{5755}}$',
                      '$\mathrm{[NII]_{6548}}$',
                      '$\mathrm{[NII]_{6583}}$',
@@ -506,6 +514,7 @@ def makeSpectraTable(ids):
                         if idPNMain is None:
                             print('could not find filename ',filename,' in hashFitsFiles')
                             STOP
+                        print('filename = ',filename,': idPNMain = ',idPNMain)
                         if idPNMain in idPNMains:
                             pdfFileName = os.path.join(latexPath,'images',filename[:filename.rfind('.')].replace('.','_')+'.pdf')
                             print('filename = ',filename,': idPNMain = ',idPNMain,' is a good one')
@@ -524,16 +533,6 @@ def makeSpectraTable(ids):
                                             id.append(pdfFileName[pdfFileName.rfind('/')+1:])
                                     else:
                                         id.append(pdfFileName[pdfFileName.rfind('/')+1:])
-                            lam = getWavelength(getHeader(os.path.join(spectraPath,filename),0),axis=1)
-                            flux = getImageData(os.path.join(spectraPath,filename),0)
-                            idx = np.where(lam < 7350.)[0]
-                            idx = np.where(lam[idx] > 3950.)[0]
-                            plt.plot(lam[idx], flux[idx], 'k-')
-                            plt.xlabel('wavelength [$\mathrm{\AA}$]')
-                            plt.ylabel('$\mathrm{F_\lambda}$ [$\mathrm{ergs/s/cm^2/\AA}$]')
-                            plt.title(objectName)
-                            plt.savefig(pdfFileName,bbox_inches='tight')
-                            plt.close()
                             f.write('\\includegraphics[width=3.5cm,height=3cm]{%s}\n ' % (os.path.join('images',pdfFileName[pdfFileName.rfind('/')+1:])))
                             if nSpec < 3:
                                 f.write(' & ')
@@ -543,235 +542,263 @@ def makeSpectraTable(ids):
                                 nSpec = 0
                             else:
                                 nSpec += 1
+                            if calculateLineIntensities:
+                                lam = getWavelength(getHeader(os.path.join(spectraPath,filename),0),axis=1)
+                                flux = getImageData(os.path.join(spectraPath,filename),0)
+                                idx = np.where(lam < 7350.)[0]
+                                idx = np.where(lam[idx] > 3950.)[0]
+                                plt.plot(lam[idx], flux[idx], 'k-')
+                                plt.xlabel('wavelength [$\mathrm{\AA}$]')
+                                plt.ylabel('$\mathrm{F_\lambda}$ [$\mathrm{ergs/s/cm^2/\AA}$]')
+                                plt.title(objectName)
+                                plt.savefig(pdfFileName,bbox_inches='tight')
+                                plt.close()
 
-                            hasPos = has.find('fileName',filename,0)
-                            print('hasPos = ',hasPos)
-                            if hasPos[0] != -1:
-                                HalphaPos = float(has.getData('H_alpha',hasPos[0]))
-                                vrad = c0 * (HalphaPos - linesOfInterest['Halpha'])/ linesOfInterest['Halpha']
-                                fv.write(filename+','+str(vrad)+'\n')
-                                print('HalphaPos = ',HalphaPos,': vrad = ',vrad)
-                                lam = applyVRadCorrection(lam,vrad)
-                                #plt.xlim(linesOfInterest['Halpha'] - 30.,linesOfInterest['Halpha'] + 30.)
-                                if True:
-                                    indices = np.where(abs(lam-linesOfInterest['Halpha'])<9.)[0]
-                                    print('indices = ',indices)
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_Ha.png')
-                                        areaHalpha,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
-                                                                           linesOfInterest['Halpha'],
-                                                                           10.,
-                                                                           show=False,
-                                                                           save=plotName)
-                                        if areaHalpha < 0. or abs(popt[1] - linesOfInterest['Halpha']) > 3.:
+                                hasPos = has.find('fileName',filename,0)
+                                print('hasPos = ',hasPos)
+                                if hasPos[0] != -1:
+                                    HalphaPos = float(has.getData('H_alpha',hasPos[0]))
+                                    vrad = c0 * (HalphaPos - linesOfInterest['Halpha'])/ linesOfInterest['Halpha']
+                                    fv.write(filename+','+str(vrad)+'\n')
+                                    print('HalphaPos = ',HalphaPos,': vrad = ',vrad)
+                                    lam = applyVRadCorrection(lam,vrad)
+                                    #plt.xlim(linesOfInterest['Halpha'] - 30.,linesOfInterest['Halpha'] + 30.)
+                                    if True:
+                                        indices = np.where(abs(lam-linesOfInterest['Halpha'])<9.)[0]
+                                        print('indices = ',indices)
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_Ha.png')
+                                            areaHalpha,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                            linesOfInterest['Halpha'],
+                                                                            10.,
+                                                                            show=False,
+                                                                            save=plotName)
+                                            if areaHalpha < 0. or abs(popt[1] - linesOfInterest['Halpha']) > 3.:
+                                                areaHalpha = 0.
+                                                os.remove(plotName)
+                                        except:
                                             areaHalpha = 0.
-                                            os.remove(plotName)
-                                    except:
-                                        areaHalpha = 0.
-                                    fl.write(filename+',Halpha,%s\n' % (str(areaHalpha)))
-                                    indices = np.where(abs(lam-linesOfInterest['Hbeta'])<10.)[0]
-                                    print('indices = ',indices)
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_Hb.png')
-                                        areaHbeta,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
-                                                                           linesOfInterest['Hbeta'],
-                                                                           10.,
-                                                                           show=False,
-                                                                           save=plotName)
-                                        if idPNMain == '4386':
-                                            print('idPNMain = 4386: areaHbeta = ',areaHbeta,', popt = ',popt)
-                                            STOP
-                                        if areaHbeta < 0. or abs(popt[1]-linesOfInterest['Hbeta']) > 3.:
+                                        fl.write(filename+',Halpha,%s\n' % (str(areaHalpha)))
+                                        indices = np.where(abs(lam-linesOfInterest['Hbeta'])<10.)[0]
+                                        print('indices = ',indices)
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_Hb.png')
+                                            areaHbeta,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                            linesOfInterest['Hbeta'],
+                                                                            10.,
+                                                                            show=False,
+                                                                            save=plotName)
+                                            if idPNMain == '4386':
+                                                print('idPNMain = 4386: areaHbeta = ',areaHbeta,', popt = ',popt)
+                                                STOP
+                                            if areaHbeta < 0. or abs(popt[1]-linesOfInterest['Hbeta']) > 3.:
+                                                areaHbeta = 0.
+                                                os.remove(plotName)
+                                        except:
                                             areaHbeta = 0.
-                                            os.remove(plotName)
-                                    except:
-                                        areaHbeta = 0.
-                                    fl.write(filename+',Hbeta,%s\n' % (str(areaHbeta)))
+                                        fl.write(filename+',Hbeta,%s\n' % (str(areaHbeta)))
 
-                                    indices = np.where(abs(lam-linesOfInterest['OIIIa'])<10.)[0]
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_OIII4363.png')
-                                        areaOIII4363,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
-                                                                           linesOfInterest['OIIIa'],
-                                                                           10.,
-                                                                           show=False,
-                                                                           save=plotName)
-                                        if areaOIII4363 < 0. or abs(popt[1]-linesOfInterest['OIIIa']) > 3.:
+                                        indices = np.where(abs(lam-linesOfInterest['OIIIa'])<10.)[0]
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_OIII4363.png')
+                                            areaOIII4363,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                            linesOfInterest['OIIIa'],
+                                                                            10.,
+                                                                            show=False,
+                                                                            save=plotName)
+                                            if areaOIII4363 < 0. or abs(popt[1]-linesOfInterest['OIIIa']) > 3.:
+                                                areaOIII4363 = 0.
+                                                os.remove(plotName)
+                                        except:
                                             areaOIII4363 = 0.
-                                            os.remove(plotName)
-                                    except:
-                                        areaOIII4363 = 0.
-                                    fl.write(filename+',OIII4363,%s\n' % (str(areaOIII4363)))
+                                        fl.write(filename+',OIII4363,%s\n' % (str(areaOIII4363)))
 
-                                    indices = np.where(abs(lam-linesOfInterest['OIIIb'])<10.)[0]
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_OIII5007.png')
-                                        areaOIII5007,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
-                                                                           linesOfInterest['OIIIb'],
-                                                                           10.,
-                                                                           show=False,
-                                                                           save=plotName)
-                                        if areaOIII5007 < 0. or abs(popt[1]-linesOfInterest['OIIIb']) > 3.:
+                                        indices = np.where(abs(lam-linesOfInterest['OIIIb'])<10.)[0]
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_OIII5007.png')
+                                            areaOIII5007,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                            linesOfInterest['OIIIb'],
+                                                                            10.,
+                                                                            show=False,
+                                                                            save=plotName)
+                                            if areaOIII5007 < 0. or abs(popt[1]-linesOfInterest['OIIIb']) > 3.:
+                                                areaOIII5007 = 0.
+                                                os.remove(plotName)
+                                        except:
                                             areaOIII5007 = 0.
-                                            os.remove(plotName)
-                                    except:
-                                        areaOIII5007 = 0.
-                                    fl.write(filename+',OIII5007,%s\n' % (str(areaOIII5007)))
+                                        fl.write(filename+',OIII5007,%s\n' % (str(areaOIII5007)))
 
-                                    indices = np.where(abs(lam-linesOfInterest['NII'])<10.)[0]
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_NII5755.png')
-                                        areaNII5755,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
-                                                                           linesOfInterest['NII'],
-                                                                           10.,
-                                                                           show=False,
-                                                                           save=plotName)
-                                        if areaNII5755 < 0. or abs(popt[1]-linesOfInterest['NII']) > 3.:
+                                        indices = np.where(abs(lam-linesOfInterest['NII'])<10.)[0]
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_NII5755.png')
+                                            areaNII5755,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                            linesOfInterest['NII'],
+                                                                            10.,
+                                                                            show=False,
+                                                                            save=plotName)
+                                            if areaNII5755 < 0. or abs(popt[1]-linesOfInterest['NII']) > 3.:
+                                                areaNII5755 = 0.
+                                                os.remove(plotName)
+                                        except:
                                             areaNII5755 = 0.
-                                            os.remove(plotName)
-                                    except:
-                                        areaNII5755 = 0.
-                                    fl.write(filename+',NII5755,%s\n' % (str(areaNII5755)))
+                                        fl.write(filename+',NII5755,%s\n' % (str(areaNII5755)))
 
-                                    indices = np.where(abs(lam-linesOfInterest['NIIa'])<7.)[0]
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_NII6548.png')
-                                        areaNII6548,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
-                                                                           linesOfInterest['NIIa'],
-                                                                           10.,
-                                                                           show=False,
-                                                                           save=plotName)
-                                        if areaNII6548 < 0. or abs(popt[1]-linesOfInterest['NIIa']) > 3.:
+                                        indices = np.where(abs(lam-linesOfInterest['NIIa'])<7.)[0]
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_NII6548.png')
+                                            areaNII6548,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                            linesOfInterest['NIIa'],
+                                                                            10.,
+                                                                            show=False,
+                                                                            save=plotName)
+                                            if areaNII6548 < 0. or abs(popt[1]-linesOfInterest['NIIa']) > 3.:
+                                                areaNII6548 = 0.
+                                                os.remove(plotName)
+                                        except:
                                             areaNII6548 = 0.
-                                            os.remove(plotName)
-                                    except:
-                                        areaNII6548 = 0.
-                                    fl.write(filename+',NII6548,%s\n' % (str(areaNII6548)))
+                                        fl.write(filename+',NII6548,%s\n' % (str(areaNII6548)))
 
-                                    indices = np.where(abs(lam-linesOfInterest['NIIb'])<7.)[0]
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_NII6583.png')
-                                        areaNII6583,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
-                                                                           linesOfInterest['NIIb'],
-                                                                           10.,
-                                                                           show=False,
-                                                                           save=plotName)
-                                        if areaNII6583 < 0. or abs(popt[1]-linesOfInterest['NIIb']) > 3.:
+                                        indices = np.where(abs(lam-linesOfInterest['NIIb'])<7.)[0]
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_NII6583.png')
+                                            areaNII6583,popt = getAreaGauss(lam[indices],flux[indices],np.max(flux[indices]),
+                                                                            linesOfInterest['NIIb'],
+                                                                            10.,
+                                                                            show=False,
+                                                                            save=plotName)
+                                            if areaNII6583 < 0. or abs(popt[1]-linesOfInterest['NIIb']) > 3.:
+                                                areaNII6583 = 0.
+                                                os.remove(plotName)
+                                        except:
                                             areaNII6583 = 0.
-                                            os.remove(plotName)
-                                    except:
-                                        areaNII6583 = 0.
-                                    fl.write(filename+',NII6583,%s\n' % (str(areaNII6583)))
+                                        fl.write(filename+',NII6583,%s\n' % (str(areaNII6583)))
 
-        #                            areaNII6548,areaHalpha,areaNII6583,popt = getAreas3Gauss(lam,flux,np.max(flux[np.where(abs(lam-linesOfInterest['NIIa'])<5.)[0]]),
-        #                                                                                              np.max(flux[np.where(abs(lam-linesOfInterest['Halpha'])<5.)[0]]),
-        #                                                                                              np.max(flux[np.where(abs(lam-linesOfInterest['NIIb'])<5.)[0]]),
-        #                                                                                              linesOfInterest['NIIa'],
-        #                                                                                              linesOfInterest['Halpha'],
-        #                                                                                              linesOfInterest['NIIb'],
-        #                                                                                              10.,
-        #                                                                                              10.,
-        #                                                                                              10.,
-        #                                                                                              show=True)
-                                    indices = np.where(lam < linesOfInterest['SIIb'] + 10.)[0]
-                                    print('indicesL = ',indices)
-                                    indices = np.where(lam[indices] > linesOfInterest['SIIa'] - 10.)[0]
-                                    print('indicesG = ',indices)
-        #                            plt.plot(lam[indices],flux[indices])
-        #                            plt.show()
-                                    try:
-                                        plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_SII6716+6731.png')
-                                        areaSII6716,areaSII6731,popt = getAreas2Gauss(lam[indices],flux[indices],np.max(flux[np.where(abs(lam-linesOfInterest['SIIa'])<5.)[0]]),
-                                                                                                          np.max(flux[np.where(abs(lam-linesOfInterest['SIIb'])<5.)[0]]),
-                                                                                                          linesOfInterest['SIIa'],
-                                                                                                          linesOfInterest['SIIb'],
-                                                                                                          10.,
-                                                                                                          10.,
-                                                                                                          show=False,
-                                                                                                          save=plotName
-                                                                                      )
-                                        if areaSII6716 < 0. or abs(popt[2]-linesOfInterest['SIIa']) > 3.:
-                                            areaSII6716 = 0.
-                                        if areaSII6731 < 0. or abs(popt[3]-linesOfInterest['SIIb']) > 3.:
-                                            areaSII6731 = 0.
-                                        if (areaSII6716 < 0. or abs(popt[2]-linesOfInterest['SIIa']) > 3.) and (areaSII6731 < 0. or abs(popt[3]-linesOfInterest['SIIb']) > 3.):
-                                            os.remove(plotName)
-                                    except:
-                                        areaSII6716,areaSII6731 = [0.,0.]
-                                    fl.write(filename+',SII6716,%s\n' % (str(areaSII6716)))
-                                    fl.write(filename+',SII6731,%s\n' % (str(areaSII6731)))
-                                    print('areaHalpha = ',areaHalpha)
-                                    areasHalpha.append(areaHalpha)
-                                    areasHbeta.append(areaHbeta)
-                                    areasOIII4363.append(areaOIII4363)
-                                    areasOIII5007.append(areaOIII5007)
-                                    areasNII5755.append(areaNII5755)
-                                    areasNII6548.append(areaNII6548)
-                                    areasNII6583.append(areaNII6583)
-                                    areasSII6716.append(areaSII6716)
-                                    areasSII6731.append(areaSII6731)
-#                                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
-#                                                                    diag_den='[SII] 6731/6716',
-#                                                                    value_tem=areaNII5755 / (areaNII6548 if areaNII6548 > 0. else 0.00001),
-#                                                                    value_den=areaSII6731 / (areaSII6716 if areaSII6716 > 0. else 0.00001),
-#                                                                   )
-#                                    print('areaNII5755 = ',areaNII5755,', areaNII6548 = ',areaNII6548,', areaSII6731 = ',areaSII6731,', areaSII6716 = ',areaSII6716,': tem = ',tem,', den = ',den)
-#                                    fl.write(filename+',tem,%s\n' % (str(tem)))
-#                                    fl.write(filename+',den,%s\n' % (str(den)))
-                                    #csvOut.header = ['idPNMain','Halpha','Hbeta','SII6716','SII6730','NII5755','NII6548','NII6583','OIII4363','OIII5007','$T_{e^-}$','$\rho_{e^-}$']
-                                    rowStr = '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (str(idPNMain),
-                                                                                str(areaHalpha),
-                                                                                str(areaHbeta),
-                                                                                str(areaSII6716),
-                                                                                str(areaSII6731),
-                                                                                str(areaNII5755),
-                                                                                str(areaNII6548),
-                                                                                str(areaNII6583),
-                                                                                str(areaOIII4363),
-                                                                                str(areaOIII5007),
- #                                                                                          str(tem) if not math.isnan(tem) else '-',
- #                                                                                          str(den) if not math.isnan(den) else '-',
-                                    )
-                                    #if idPNMain == '15569':
-                                    #    print('rowStr = ',rowStr)
-                                    #    STOP
-                                    csvOut.append(rowStr.split(','))
+            #                            areaNII6548,areaHalpha,areaNII6583,popt = getAreas3Gauss(lam,flux,np.max(flux[np.where(abs(lam-linesOfInterest['NIIa'])<5.)[0]]),
+            #                                                                                              np.max(flux[np.where(abs(lam-linesOfInterest['Halpha'])<5.)[0]]),
+            #                                                                                              np.max(flux[np.where(abs(lam-linesOfInterest['NIIb'])<5.)[0]]),
+            #                                                                                              linesOfInterest['NIIa'],
+            #                                                                                              linesOfInterest['Halpha'],
+            #                                                                                              linesOfInterest['NIIb'],
+            #                                                                                              10.,
+            #                                                                                              10.,
+            #                                                                                              10.,
+            #                                                                                              show=True)
+                                        indices = np.where(lam < linesOfInterest['SIIb'] + 10.)[0]
+                                        print('indicesL = ',indices)
+                                        indices = np.where(lam[indices] > linesOfInterest['SIIa'] - 10.)[0]
+                                        print('indicesG = ',indices)
+            #                            plt.plot(lam[indices],flux[indices])
+            #                            plt.show()
+                                        try:
+                                            plotName = os.path.join(imPath[:imPath.rfind('/')],'lines/'+idPNMain+'_SII6716+6731.png')
+                                            areaSII6716,areaSII6731,popt = getAreas2Gauss(lam[indices],flux[indices],np.max(flux[np.where(abs(lam-linesOfInterest['SIIa'])<5.)[0]]),
+                                                                                                            np.max(flux[np.where(abs(lam-linesOfInterest['SIIb'])<5.)[0]]),
+                                                                                                            linesOfInterest['SIIa'],
+                                                                                                            linesOfInterest['SIIb'],
+                                                                                                            10.,
+                                                                                                            10.,
+                                                                                                            show=False,
+                                                                                                            save=plotName
+                                                                                        )
+                                            if areaSII6716 < 0. or abs(popt[2]-linesOfInterest['SIIa']) > 3.:
+                                                areaSII6716 = 0.
+                                            if areaSII6731 < 0. or abs(popt[3]-linesOfInterest['SIIb']) > 3.:
+                                                areaSII6731 = 0.
+                                            if (areaSII6716 < 0. or abs(popt[2]-linesOfInterest['SIIa']) > 3.) and (areaSII6731 < 0. or abs(popt[3]-linesOfInterest['SIIb']) > 3.):
+                                                os.remove(plotName)
+                                        except:
+                                            areaSII6716,areaSII6731 = [0.,0.]
+                                        fl.write(filename+',SII6716,%s\n' % (str(areaSII6716)))
+                                        fl.write(filename+',SII6731,%s\n' % (str(areaSII6731)))
+                                        print('areaHalpha = ',areaHalpha)
+                                        areasHalpha.append(areaHalpha)
+                                        areasHbeta.append(areaHbeta)
+                                        areasOIII4363.append(areaOIII4363)
+                                        areasOIII5007.append(areaOIII5007)
+                                        areasNII5755.append(areaNII5755)
+                                        areasNII6548.append(areaNII6548)
+                                        areasNII6583.append(areaNII6583)
+                                        areasSII6716.append(areaSII6716)
+                                        areasSII6731.append(areaSII6731)
+    #                                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
+    #                                                                    diag_den='[SII] 6731/6716',
+    #                                                                    value_tem=areaNII5755 / (areaNII6548 if areaNII6548 > 0. else 0.00001),
+    #                                                                    value_den=areaSII6731 / (areaSII6716 if areaSII6716 > 0. else 0.00001),
+    #                                                                   )
+    #                                    print('areaNII5755 = ',areaNII5755,', areaNII6548 = ',areaNII6548,', areaSII6731 = ',areaSII6731,', areaSII6716 = ',areaSII6716,': tem = ',tem,', den = ',den)
+    #                                    fl.write(filename+',tem,%s\n' % (str(tem)))
+    #                                    fl.write(filename+',den,%s\n' % (str(den)))
+                                        #csvOut.header = ['idPNMain','Halpha','Hbeta','SII6716','SII6731','NII5755','NII6548','NII6583','OIII4363','OIII5007','$T_{e^-}$','$\rho_{e^-}$']
+                                        rowStr = '%s,'
+                                        rowStr += ('%.2E' if areaHalpha > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaHbeta > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaSII6716 > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaSII6731 > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaNII5755 > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaNII6548 > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaNII6583 > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaOIII4363 > 0. else '%.0f')+','
+                                        rowStr += ('%.2E' if areaOIII5007 > 0. else '%.0f')
+                                        print('rowStr = <'+rowStr+'>')
+                                        rowStr = rowStr % (idPNMain,
+                                                           areaHalpha,
+                                                           areaHbeta,
+                                                           areaSII6716,
+                                                           areaSII6731,
+                                                           areaNII5755,
+                                                           areaNII6548,
+                                                           areaNII6583,
+                                                           areaOIII4363,
+                                                           areaOIII5007,
+                                                          )
+                                        #if idPNMain == '15569':
+                                        #    print('rowStr = ',rowStr)
+                                        #    STOP
+                                        csvOut.append(rowStr.split(','))
                 f.write('\\end{longtable}\n')
                 f.write('\\end{document}\n')
 
-                for i in range(len(areasHalpha)):
-                    if (areasSII6716[i] + areasSII6731[i] > 0.) and (areasNII6548[i] + areasNII6583[i] > 0.):
-                        plt.scatter(np.log10(areasHalpha[i] / (areasSII6716[i]+areasSII6731[i])),np.log10(areasHalpha[i] / (areasNII6548[i]+areasNII6583[i])),c='k')
-                plt.xlabel(r'log($\mathrm{H_\alpha} / \mathrm{[SII]}$)')
-                plt.ylabel(r'log($\mathrm{H_\alpha} / \mathrm{[NII]}$)')
-                plt.show()
-    csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'lines_id.csv'))
+    if calculateLineIntensities:
+        outFileName = os.path.join(imPath[:imPath.rfind('/')],'lines_id.csv')
+        csvFree.writeCSVFile(csvOut,outFileName,'&')
+#    STOP
     return csvOut
 
 def addLinesToTable(csvPaper,csvLines=None):
     idsPaper = csvPaper.getData(' HASH ID ')
     idsPaper = [id.strip() for id in idsPaper]
     print('idsPaper = ',len(idsPaper),': ',idsPaper)
+#    STOP
 
     if csvLines is None:
-        csvLines = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'lines_id.csv'))
+        csvLines = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'lines_id.csv'),'&',False)
+    print('csvLines.header = ',csvLines.header)
     idsLines = csvLines.getData('idPNMain')
     print('idsLines = ',len(idsLines),': ',idsLines)
 #    idsLines.header = ['idPNMain',
 #                     '$\mathrm{H_\\alpha}$',
 #                     '$\mathrm{H_\\beta}$',
 #                     '$\mathrm{[SII]_{6716}}$',
-#                     '$\mathrm{[SII]_{6730}}$',
+#                     '$\mathrm{[SII]_{6731}}$',
 #                     '$\mathrm{[NII]_{5755}}$',
 #                     '$\mathrm{[NII]_{6548}}$',
 #                     '$\mathrm{[NII]_{6583}}$',
 #                     '$\mathrm{[OIII]_{4363}}$',
 #                     '$\mathrm{[OIII]_{5007}}$',
+    for i in range(csvLines.size()):
+        if (float(csvLines.getData('$\mathrm{[SII]_{6716}}$',i)) + float(csvLines.getData('$\mathrm{[SII]_{6731}}$',i)) > 0.) and (float(csvLines.getData('$\mathrm{[NII]_{6548}}$',i)) + float(csvLines.getData('$\mathrm{[NII]_{6583}}$',i)) > 0.):
+            plt.scatter(np.log10(float(csvLines.getData('$\mathrm{H_\\alpha}$',i)) / (float(csvLines.getData('$\mathrm{[SII]_{6716}}$',i))+float(csvLines.getData('$\mathrm{[SII]_{6731}}$',i)))),
+                        np.log10(float(csvLines.getData('$\mathrm{H_\\alpha}$',i)) / (float(csvLines.getData('$\mathrm{[NII]_{6548}}$',i)) + float(csvLines.getData('$\mathrm{[NII]_{6583}}$',i)))),c='k')
+    plt.xlabel(r'log($\mathrm{H_\alpha} / \mathrm{[SII]}$)')
+    plt.ylabel(r'log($\mathrm{H_\alpha} / \mathrm{[NII]}$)')
+    plt.savefig(os.path.join(latexPath,'images/Halpha_NII_vs_Halpha_SII.pdf'),bbox_inches='tight')
+    plt.show()
 
     csvPaper.removeColumn(' comments')
 
     csvOut = csvData.CSVData()
     csvOut.header = csvLines.header
+    csvOut.renameColumn('idPNMain','Target Name')
     csvOut.data = csvLines.data
     csvOut.addColumn('$\mathrm{(H_\\alpha)/(H_\\beta)}$')
     csvOut.addColumn('$\mathrm{(6717,31)/(H_\\alpha)}$')
@@ -808,7 +835,7 @@ def addLinesToTable(csvPaper,csvLines=None):
             print('NII6583 = ',NII6583)
 
             SII6716 = float(csvLines.getData('$\mathrm{[SII]_{6716}}$',idx))
-            SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6730}}$',idx))
+            SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6731}}$',idx))
             print('SII6716 = ',SII6716)
             print('SII6731 = ',SII6731)
 
@@ -849,15 +876,34 @@ def addLinesToTable(csvPaper,csvLines=None):
                                                                  ))
     obs = pn.Observation(obsFileName,fileFormat='lines_in_cols',delimiter='\t')
     obs.extinction.law = 'F99'
-    obs.def_EBV(label1='H1r_6563A',label2='H1r_4861',r_theo=2.86)
+    obs.def_EBV(label1='H1r_6563A',label2='H1r_4861A',r_theo=2.86)
     print('E(B-V) = ',obs.extinction.E_BV)
     E_BV = obs.extinction.E_BV
     for i in range(len(idsPaper)):
-        print('id = ',idsPaper[i],': H_alpha = ',Halpha,', H_beta = ',Hbeta,': H_a/H_b = ',Halpha/Hbeta if Hbeta > 0. else 0.,', E_BV = ',E_BV[i])
+        intensitiesObs = obs.getIntens(obsName=idsPaper[i],returnObs=True)
+        print('id = ',idsPaper[i],': intensities = ',type(intensitiesObs),': ',intensitiesObs)
+        print('id = ',idsPaper[i],': H_alpha = ',intensitiesObs['H1r_6563A'],
+                                  ', H_beta = ',intensitiesObs['H1r_4861A'],
+                                  ': H_a/H_b = ',intensitiesObs['H1r_6563A']/intensitiesObs['H1r_4861A'] if Hbeta > 0. else 0.,
+                                  ', E_BV = ',E_BV[i])
+    E_BV[np.where(E_BV < 0.)[0]] = 0.
+    print('E(B-V) = ',obs.extinction.E_BV)
     obs.correctData()
-    obs.printIntens(returnObs=True)
-    obs.printIntens()
+    for i in range(len(idsPaper)):
+        intensitiesObs = obs.getIntens(obsName=idsPaper[i],returnObs=True)
+        intensitiesCor = obs.getIntens(obsName=idsPaper[i],returnObs=False)
+        print('id = ',idsPaper[i],': H_alpha = ',intensitiesObs['H1r_6563A'],' => ',intensitiesCor['H1r_6563A'],
+                                  ', H_beta = ',intensitiesObs['H1r_4861A'],' => ',intensitiesCor['H1r_4861A'],
+                                  ', N2_5755A = ',intensitiesObs['N2_5755A'],' => ',intensitiesCor['N2_5755A'],
+                                  ', N2_6548A = ',intensitiesObs['N2_6548A'],' => ',intensitiesCor['N2_6548A'],
+                                  ', N2_6584A = ',intensitiesObs['N2_6584A'],' => ',intensitiesCor['N2_6584A'],
+                                  ', O3_4363A = ',intensitiesObs['O3_4363A'],' => ',intensitiesCor['O3_4363A'],
+                                  ', O3_5007A = ',intensitiesObs['O3_5007A'],' => ',intensitiesCor['O3_5007A'],
+                                  ', S2_6716A = ',intensitiesObs['S2_6716A'],' => ',intensitiesCor['S2_6716A'],
+                                  ', S2_6731A = ',intensitiesObs['S2_6731A'],' => ',intensitiesCor['S2_6731A'],
+                                  )
 
+    print('len(idsPaper) = ',len(idsPaper),', len(E_BV) = ',len(E_BV))
     for i in range(len(idsPaper)):
         id = idsPaper[i]
         print('id = ',type(id),': <'+id+'>')
@@ -871,39 +917,40 @@ def addLinesToTable(csvPaper,csvLines=None):
         if idx == -1:
             STOP
 #        print("csvLines.getData('$\mathrm{[NII]_{5755}}$') = ",csvLines.getData('$\mathrm{[NII]_{5755}}$'))
-        if math.isinf(E_BV[i]):
-            NII5755 = float(csvLines.getData('$\mathrm{[NII]_{5755}}$',idx))
-            NII6548 = float(csvLines.getData('$\mathrm{[NII]_{6548}}$',idx))
-            NII6583 = float(csvLines.getData('$\mathrm{[NII]_{6583}}$',idx))
-
-            SII6716 = float(csvLines.getData('$\mathrm{[SII]_{6716}}$',idx))
-            SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6730}}$',idx))
-
-            OIII4363 = float(csvLines.getData('$\mathrm{[OIII]_{4363}}$',idx))
-            OIII5007 = float(csvLines.getData('$\mathrm{[OIII]_{5007}}$',idx))
-            print('NII5755 = ',NII5755)
-            print('NII6548 = ',NII6548)
-            print('NII6583 = ',NII6583)
-            print('SII6716 = ',SII6716)
-            print('SII6731 = ',SII6731)
-            print('OIII4363 = ',OIII4363)
-            print('OIII5007 = ',OIII5007)
-            print('obs.getIntens(obsName = ',id,', returnObs = True) = ',obs.getIntens(obsName = id, returnObs = True))
-            STOP
-            Halpha = float(csvLines.getData('$\mathrm{H_\\alpha}$',idx))
-            Hbeta = float(csvLines.getData('$\mathrm{H_\\beta}$',idx))
-        else:
-            intensities = obs.getIntens(obsName = id, returnObs=False)
-            """H1_4861A\tH1_6563A\tN2_5755A\tN2_6548A\tN2_6584A\tO3_4363A\tO3_5007A\tS2_6716A\tS2_6731A"""
-            Halpha = intensities['H1_6563A']
-            Hbeta = intensities['H1_4861A']
-            NII5755 = intensities['N2_5755A']
-            NII6548 = intensities['N2_6548A']
-            NII6583 = intensities['N2_6584']
-            SII6716 = intensities['S2_6716A']
-            SII6731 = intensities['S2_6731A']
-            OIII4363 = intensities['O3_4363A']
-            OIII5007 = intensities['O3_5007A']
+        
+#        if math.isinf(E_BV[i]):
+#            NII5755 = float(csvLines.getData('$\mathrm{[NII]_{5755}}$',idx))
+#            NII6548 = float(csvLines.getData('$\mathrm{[NII]_{6548}}$',idx))
+#            NII6583 = float(csvLines.getData('$\mathrm{[NII]_{6583}}$',idx))
+#
+#            SII6716 = float(csvLines.getData('$\mathrm{[SII]_{6716}}$',idx))
+#            SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6731}}$',idx))
+#
+#            OIII4363 = float(csvLines.getData('$\mathrm{[OIII]_{4363}}$',idx))
+#            OIII5007 = float(csvLines.getData('$\mathrm{[OIII]_{5007}}$',idx))
+#            print('NII5755 = ',NII5755)
+#            print('NII6548 = ',NII6548)
+#            print('NII6583 = ',NII6583)
+#            print('SII6716 = ',SII6716)
+#            print('SII6731 = ',SII6731)
+#            print('OIII4363 = ',OIII4363)
+#            print('OIII5007 = ',OIII5007)
+#            print('obs.getIntens(obsName = ',id,', returnObs = True) = ',obs.getIntens(obsName = id, returnObs = True))
+#            STOP
+#            Halpha = float(csvLines.getData('$\mathrm{H_\\alpha}$',idx))
+#            Hbeta = float(csvLines.getData('$\mathrm{H_\\beta}$',idx))
+#        else:
+        intensities = obs.getIntens(obsName = id, returnObs=False)
+        """H1_4861A\tH1_6563A\tN2_5755A\tN2_6548A\tN2_6584A\tO3_4363A\tO3_5007A\tS2_6716A\tS2_6731A"""
+        Halpha = intensities['H1r_6563A']
+        Hbeta = intensities['H1r_4861A']
+        NII5755 = intensities['N2_5755A']
+        NII6548 = intensities['N2_6548A']
+        NII6583 = intensities['N2_6584A']
+        SII6716 = intensities['S2_6716A']
+        SII6731 = intensities['S2_6731A']
+        OIII4363 = intensities['O3_4363A']
+        OIII5007 = intensities['O3_5007A']
         print('obs.getIntens(obsName = ',id,', returnObs = True) = ',obs.getIntens(obsName = id, returnObs = True))
         print('NII5755 = ',NII5755)
         print('NII6548 = ',NII6548)
@@ -965,18 +1012,23 @@ def addLinesToTable(csvPaper,csvLines=None):
         print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
         if (Halpha > 0.) and (Hbeta > 0.):
             HaHb = Halpha / Hbeta
-        csvOut.setData('$\mathrm{(H_\\alpha)/(H_\\beta)}$',idx,'%.2f' % (HaHb) if HaHb is not None else ' ')
-        csvOut.setData('$\mathrm{(6717,31)/(H_\\alpha)}$',idx,'%.2f' % (SIIHa) if SIIHa is not None else ' ')
-        csvOut.setData('$\mathrm{(5007)/(H_\\beta)}$',idx,'%.2f' % (OIIIHb) if OIIIHb is not None else ' ')
-        csvOut.setData('$\mathrm{(6584)/(H_\\alpha)}$',idx,'%.2f' % (NIIHa) if NIIHa is not None else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'%d' % int(temNS) if temNS is not None else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'%d' % int(temOS) if temOS is not None else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'%d' % int(denNS) if denNS is not None else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'%d' % int(denOS) if denOS is not None else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$',idx,'%d' % int(denS) if denS is not None else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$',idx,'%d' % int(denO) if denO is not None else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$',idx,'%d' % int(denN) if denN is not None else ' ')
+        csvOut.setData('Target Name',idx,getNameFromIdPNMain(id,csvPaper))
+        csvOut.setData('$\mathrm{(H_\\alpha)/(H_\\beta)}$',idx,'%.2f' % (HaHb) if ((HaHb is not None) and (not math.isnan(HaHb))) else ' ')
+        csvOut.setData('$\mathrm{(6717,31)/(H_\\alpha)}$',idx,'%.2f' % (SIIHa) if ((SIIHa is not None) and (not math.isnan(SIIHa))) else ' ')
+        csvOut.setData('$\mathrm{(5007)/(H_\\beta)}$',idx,'%.2f' % (OIIIHb) if ((OIIIHb is not None) and (not math.isnan(OIIIHb))) else ' ')
+        csvOut.setData('$\mathrm{(6584)/(H_\\alpha)}$',idx,'%.2f' % (NIIHa) if ((NIIHa is not None) and (not math.isnan(NIIHa))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'%d' % int(temNS) if ((temNS is not None) and (not math.isnan(temNS))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'%d' % int(temOS) if ((temOS is not None) and (not math.isnan(temOS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'%d' % int(denNS) if ((denNS is not None) and (not math.isnan(denNS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'%d' % int(denOS) if ((denOS is not None) and (not math.isnan(denOS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$',idx,'%d' % int(denS) if ((denS is not None) and (not math.isnan(denS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$',idx,'%d' % int(denO) if ((denO is not None) and (not math.isnan(denO))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$',idx,'%d' % int(denN) if ((denN is not None) and (not math.isnan(denN))) else ' ')
+
+    sortedIndices = np.argsort(np.array([name.lower() for name in csvOut.getData('Target Name')]))
+    csvOut.sort(sortedIndices)
     csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'lines_and_temden.csv'))
+
     NIIHa = csvOut.getData('$\mathrm{(6584)/(H_\\alpha)}$')
     SIIHa = csvOut.getData('$\mathrm{(6717,31)/(H_\\alpha)}$')
     OIIIHb = csvOut.getData('$\mathrm{(5007)/(H_\\beta)}$')
@@ -984,26 +1036,64 @@ def addLinesToTable(csvPaper,csvLines=None):
     s = []
     o = []
     for i in range(len(NIIHa)):
-        if (NIIHa[i] != ' ') and (SIIHa[i] != ' ') and (OIIIHb[i] != ' '):
-            n.append(NIIHa)
-            s.append(SIIHa)
-            o.append(OIIIHb)
-    plt.scatter(np.log10(np.array(NIIHa)),np.log10(np.array(OIIIHb)),color='k',s=10,marker='D')
-    plt.xlabel = r'log $\mathrm{(6584)/H_\\alpha}$'
-    plt.ylabel = r'log $\mathrm{(5007)/H_\\beta}$'
+        print('NIIHa[',i,'] = <'+NIIHa[i]+'>, SIIHa[',i,'] = <'+SIIHa[i]+'>, OIIIHb[',i,'] = <'+OIIIHb[i]+'>')
+        if (NIIHa[i].replace(' ','') != '') and (SIIHa[i].replace(' ','') != '') and (OIIIHb[i].replace(' ','') != ''):
+            n.append(float(NIIHa[i]))
+            s.append(float(SIIHa[i]))
+            o.append(float(OIIIHb[i]))
+    plt.scatter(np.log10(np.array(n)),np.log10(np.array(o)),color='k',s=10,marker='D')
+    plt.xlabel(r'log $\mathrm{(6584)/H_\alpha}$')
+    plt.ylabel(r'log $\mathrm{(5007)/H_\beta}$')
     plt.savefig(os.path.join(latexPath,'images/OIIIHbetaVsNIIHalpha.pdf'),bbox_inches='tight')
     plt.show()
     plt.close()
 
-    plt.scatter(np.log10(np.array(SIIHa)),np.log10(np.array(OIIIHb)),color='k',s=10,marker='D')
-    plt.xlabel = r'log $\mathrm{(6716,31)/H_\\alpha}$'
-    plt.ylabel = r'log $\mathrm{(5007)/H_\\beta}$'
+    plt.scatter(np.log10(np.array(s)),np.log10(np.array(o)),color='k',s=10,marker='D')
+    plt.xlabel(r'log $\mathrm{(6716,31)/H_\alpha}$')
+    plt.ylabel(r'log $\mathrm{(5007)/H_\beta}$')
     plt.savefig(os.path.join(latexPath,'images/OIIIHbetaVsSIIHalpha.pdf'),bbox_inches='tight')
     plt.show()
     plt.close()
 
+    csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'table_paper_sorted_with_temden.csv'),'&')
 
     return csvOut
+
+def getNameFromIdPNMain(idPNMain,csvTablePaper):
+    for i in range(csvTablePaper.size()):
+        if csvTablePaper.getData('idPNMain',i) == str(idPNMain):
+            return csvTablePaper.getData('Target Name',i)
+
+def writeFinalTable():
+    lines = []
+    with open(os.path.join(imPath[:imPath.rfind('/')],'table_paper_sorted_with_temden.csv'),'r') as f:
+        lines = f.readlines()
+    with open(os.path.join(latexPath,'table_paper_sorted_with_temden.tex'),'w') as f:
+        f.write('\\documentclass[12pt]{article}\n')
+        f.write('\\usepackage{graphicx}\n')
+        f.write('\\usepackage{natbib}\n')
+        f.write('\\usepackage{longtable}\n')
+        f.write('\\usepackage{pdflscape}\n')
+        f.write('\\setcitestyle{numbers}\n')
+        f.write('\\setcitestyle{square}\n')
+        f.write('\\begin{document}\n')
+        f.write('\\begin{landscape}\n')
+        f.write('\\clearpage\n')
+        f.write('\\onecolumn\n')
+        f.write('\\begin{longtable}{ | *{21}{l|} }\n')
+        f.write('\\hline\n')
+        f.write(lines[0].rstrip()+'\\\\\n')
+        f.write('\\endhead  % header material\n')
+        f.write('\\hline\endfoot  % footer material\n')
+        f.write('\\hline\n')
+        for line in lines[1:]:
+            f.write(line.rstrip()+'\\\\\n')
+        f.write('\\hline\n')
+        f.write('\\end{longtable}\n')
+        f.write('\\end{landscape}\n')
+        f.write('\\clearpage\n')
+        f.write('\\twocolumn\n')
+        f.write('\\end{document}\n')
 
 if __name__ == '__main__':
     print('reading table_paper_sorted')
@@ -1019,23 +1109,25 @@ if __name__ == '__main__':
     #fixInUseInIquote()
     if True:
         ids = findHASHid(csvPaper, csvTargets)
-        ids.append(['Ou 1','8458'])
-        ids.append(['IPHASX J055242.8+262116','9824'])
-        ids.append(['J190333','8506'])
-        ids.append(['IPHASX J191707.3+020010','2502'])
+#        ids.append(['Ou 1','8458'])
+#        ids.append(['IPHASX J055242.8+262116','9824'])
+#        ids.append(['IPHASXJ190333','8506'])
+#        ids.append(['BMP J1917+0200','2502'])
         print(ids)
         #STOP
         getImages(ids)
+        csvPaper = csvFree.readCSVFile(os.path.join(latexPath,'table_true_names_sorted.tex'),'&',False)
 #        filterIphasImagesInBashFile()
 #        filterSSSImagesInBashFile()
 #        filterWISE432ImagesInBashFile()
 #        filterNVSSImagesInBashFile()
 #        filterGalexImagesInBashFile()
-        csvLines = makeSpectraTable(ids)
+        csvLines = makeSpectraTable(ids, calculateLineIntensities = True)
 #        for id in ids:
 #            print('id = ',id)
 #        STOP
 #        for id in ids:
 #            combineImages(id[1])
         createImageTable(ids)
-        addLinesToTable(csvPaper)
+        addLinesToTable(csvPaper)#,csvLines)
+    writeFinalTable()
