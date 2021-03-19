@@ -2940,8 +2940,11 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
 #    print('fluxCalibrate:extinctionCurve = ',extinctionCurve)
 
 def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunction, order, nIterReject, nIterFit, lowReject, highReject, type='difference', adjustSigLevels=False, useMean=False, display = False):
-    print('continuum: reading file '+spectrumFileNameIn)
-    specOrig = getImageData(spectrumFileNameIn,0)
+    if isinstance(spectrumFileNameIn,str):
+        print('continuum: reading file '+spectrumFileNameIn)
+        specOrig = getImageData(spectrumFileNameIn,0)
+    else:
+        specOrig = spectrumFileNameIn
 
     if display:
         wLen = getWavelengthArr(spectrumFileNameIn,0)
@@ -2968,6 +2971,11 @@ def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunc
         spec = specOrig - resultFit
     elif type == 'ratio':
         spec = specOrig / resultFit
+    elif type == 'fit':
+        spec = resultFit
+    else:
+        print('continuum: ERROR: type <'+type+'> not recognised')
+        STOP
 
     if display:
         plt.plot(wLen, specOrig, label='original')

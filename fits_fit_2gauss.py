@@ -6,7 +6,7 @@ from scipy import exp
 from scipy.optimize import curve_fit
 from matplotlib import pyplot as plt
 
-imagename = '/Users/azuri/daten/uni/HKU/HASH/StenholmAcker_pn_g024_1+03_8_id316.fits'
+imagename = '/Users/azuri/spectra/GTC/IPHASXJ055242.8+262116_GT030118.fits'
 
 # calculate one Gaussian
 def gauss(x,a,x0,sigma,yBackground=0.):
@@ -39,27 +39,7 @@ def getWavelength(header, axis=2):
 #    print 'getWavelength: lam = ',len(lam),': ',lam
     return lam
 
-# main function
-if __name__ == "__main__":
-    #read image data from fits file
-    imageData = getImageData(imagename, 0)
-#    print('imageData = ',imageData)
-#    print('type(imageData) = ',type(imageData))
-#    print('imageData.shape = ',imageData.shape)
-
-    #create x array
-    header = pyfits.getheader(imagename,0)
-#    print('header = ',header)
-    x = getWavelength(header,1)#np.arange(0,imageData.shape[0],1)
-#    print('x = ',x.shape,': ',x)
-
-    #plot the spectrum
-    plt.plot(x,imageData)
-    plt.show()
-
-    areas = getAreas2Gauss(x,imageData,565,2891,6548.7,6563.7,4.5,4.5)
-
-def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True,save=None):
+def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,addOnBothSidesOfX=0.,show=True,save=None):
     # fit 2 Gaussians
     try:
         popt,pcov = curve_fit(gauss2,x,imageData,p0=[a1,
@@ -82,32 +62,36 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,show=True,save=None):
     print('sigma2 = ',popt[5])
 
     #calculate fitted gaussians and overplot them
-    yGauss1 = gauss(x,popt[0],popt[2],popt[4])
-    yGauss2 = gauss(x,popt[1],popt[3],popt[5])
 
-    areaUnderCurve1 = np.trapz(yGauss1,x=x)
+    xFit = x
+    if addOnBothSidesOfX != 0.:
+        xFit = np.arange(x[0]-addOnBothSidesOfX,x[len(x)-1]+addOnBothSidesOfX,x[1]-x[0])
+
+    yGauss1 = gauss(xFit,popt[0],popt[2],popt[4])
+    yGauss2 = gauss(xFit,popt[1],popt[3],popt[5])
+
+    areaUnderCurve1 = np.trapz(yGauss1,x=xFit)
     print('areaUnderCurve1 = ',areaUnderCurve1)
-    areaUnderCurve2 = np.trapz(yGauss2,x=x)
+    areaUnderCurve2 = np.trapz(yGauss2,x=xFit)
     print('areaUnderCurve2 = ',areaUnderCurve2)
 
-    gauss12 = gauss2(x,*popt)
+    gauss12 = gauss2(xFit,*popt)
 
     if show or (save is not None):
         plt.plot(x,imageData)
-        plt.plot(x,yGauss1)
-        plt.plot(x,yGauss2)
-        plt.plot(x,gauss12)
+        plt.plot(xFit,yGauss1)
+        plt.plot(xFit,yGauss2)
+        plt.plot(xFit,gauss12)
     if save is not None:
         plt.savefig(save,bbox_inches='tight')
     if show:
         plt.show()
     if save is not None:
         plt.close()
-
+    print('plot finished, areaUnderCurve1 = ',areaUnderCurve1,', areaUnderCurve2 = ',areaUnderCurve2)
     return [areaUnderCurve1,areaUnderCurve2,popt]
 
-
-def getAreaGauss(x,imageData,a1,x01,sigma1,show=True,save=None):
+def getAreaGauss(x,imageData,a1,x01,sigma1,addOnBothSidesOfX=0.,show=True,save=None):
     # fit 2 Gaussians
     try:
         popt,pcov = curve_fit(gauss,x,imageData,p0=[a1,
@@ -124,13 +108,16 @@ def getAreaGauss(x,imageData,a1,x01,sigma1,show=True,save=None):
     print('sigma1 = ',popt[2])
 
     #calculate fitted gaussians and overplot them
-    yGauss1 = gauss(x,popt[0],popt[1],popt[2])
+    xFit = x
+    if addOnBothSidesOfX != 0.:
+        xFit = np.arange(x[0]-addOnBothSidesOfX,x[len(x)-1]+addOnBothSidesOfX,x[1]-x[0])
+    yGauss1 = gauss(xFit,popt[0],popt[1],popt[2])
 
-    areaUnderCurve1 = np.trapz(yGauss1,x=x)
+    areaUnderCurve1 = np.trapz(yGauss1,x=xFit)
     print('areaUnderCurve1 = ',areaUnderCurve1)
     if show or (save is not None):
         plt.plot(x,imageData)
-        plt.plot(x,yGauss1)
+        plt.plot(xFit,yGauss1)
     if save is not None:
         plt.savefig(save,bbox_inches='tight')
     if show:
@@ -139,7 +126,6 @@ def getAreaGauss(x,imageData,a1,x01,sigma1,show=True,save=None):
         plt.close()
 
     return [areaUnderCurve1,popt]
-
 
 def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=True,save=None):
     # fit 2 Gaussians
@@ -197,3 +183,23 @@ def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=Tr
         plt.close()
 
     return [areaUnderCurve1,areaUnderCurve2,areaUnderCurve3,popt]
+
+# main function
+if __name__ == "__main__":
+    #read image data from fits file
+    imageData = getImageData(imagename, 0)
+#    print('imageData = ',imageData)
+#    print('type(imageData) = ',type(imageData))
+#    print('imageData.shape = ',imageData.shape)
+
+    #create x array
+    header = pyfits.getheader(imagename,0)
+#    print('header = ',header)
+    x = getWavelength(header,1)#np.arange(0,imageData.shape[0],1)
+#    print('x = ',x.shape,': ',x)
+
+    #plot the spectrum
+    plt.plot(x,imageData)
+    plt.show()
+
+    areas = getAreas3Gauss(x,imageData,6.83E-17,5.74E-15,2.13E-16,6548.7,6563.7,6583.,3.,3.,3.)
