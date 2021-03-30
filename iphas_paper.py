@@ -18,6 +18,7 @@ from hammer import Pixel,XY,LonLat,Hammer
 #from drUtils import applyVRadCorrection
 from myUtils import hmsToDeg, dmsToDeg, getImageData, getWavelength, getHeader,plotLBMarks,applyVRadCorrection
 from fits_fit_2gauss import gauss,gauss2,gauss3,getAreaGauss,getAreas2Gauss,getAreas3Gauss
+from iphas_paper_calculate_uncertainties import calculateErrors#(spectrumFileName,idPNMain,csvLinesFileName)
 
 print('imports done')
 
@@ -502,7 +503,7 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
                 idPNMains = [id[1] for id in ids]
                 nSpec = 0
                 for filename in filenames:
-                    if '.fits' in filename:
+                    if filename[filename.rfind('.'):] == '.fits':
                         idPNMain = None
                         if filename == 'Pa30_GT080716.fits':
                             idPNMain = '15569'
@@ -915,11 +916,42 @@ def addLinesToTable(csvPaper,csvLines=None):
                                                                   str(SII6731),
                                                                   str(SII6731*0.1),
                                                                  ))
-    obs = pn.Observation(obsFileName,fileFormat='lines_in_cols',delimiter='\t')
+    (_, _, filenames) = next(os.walk(spectraPath))
+    for filename in filenames:
+        if filename[filename.rfind('.'):] == '.fits':
+            idPNMain = None
+            if filename == 'Pa30_GT080716.fits':
+                idPNMain = '15569'
+            else:
+                hashFitsFiles = csv.DictReader(open('/Users/azuri/daten/uni/HKU/IPHAS-GTC/fitsfiles.csv'))
+                for hashFitsFile in hashFitsFiles:
+                    if hashFitsFile['fileName'] == filename:
+                        idPNMain = hashFitsFile['idPNMain']
+            if idPNMain is None:
+                print('could not find filename ',filename,' in hashFitsFiles')
+                STOP
+            print('filename = ',filename,': idPNMain = ',idPNMain)
+            calculateErrors(os.path.join(spectraPath,filename),idPNMain,obsFileName)
+    # Tell PyNeb tu use parallelisation
+    pn.config.use_multiprocs()        
+
+    ### General settings
+    # Setting verbosity level. Enter pn.my_logging? for details
+    pn.log_.level = 2 # set this to 3 to have more details
+    
+    obs = pn.Observation(obsFileName, fileFormat='lines_in_cols', errIsRelative=False, delimiter='\t')
+    obs.addMonteCarloObs(N = 500)
     obs.extinction.law = 'F99'
     obs.def_EBV(label1='H1r_6563A',label2='H1r_4861A',r_theo=2.86)
     print('E(B-V) = ',obs.extinction.E_BV)
     E_BV = obs.extinction.E_BV
+    # include in diags the relevant line ratios
+    diags.addDiag([
+                '[NII] 5755/6584', 
+                '[OIII] 4363/5007', 
+                '[SII] 6731/6716', 
+                ])
+    diags.addClabel('[SII] 6731/6716', '[SII]a')
     for i in range(len(idsPaper)):
         intensitiesObs = obs.getIntens(obsName=idsPaper[i],returnObs=True)
         print('id = ',idsPaper[i],': intensities = ',type(intensitiesObs),': ',intensitiesObs)
@@ -1060,13 +1092,13 @@ def addLinesToTable(csvPaper,csvLines=None):
                                                     diag_den='[SII] 6731/6716',
                                                     value_tem=NII5755 / NII6548,
                                                     value_den=SII6731 / SII6716)
+                print('idPNMain = ',id,': temNS = ',temNS,', denNS = ',denNS)
             if (OIII4363 > 0.) and (OIII5007 > 0.):
                 temOS, denOS = diags.getCrossTemDen(diag_tem='[OIII] 4363/5007',
                                                     diag_den='[SII] 6731/6716',
                                                     value_tem=OIII4363 / OIII5007,
                                                     value_den=SII6731 / SII6716)
-        print('idPNMain = ',id,': temNS = ',temNS,', denNS = ',denNS)
-        print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
+                print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
         if (Halpha > 0.) and (Hbeta > 0.):
             HaHb = Halpha / Hbeta
         print('csvOut.header = ',csvOut.header)
@@ -1076,13 +1108,13 @@ def addLinesToTable(csvPaper,csvLines=None):
         csvOut.setData('$\mathrm{(6717,31)/(H_\\alpha)}$',idx,'%.2f' % (SIIHa) if ((SIIHa is not None) and (not math.isnan(SIIHa))) else ' ')
         csvOut.setData('$\mathrm{(5007)/(H_\\beta)}$',idx,'%.2f' % (OIIIHb) if ((OIIIHb is not None) and (not math.isnan(OIIIHb))) else ' ')
         csvOut.setData('$\mathrm{(6584)/(H_\\alpha)}$',idx,'%.2f' % (NIIHa) if ((NIIHa is not None) and (not math.isnan(NIIHa))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'%d' % int(temNS) if ((temNS is not None) and (not math.isnan(temNS))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'%d' % int(temOS) if ((temOS is not None) and (not math.isnan(temOS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'%d' % int(denNS) if ((denNS is not None) and (not math.isnan(denNS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'%d' % int(denOS) if ((denOS is not None) and (not math.isnan(denOS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$',idx,'%d' % int(denS) if ((denS is not None) and (not math.isnan(denS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$',idx,'%d' % int(denO) if ((denO is not None) and (not math.isnan(denO))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$',idx,'%d' % int(denN) if ((denN is not None) and (not math.isnan(denN))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(temNS)),int(np.std(temNS))) if ((temNS is not None) and (not math.isnan(temNS))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(temOS)),int(np.std(temOs))) if ((temOS is not None) and (not math.isnan(temOS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(denNS)),int(np.std(denNS))) if ((denNS is not None) and (not math.isnan(denNS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(denOS)),int(np.std(denOS))) if ((denOS is not None) and (not math.isnan(denOS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$',idx,'$%d\pm%d$' % (int(np.mean(denS)),int(np.std(denS))) if ((denS is not None) and (not math.isnan(denS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$',idx,'$%d\pm%d$' % (int(np.mean(denO)),int(np.std(denO))) if ((denO is not None) and (not math.isnan(denO))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$',idx,'$%d\pm%d$' % (int(np.mean(denN)),int(np.std(denN))) if ((denN is not None) and (not math.isnan(denN))) else ' ')
 
     sortedIndices = np.argsort(np.array([name.lower() for name in csvOut.getData('Target Name')]))
     csvOut.sort(sortedIndices)

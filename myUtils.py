@@ -461,7 +461,7 @@ def getPNG(lon,lat):
     return str(lon)[:str(lon).find('.')+2].zfill(5)+('+'if lat >= 0. else '-')+str(abs(lat))[:str(abs(lat)).find('.')+2].zfill(4)
 
 # all angles must be in degrees
-#@return: angular distance in arc degrees
+#@return: angular distance in degrees
 def angularDistancePyAsl(ra1, dec1, ra2, dec2):
     from PyAstronomy import pyasl
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
@@ -490,6 +490,9 @@ def angularDistanceFromXYPyAsl(fitsName, x1, y1, x2, y2):
 #@param dec2: DEC in degrees
 #@return: angular distance in arc seconds
 def angularDistance(ra1, dec1, ra2, dec2):
+    if ':' in str(ra1):
+        print('values must be in degrees!')
+        STOP
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
     mm1 = SkyCoord(ra=ra1, dec=dec1, frame='icrs', unit="deg")
     mm2 = SkyCoord(ra=ra2, dec=dec2, frame='icrs', unit="deg")
@@ -1058,9 +1061,15 @@ def getPNGName(lon,lat):
     #png = png.zfill(3)
     if lat > 0:
         png = png+'+'
-    png = png + '%08.6g' % lat
+    else:
+        png = png+'-'
+    if abs(lat) < 10.:
+        png += '0'
+    latStr = '%08.6f' % abs(lat)
+    png = png + latStr
+#    print('png = ',png)
     png = png[:png.rfind('.')+2]
-    print('lon = ',lon,', lat = ',lat,', png = <'+png+'>')
+#    print('lon = ',lon,', lat = ',lat,', png = <'+png+'>')
     return png
 
 

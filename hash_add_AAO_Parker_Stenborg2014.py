@@ -108,11 +108,11 @@ with open(sqlFileOut,'w') as f:
                     'ziggy',
                     idPNMainStart
                     ))
-            f.write("INSERT INTO `PNMain_tbCNames`(`idPNMain`,`idtbCNames`)")
-            f.write("VALUES (%d,%d);\n"
-                    % (idPNMainStart,
-                    idtbCNamesStart
-                    ))
+#            f.write("INSERT INTO `PNMain_tbCNames`(`idPNMain`,`idtbCNames`)")
+#            f.write("VALUES (%d,%d);\n"
+#                    % (idPNMainStart,
+#                    idtbCNamesStart
+#                    ))
             ids += str(idPNMainStart)+','
             idPNMainStart += 1
             idtbCNamesStart += 1

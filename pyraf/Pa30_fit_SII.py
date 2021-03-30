@@ -63,25 +63,26 @@ for pix in pixels:
         print('pixel = ',pix)
         inPix = pix
 
-fName = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f_xyz.csv' % (inPix.xLow, inPix.xHigh, inPix.yLow, inPix.yHigh)
-csv = csvFree.readCSVFile(fName)
-#print('csv.header = ',csv.header)
-starPos = csv.find('source_id','526287189172936320')[0]
-print('starPos = ',starPos)
-#starData = csv.getData(starPos)
-#print('starData = ',starData)
+if False:
+    fName = '/Volumes/work/azuri/data/gaia/dr2/xy/GaiaSource_%.6f-%.6f_%.6f-%.6f_xyz.csv' % (inPix.xLow, inPix.xHigh, inPix.yLow, inPix.yHigh)
+    csv = csvFree.readCSVFile(fName)
+    #print('csv.header = ',csv.header)
+    starPos = csv.find('source_id','526287189172936320')[0]
+    print('starPos = ',starPos)
+    #starData = csv.getData(starPos)
+    #print('starData = ',starData)
 
-pmRA = float(csv.getData('pmra',starPos))
-pmDEC = float(csv.getData('pmdec',starPos))
-vrad = csv.getData('radial_velocity',starPos)
-parallax = float(csv.getData('parallax',starPos))
-print('pmRA = ',pmRA,', pmDEC = ',pmDEC,', vrad = ',vrad,', parallax = ',parallax)
+    pmRA = float(csv.getData('pmra',starPos))
+    pmDEC = float(csv.getData('pmdec',starPos))
+    vrad = csv.getData('radial_velocity',starPos)
+    parallax = float(csv.getData('parallax',starPos))
+    print('pmRA = ',pmRA,', pmDEC = ',pmDEC,', vrad = ',vrad,', parallax = ',parallax)
 
-icrs = ICRS(ra=obsRA*u.degree, dec=obsDEC*u.degree,
-            distance=1000./parallax*u.pc,
-            pm_ra_cosdec=pmRA*u.mas/u.yr, pm_dec=pmDEC*u.mas/u.yr,
-            radial_velocity=heliocorr.to(u.km/u.s).value*u.km/u.s)
-print('icrs.transform_to(LSR) = ',icrs.transform_to(LSR))
+    icrs = ICRS(ra=obsRA*u.degree, dec=obsDEC*u.degree,
+                distance=1000./parallax*u.pc,
+                pm_ra_cosdec=pmRA*u.mas/u.yr, pm_dec=pmDEC*u.mas/u.yr,
+                radial_velocity=heliocorr.to(u.km/u.s).value*u.km/u.s)
+    print('icrs.transform_to(LSR) = ',icrs.transform_to(LSR))
 
 c0 = 299792.458
 mean1 = 6716.44
@@ -91,6 +92,7 @@ sigma = 7.5 / 2.355
 doPlot = True
 SIIRatio = 2. / 3.
 
+#minRow = 1150
 minRow = 1573
 maxRow = 1613
 minCol = 1000
@@ -145,7 +147,13 @@ hdulist = pyfits.open(twoDSpecFile)
 header = hdulist[0].header
 twoDSpec = hdulist[0].data[minRow:maxRow,minCol:maxCol]
 twoDSpec = removeBackground(hdulist, minRow, maxRow, minCol, maxCol, twoDSpec)
+twoDSpecFull = hdulist[0].data[:,minCol:maxCol]
+#twoDSpecFull = removeBackground(hdulist, minRow, maxRow, minCol, maxCol, twoDSpecFull)
 wavelength = getWavelength(header)[minRow:maxRow]
+wavelengthFull = getWavelength(header)
+print('twoDSpecFull = ',twoDSpecFull)
+print('wavelength = ',wavelength)
+#STOP
 
 def norm(x, mean, sd):
     norm = []
@@ -272,6 +280,7 @@ def run():
                     ranges.append(valRange)
                     vradArr.append(vrad)
                     wavelengths.append(wavelength[valRange[0]:valRange[1]])
+#                    print('valRange = ',valRange,', wavelengths = ',wavelengths,', vrad = ',vrad)
 
                     synSpec = np.zeros(valRange[1]-valRange[0])
                     iRun = 0
@@ -290,9 +299,10 @@ def run():
                     synSpecs.append(synSpec)
             #        plt.plot(wavelength, synSpec,'b-')
                     specs.append(twoDSpec[valRange[0]:valRange[1],col])
-
+#                    print('twoDSpec[valRange[0]:valRange[1],col] = ',twoDSpec[valRange[0]:valRange[1],col])
                     # calculate redisual
                     res.append(np.sum((synSpec - specs[len(specs)-1]) ** 2.))
+#                    STOP
 
     #        print('vradArr = ',len(vradArr),': ',vradArr,': res = ',len(res),': ',res)
 
@@ -377,7 +387,11 @@ def run():
 #                        print('synSpecs = ',synSpecs)
 #                        print('wavelengths = ',wavelengths)
 #                        STOP
-                        goodVRads.append([dist, popt, pcov, guess, col, res, minPos, specs, synSpecs, wavelengths])
+                        #print('wavelengthFull = ',wavelengthFull)
+                        #print('twoDSpecFull = ',twoDSpecFull)
+                        #print('twoDSpecFull[:,',col,'] = ',twoDSpecFull[:,col])
+                        #STOP
+                        goodVRads.append([dist, popt, pcov, guess, col, res, minPos, specs, synSpecs, wavelengths, wavelengthFull, twoDSpecFull[:,col]])
                         if doPlot:
                             plt.plot(vradArr,res,'b+')
                             plt.xlabel('v_rad')
@@ -512,11 +526,13 @@ def writeGoodVRads(goodVRads):
         for i in goodVRads:
             f.write('%.1f,%.0f\n' % (i[0],i[1][0]))
 
-def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities, conserveFlux=True):
-    wavelength = np.arange(6700.,6745.,0.5)
-    sum = Spectrum1D( flux=np.zeros(wavelength.shape[0]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
-                                    spectral_axis = wavelength * u.AA)
-#    print('wavelength = ',wavelength.shape,': ',wavelength)
+def addRadialVelocityCorrectedHalphaSpectra(wavelengths, spectra, radialVelocities, conserveFlux=True):
+    wavelengthH = np.arange(6540.,6580.,0.5)
+    #wavelength = np.arange(6700.,6745.,0.5)
+    sum = Spectrum1D( flux=np.zeros(wavelengthH.shape[0]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                    spectral_axis = wavelengthH * u.AA)
+    print('wavelengths = ',wavelengths)
+    print('spectra = ',spectra)
     for iCol in range(len(wavelengths)):
         vRad = radialVelocities[iCol]
         wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
@@ -524,7 +540,7 @@ def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities, co
 
         input_spectra = Spectrum1D( flux=np.array(spectra[iCol]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
                                     spectral_axis = np.array(wavelengthICol) * u.AA)
-        resample_grid = np.array(wavelength) *u.AA
+        resample_grid = np.array(wavelengthH) *u.AA
 #        print('resample_grid = ',resample_grid)
         if conserveFlux:
             fluxc_resample = FluxConservingResampler(extrapolation_treatment='zero_fill')
@@ -553,7 +569,53 @@ def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities, co
 #    print('dir(sum) = ',dir(sum))
 #        print('sum.data = ',sum.data)
 #    print('dir(sum.data) = ',dir(sum.data))
-    return [wavelength,sum.data]
+#    plt.plot(wavelength,sum.data)
+#    plt.show()
+    return [wavelengthH,sum.data]
+
+def addRadialVelocityCorrectedSpectra(wavelengths, spectra, radialVelocities, wavelengthRange, conserveFlux=True):
+    wavelengthS2 = np.arange(wavelengthRange[0],wavelengthRange[1],0.5)
+    sum = Spectrum1D( flux=np.zeros(wavelengthS2.shape[0]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                    spectral_axis = wavelengthS2 * u.AA)
+#    print('wavelength = ',wavelength.shape,': ',wavelength)
+    print('wavelengths = ',wavelengths)
+    for iCol in range(len(wavelengths)):
+        vRad = radialVelocities[iCol]
+        wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
+#        print('wavelengthICol = ',len(wavelengthICol),': ',wavelengthICol)
+
+        input_spectra = Spectrum1D( flux=np.array(spectra[iCol]) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                    spectral_axis = np.array(wavelengthICol) * u.AA)
+        resample_grid = np.array(wavelengthS2) *u.AA
+#        print('resample_grid = ',resample_grid)
+        if conserveFlux:
+            fluxc_resample = FluxConservingResampler(extrapolation_treatment='zero_fill')
+        else:
+            fluxc_resample = LinearInterpolatedResampler(extrapolation_treatment='zero_fill')
+        specInterp = fluxc_resample(input_spectra, resample_grid) # doctest: +IGNORE_OUTPUT
+        naNPos = np.argwhere(np.isnan(specInterp.data))
+#        print('naNPos = ',naNPos)
+        if naNPos.shape[0] > 0:
+            naNPos = naNPos[0]
+#            print('naNPos = ',naNPos)
+#        nans = np.isnan(specInterp.data)
+        if naNPos.shape[0] > 0:
+            #print('nans = ',nans.shape,': ',nans)
+            #print('specInterp[nans] = ',specInterp.data[nans])
+            #print('naNPos = ',naNPos)
+            #print('specInterp = ',specInterp)
+            #print('specInterp[naNPos] = ',specInterp.data[naNPos])
+            specInterp.data[naNPos] = 0.
+            #print('specInterp.data = ',specInterp.data)
+#        f = interpolate.interp1d(wavelengthICol, spectra[iCol], bounds_error = False,fill_value=0.)
+#        specInterp = f(wavelength)
+#        print('specInterp) = ',len(specInterp))
+        sum += specInterp
+#    print('sum = ',sum)
+#    print('dir(sum) = ',dir(sum))
+#        print('sum.data = ',sum.data)
+#    print('dir(sum.data) = ',dir(sum.data))
+    return [wavelengthS2,sum.data]
 
 def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, background=None):
     densities = []
@@ -570,12 +632,16 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
         vrads = []
         dists = []
         cols = []
+        wLensFull = []
+        specsFull = []
         for ind in inds:
             wLens.append(goodVRads[ind][9][0])
             specs.append(goodVRads[ind][7][0])
             vrads.append(goodVRads[ind][1][0])
             dists.append(goodVRads[ind][0])
             cols.append(goodVRads[ind][4])
+#            wLensFull.append(goodVRads[ind][10])
+#            specsFull.append(goodVRads[ind][11])
             if goodVRads[ind][4] == 420:
                 print('found column 420 with vrad = ',goodVRads[ind][1][0])
                 STOP
@@ -585,10 +651,16 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
             print('goodVRads[ind][1][0] = ',goodVRads[ind][1][0])
             if negativeIndices is None:#        wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
                 plt.plot([wLen - (goodVRads[ind][1][0] * wLen / c0) for wLen in goodVRads[ind][9][0]],goodVRads[ind][7][0],label='col'+str(goodVRads[ind][4]))
-        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrads)
-
-
-#        print('sumOfSpectra = ',sumOfSpectra)
+        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrads, [6700.,6745.])
+        print('wLen = ',wLen)
+        print('sumOfSpectra = ',sumOfSpectra)
+#        print('wLensFull = ',wLensFull)
+#        print('specsFull = ',specsFull)
+#        wLenHalpha,sumHalpha = addRadialVelocityCorrectedHalphaSpectra(wLensFull,specsFull, vrads)
+#        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/Halpha_sum_'+('pos' if i == 0 else 'neg')+'.pdf')
+#        plt.close()
+#        if i == 1:
+#            STOP
         if background is None:
             print('no background given')
             sumOfSpectra -= np.amin(sumOfSpectra)
@@ -607,6 +679,7 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
             else:
                 label='negative $v_{rad}$'
         plt.plot(wLen,sumOfSpectra,label=label)
+#        plt.plot(wLenHalpha, sumHalpha,label = label)
         area6716,area6731,popt = getAreas2Gauss(wLen,
                                                 sumOfSpectra,
                                                 np.amax(sumOfSpectra[:int(sumOfSpectra.shape[0]/2)]),
@@ -677,6 +750,76 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
     #STOP
     return [distances,densities]
 
+def plotSumHalpha(goodVRads, positiveIndices, negativeIndices = None, background=None):
+    print('positiveIndices = ',len(positiveIndices),': ',positiveIndices)
+    if negativeIndices is not None:
+        print('negativeIndices = ',len(negativeIndices),': ',negativeIndices)
+
+    for i in range(1 if negativeIndices is None else 2):
+        inds = [positiveIndices, negativeIndices][i]
+        wLens = []
+        specs = []
+        vrads = []
+        dists = []
+        cols = []
+        for ind in inds:
+            wLens.append(goodVRads[ind][10])
+            specs.append(goodVRads[ind][11])
+            vrads.append(goodVRads[ind][1][0])
+            dists.append(goodVRads[ind][0])
+            cols.append(goodVRads[ind][4])
+            if goodVRads[ind][4] == 420:
+                print('found column 420 with vrad = ',goodVRads[ind][1][0])
+                STOP
+            if goodVRads[ind][4] == 643:
+                print('found column 643 with vrad = ',goodVRads[ind][1][0])
+                STOP
+            print('goodVRads[ind][1][0] = ',goodVRads[ind][1][0])
+            if negativeIndices is None:#        wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
+                plt.plot([wLen - (goodVRads[ind][1][0] * wLen / c0) for wLen in goodVRads[ind][9][0]],goodVRads[ind][7][0],label='col'+str(goodVRads[ind][4]))
+        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrads, [wLens[0][100],wLens[0][len(wLens[0])-100]])#[6520.,6600.])
+        print('wLen = ',wLen)
+        print('sumOfSpectra = ',sumOfSpectra)
+        if background is None:
+            print('no background given')
+            sumOfSpectra -= np.amin(sumOfSpectra)
+        else:
+            if (i == 0) or (negativeIndices is None):
+                f = interpolate.interp1d(background[0][0], background[0][1], bounds_error = False,fill_value='extrapolate')
+                sumOfSpectra -= f(wLen)
+            else:
+                f = interpolate.interp1d(background[1][0], background[1][1], bounds_error = False,fill_value='extrapolate')
+                sumOfSpectra -= f(wLen)
+#        print('sumOfSpectra = ',sumOfSpectra)
+        label = ''
+        if negativeIndices is not None:
+            if i == 0:
+                label='positive $v_{rad}$'
+            else:
+                label='negative $v_{rad}$'
+        plt.plot(wLen,sumOfSpectra,label=label)
+        dist = np.mean(dists)
+    plt.xlabel('Wavelength [$\mathrm{\AA}$]')
+    plt.ylabel('Flux [$erg / cm^2 / s / \AA$]')
+    plt.legend()
+    if negativeIndices is not None:
+        plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_Halpha.pdf',
+                    format='pdf',
+                    frameon=False,
+                    bbox_inches='tight',
+                    pad_inches=0.1)
+    else:
+        fName = '/Users/azuri/daten/uni/HKU/Pa30/pa30_GTC_Halpha_cols'
+        for col in cols:
+            fName += '_'+str(col)
+        fName += '.pdf'
+        plt.savefig(fName,
+                    format='pdf',
+                    frameon=False,
+                    bbox_inches='tight',
+                    pad_inches=0.1)
+    plt.show()
+
 def plotGoodVRads():
     goodVRads = run()#                    goodVRads.append([dist, popt, pcov, guess, col, res, minPos, specs, synSpecs, wavelengths])
                      #                    guess = [vradArr[minPos], sigmaVRad, minimum-y0, y0]
@@ -710,6 +853,14 @@ def plotGoodVRads():
     print('positiveIndices = ',len(positiveIndices),': ',positiveIndices)
     print('negativeVRads = ',len(negativeVRads),': ',negativeVRads)
     print('negativeIndices = ',len(negativeIndices),': ',negativeIndices)
+
+    plotSumHalpha(goodVRads,
+                  positiveIndices,
+                  negativeIndices,
+                  #background = [[[6701.67,6741.05], [2.13e-18,7.23e-19]],
+                  #              [[6702.61,6740.31], [1.36e-18,0.09e-18]]],
+                 )
+    STOP
 
     distances, densities = calcElectronDensity(goodVRads,
                                                positiveIndices,
@@ -1058,7 +1209,7 @@ def fit_SII_WIYN():
 #                plt.show()
 #        print('specs = ',len(specs),': ',specs)
 #        print('vrad = ',vrad)
-        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrad, conserveFlux=True)
+        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrad, [6700.,6745.],conserveFlux=True)
         #print('sumOfSpectra = ',sumOfSpectra)
 #        sumOfSpectra -= np.amin(sumOfSpectra)
 #        plt.plot(wLen,sumOfSpectra,label='sum')
@@ -1138,6 +1289,6 @@ def calculateHydrogenMass():
     print('hydrogenMassInSolarMassesB = ',hydrogenMassInSolarMassesB)
 
 if __name__ == '__main__':
-    #plotGoodVRads()
+    plotGoodVRads()
     #fit_SII_WIYN()
-    calculateHydrogenMass()
+    #calculateHydrogenMass()

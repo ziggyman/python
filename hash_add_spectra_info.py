@@ -3,29 +3,31 @@ import csv#Free,csvData
 import shutil
 from myUtils import getHeader, find_nth, setHeaderKeyWord
 
-pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_190221.csv'
-fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_190221.csv'
-namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_190221.csv'
+import csvFree,csvData
 
-inputSpectraDir = '/Users/azuri/spectra/MSO/wifes_jul2011/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
+pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_240321.csv'
+fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_240321.csv'
+namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_240321.csv'
+
+inputSpectraDir = '/Users/azuri/spectra/AAO_bulge/AAOmega_bulge/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
 fibreFile = None#'556Rcomb.fibres.lis'
-doneFile = '/Users/azuri/spectra/mash_spectra.txt'#None
-searchFile = '/Users/azuri/daten/uni/HKU/HASH/hash_search.csv'
+doneFile = '/Users/azuri/spectra/AAO_bulge/AAOmega_bulge_spectra_done.txt'#None
+searchFile = '/Users/azuri/spectra/AAO_bulge/hash_search.csv'
 searchFileOut = '/Users/azuri/daten/uni/HKU/HASH/hash_found.csv'
 
 outFile = '/Users/azuri/daten/uni/HKU/HASH/add_spectra.sql'
-catalogName = 'WiFeS_Jul2011'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
-setName = 'WiFeS_Jul2011'
+catalogName = 'AAOmega_bulge'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
+setName = 'AAOmega_bulge'
 catalogFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'cat.sql'
 hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'_hashpn.txt'
 
 #pnMain = csvFree.readCSVFile(pnMainFile)
 #fits = csvFree.readCSVFile(fitsFile)
-fitsStartId = 10625
+fitsStartId = 10779
 reference = catalogName#'FrenchAmateurs'#
-instrument = 'WiFeS'#'DBS'#
-telescope = 'MSSO'#'AAO 2.3m'#
-sites = ['MS']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
+instrument = '2dF E2V3'#'DBS'#
+telescope = 'AAO 3.9m'#'AAO 2.3m'#
+sites = ['2dF']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
 
 def getHashIDsFromNames():
     (_, _, filenames) = next(os.walk(inputSpectraDir))
@@ -102,7 +104,32 @@ def getIDs():
         outStr += row['pndb']+','
     print(outStr)
 
-def addSpectraInfo():
+def getIdFromSearchFile(targetName,hashFoundFile):
+    targetN = targetName
+    targetN = targetN.replace('_','').replace('-','').replace(' ','')
+    if 'BLUE' in targetN:
+        targetN = targetN[:targetN.find('BLUE')]
+    if 'RED' in targetN:
+        targetN = targetN[:targetN.find('RED')]
+    if 'cspn' in targetN:
+        targetN = targetN[:targetN.find('cspn')]
+
+    print('targetName = <'+targetName+'>')
+    dat = csvFree.readCSVFile(hashFoundFile)
+    for i in range(dat.size()):
+        name = dat.getData('id',i).replace('_','').replace('-','').replace(' ','')
+        if 'BLUE' in name:
+            name = name[:name.find('BLUE')]
+        if 'RED' in name:
+            name = name[:name.find('RED')]
+        if 'cspn' in name:
+            name = name[:name.find('cspn')]
+
+        if name == targetN:
+            return dat.getData('pndb',i)
+    return -1
+
+def addSpectraInfo(hashFoundFile = None):
     with open(outFile,'w') as f:
         f.write('USE PNSpectra_Sources;\n')
         with open(catalogFile,'w') as fb:
@@ -134,106 +161,126 @@ def addSpectraInfo():
                         header = getHeader(os.path.join(inputSpectraDir,name),0)
                         tel = header['BSS_INST'].strip()[:find_nth(header['BSS_INST'].strip(),' ',2)]
                         print('tel = ',tel)
+                    print("name = <"+name+'>')
                     for site in sites:
                         if name.find('_'+site) >= 0:
                             name = name[:name.find('_'+site)].replace('_','')
                             if name[:3] != 'PNG':
                                 name = name.replace('-','')
-                    if name[:-1] == 'NGC246':
-                        name = 'NGC246'
-                    elif name == 'PK29800B':
-                        name = 'PK298001'
-                    elif name == 'V432CAR':
-                        name = 'V*V432Car'
-                    elif name == 'V838MON':
-                        name = 'V838Mon'
-                    elif name == 'PHR072513473':
-                        name = 'PHR07251347'
-                    elif name == 'PHR143861403':
-                        name = 'PHR14386140'
-                    elif name == 'PK29800':
-                        name = 'PK298001'
-                    elif name == 'RWT152above':
-                        name = 'RWT152'
-                    elif name == 'RWT152below':
-                        name = 'RWT152'
-                    elif name == 'SNRJOE':
-                        name = 'SNRJoe'
-                    elif name == 'SNRJOE1':
-                        name = 'SNRJoe'
-                    elif name == 'SNRJoe2':
-                        name = 'SNRJoe'
-                    elif name == 'SNRJoe3':
-                        name = 'SNRJoe'
-                    elif name == 'SNR15761':
-                        name = 'SNR1576'
-                    elif name == 'SNR15762':
-                        name = 'SNR1576'
-                    elif name == 'SNR15764':
-                        name = 'SNR1576'
-                    elif name == 'ha1761':
-                        name = 'ha176'
-                    elif name == 'SP17322807C':
-                        name = 'SP17322807'
-                    elif name == 'CRBB1NEB':
-                        name = 'CRBB1'
-                    elif name == 'SP17463413':
-                        name = 'SPJ17463413'
-                    elif name[:2] == 'PK':
-                        name = name[1:]
-                    elif name[:3] == 'HII':
-                        name = 'PHR'+name[3:]
-                    elif name[-1] == 'B':
-                        name = name[:-1]
-                    elif name[-1] == 'R':
-                        name = name[:-1]
-                    print(rowFits['idFitsFiles'],': name = <'+name+'>, bytes = ',bytes(name,'utf-8'))
-                    found = False
-                    object = ''
-                    if name[:3] == 'PNG':
-                        pnMainReader = csv.DictReader(open(pnMainFile))
-                        tempName = name[3:]
-                        for rowMain in pnMainReader:
-                            if rowMain['PNG'] == tempName:
-                                found = True
-                                idPNMain = rowMain['idPNMain']
-                                object = 'PNG '+tempName
-                    elif name[:3] == 'PPA':
-                        namesReader = csv.DictReader(open(namesFile))
-                        for rowNames in namesReader:
-                            thisName = rowNames['Name'].replace('_','').replace('-','').replace(' ','')
-            #                if rowNames['idPNMain'] == '2899':
-            #                    print('thisName = <'+thisName+'>, bytes = ',bytes(thisName,'utf-8'))
-                            if thisName == name:
-                                found = True
-                                idPNMain = rowNames['idPNMain']
-                                print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
-                                object = rowNames['Name']
-                        name = 'PHR'+name[3:]
-                        namesReader = csv.DictReader(open(namesFile))
-                        for rowNames in namesReader:
-                            thisName = rowNames['Name'].replace('_','').replace('-','').replace(' ','')
-            #                if rowNames['idPNMain'] == '2899':
-            #                    print('thisName = <'+thisName+'>, bytes = ',bytes(thisName,'utf-8'))
-                            if thisName == name:
-                                found = True
-                                idPNMain = rowNames['idPNMain']
-                                print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
-                                object = rowNames['Name']
+                    if 'BLUE' in name:
+                        name = name[:name.find('BLUE')]
+                    if 'RED' in name:
+                        name = name[:name.find('RED')]
+                    if '-cspn' in name:
+                        name = name[:name.find('-cspn')]
+                    if hashFoundFile is None:
+                        if name[:-1] == 'NGC246':
+                            name = 'NGC246'
+                        if name == 'PK29800B':
+                            name = 'PK298001'
+                        if name == 'V432CAR':
+                            name = 'V*V432Car'
+                        if name == 'V838MON':
+                            name = 'V838Mon'
+                        if name == 'PHR072513473':
+                            name = 'PHR07251347'
+                        if name == 'PHR143861403':
+                            name = 'PHR14386140'
+                        if name == 'PK29800':
+                            name = 'PK298001'
+                        if name == 'RWT152above':
+                            name = 'RWT152'
+                        if name == 'RWT152below':
+                            name = 'RWT152'
+                        if name == 'SNRJOE':
+                            name = 'SNRJoe'
+                        if name == 'SNRJOE1':
+                            name = 'SNRJoe'
+                        if name == 'SNRJoe2':
+                            name = 'SNRJoe'
+                        if name == 'SNRJoe3':
+                            name = 'SNRJoe'
+                        if name == 'SNR15761':
+                            name = 'SNR1576'
+                        if name == 'SNR15762':
+                            name = 'SNR1576'
+                        if name == 'SNR15764':
+                            name = 'SNR1576'
+                        if name == 'ha1761':
+                            name = 'ha176'
+                        if name == 'SP17322807C':
+                            name = 'SP17322807'
+                        if name == 'CRBB1NEB':
+                            name = 'CRBB1'
+                        if name == 'SP17463413':
+                            name = 'SPJ17463413'
+                        if name[:2] == 'PK':
+                            name = name[1:]
+                        if name[:3] == 'HII':
+                            name = 'PHR'+name[3:]
+    #                    if name[-1] == 'B':
+    #                        name = name[:-1]
+    #                    if name[-1] == 'R':
+    #                        name = name[:-1]
+                        print(rowFits['idFitsFiles'],': name = <'+name+'>, bytes = ',bytes(name,'utf-8'))
+                        found = False
+                        object = ''
+                        if name[:3] == 'PNGx':
+                            pnMainReader = csv.DictReader(open(pnMainFile))
+                            tempName = name[3:]
+                            for rowMain in pnMainReader:
+                                if rowMain['PNG'] == tempName:
+                                    found = True
+                                    idPNMain = rowMain['idPNMain']
+                                    object = 'PNG '+tempName
+                        elif name[:3] == 'PPA':
+                            namesReader = csv.DictReader(open(namesFile))
+                            for rowNames in namesReader:
+                                thisName = rowNames['Name'].replace('_','').replace('-','').replace(' ','')
+                #                if rowNames['idPNMain'] == '2899':
+                #                    print('thisName = <'+thisName+'>, bytes = ',bytes(thisName,'utf-8'))
+                                if thisName == name:
+                                    found = True
+                                    idPNMain = rowNames['idPNMain']
+                                    print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
+                                    object = rowNames['Name']
+                            name = 'PHR'+name[3:]
+                            namesReader = csv.DictReader(open(namesFile))
+                            for rowNames in namesReader:
+                                thisName = rowNames['Name'].replace('_','').replace('-','').replace(' ','')
+                #                if rowNames['idPNMain'] == '2899':
+                #                    print('thisName = <'+thisName+'>, bytes = ',bytes(thisName,'utf-8'))
+                                if thisName == name:
+                                    found = True
+                                    idPNMain = rowNames['idPNMain']
+                                    print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
+                                    object = rowNames['Name']
+                        else:
+                            namesReader = csv.DictReader(open(namesFile))
+                            for rowNames in namesReader:
+                                thisName = rowNames['Name'].replace('_','').replace('-','').replace(' ','')
+                #                if rowNames['idPNMain'] == '2899':
+                #                    print('thisName = <'+thisName+'>, bytes = ',bytes(thisName,'utf-8'))
+    #                            if '17593321' in thisName:
+    #                                print('thisName = <'+thisName+'>')
+                                if thisName == name.replace('_','').replace('-','').replace(' ',''):
+                                    found = True
+                                    idPNMain = rowNames['idPNMain']
+                                    print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
+                                    object = rowNames['Name']
                     else:
+                        found = False
+                        idPNMain = getIdFromSearchFile(name,hashFoundFile)
                         namesReader = csv.DictReader(open(namesFile))
                         for rowNames in namesReader:
-                            thisName = rowNames['Name'].replace('_','').replace('-','').replace(' ','')
-            #                if rowNames['idPNMain'] == '2899':
-            #                    print('thisName = <'+thisName+'>, bytes = ',bytes(thisName,'utf-8'))
-                            if thisName == name:
+                            if rowNames['idPNMain'] == idPNMain and rowNames['InUse'] == '1':
                                 found = True
-                                idPNMain = rowNames['idPNMain']
-                                print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
                                 object = rowNames['Name']
-                    if not found:
-                        print("ERROR: name "+name+' not found')
+                    print('name = ',name,': found = ',found,': idPNMain = ',idPNMain,', object = ',object)
+                    if not found or (idPNMain == -1):
+                        print("ERROR: name "+name+' not found, idPNMain = ',idPNMain)
                         STOP
+                    print('name = ',name,': idPNMain = ',idPNMain,', object = ',object)
                     ids.append([rowFits['idFitsFiles'],idPNMain])
 
                     pnMainReader = csv.DictReader(open(pnMainFile))
@@ -366,6 +413,6 @@ if __name__ == "__main__":
 #    getIDs()
 #    ids = getHashIDsFromNames()
 #    print(ids)
-    ids = addSpectraInfo()
-#    justMakeCatalog()
+#    ids = addSpectraInfo('/Users/azuri/spectra/AAO_bulge/hash_found_all_closest_distances_checked.csv')
+    justMakeCatalog()
 #    print("don't forget to add entry to MainPNData.DataInfo")

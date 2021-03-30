@@ -3,10 +3,7 @@ import matplotlib.pyplot as plt
 import pyneb as pn
 
 # Tell PyNeb tu use parallelisation
-
 pn.config.use_multiprocs()        
-
-# Diagnostic plot
 
 ### General settings
 # Setting verbosity level. Enter pn.my_logging? for details

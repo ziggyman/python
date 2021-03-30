@@ -100,7 +100,7 @@ def getAreaGauss(x,imageData,a1,x01,sigma1,addOnBothSidesOfX=0.,show=True,save=N
                                                    ])
     except Exception as e:
         print(e)
-        STOP
+        return [0.,[0.,0.,0.]]
 #    print('popt = ',popt)
 
     print('amplitude a1 = ',popt[0])

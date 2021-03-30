@@ -12,10 +12,16 @@ from drUtils import getHeaderValue#(fname, keyword, hduNum=0)
 from drUtils import getWavelengthArr#(fname, hduNum=0)
 from drUtils import getImageData#(fname,hduNum=1)
 from drUtils import getHeader#(fName, hduNum=0)
+from drUtils import applyVRadCorrection#(wavelength, vRad)
+from fits_fit_2gauss import gauss#(x,a,x0,sigma,yBackground=0.)
+from fits_fit_2gauss import getAreaGauss#(x,imageData,a1,x01,sigma1,addOnBothSidesOfX=0.,show=True,save=None)
 #from myUtils import 
 #from myUtils import 
 #from myUtils import 
 #from myUtils import 
+
+imPath = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/iphas-gtc-images'
+
 
 linesOfInterest = {'H1r_6563A':6562.801,
                    'H1r_4861A':4861.363,
@@ -25,8 +31,8 @@ linesOfInterest = {'H1r_6563A':6562.801,
                    'N2_6548A':6548.05,
                    'N2_6584A':6583.45,
                    'O3_4363A':4363.209,
-                   'O3_5007A':5006.843	,
-                    }
+                   'O3_5007A':5006.843,
+                  }
 
 def getSigmaVsWLen(spectrumName,nPix=20,show=False):
     wLen = getWavelengthArr(spectrumName,0)
@@ -86,24 +92,87 @@ def getSigmaVsWLen(spectrumName,nPix=20,show=False):
         plt.show()
     return [wLen,fit]
 
-def calculateErrors(spectrumFileName,idPNMain,csvLinesFileName):
+def calculateErrors(spectrumFileName,idPNMain,csvLinesFileName,show=False):
+    print('spectrumFileName = <'+spectrumFileName+'>')
     wLen, sigmaFit = getSigmaVsWLen(spectrumFileName,show=True)
+    print('len(wLen) = ',len(wLen),', len(sigmaFit) = ',len(sigmaFit))
+    flux = getImageData(spectrumFileName,0)
+    print('len(flux) = ',len(flux))
     csvLines = csvFree.readCSVFile(csvLinesFileName,'\t',False)
+    csvVRad = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'vrad.csv'))
+    print('csvVRad.header = ',csvVRad.header)
+    filenames = csvVRad.getData('fileName')
+    print('filenames = ',filenames)
+    vradPos = csvVRad.find('fileName',spectrumFileName[spectrumFileName.rfind('/')+1:],0)[0]
+    if vradPos < 0:
+        print('error: did not find spectrumFileName <'+spectrumFileName+'>')
+        STOP
+    vrad = float(csvVRad.getData('vrad',vradPos))
+    print('vrad = ',type(vrad),': ',vrad)
+    wLen = applyVRadCorrection(wLen, vrad)
+    print('vradPos = ',vradPos)
     header = csvLines.header
+    keys = list(linesOfInterest.keys())
     for i in range(csvLines.size()):
-        if idPNMain == csvLines.getData('NAME'):
+        if idPNMain == csvLines.getData('NAME',i):
             for iLine in range(len(linesOfInterest)):
-                keys = list(linesOfInterest.keys())
-                area = csvLines.getData(keys[iLine],i)
-                print('key = ',key,': area = ',area)
-
+                area = float(csvLines.getData(keys[iLine],i))
+                print('key = ',keys[iLine],': area = ',area)
+                if area > 0.:
+                    x0 = linesOfInterest[keys[iLine]]
+                    x = wLen[np.where(np.abs(wLen - x0) < 20.)[0]]
+                    thisFlux = flux[np.where(np.abs(wLen - x0) < 3.)[0]]
+                    maxFlux = np.max(thisFlux)
+                    sigma = area / (maxFlux * 2.13 * np.sqrt(2. * np.log(2.)))
+                    print('x = ',x0,', a = ',maxFlux,', sigma = ',sigma)
+                    thisFlux = flux[np.where(np.abs(wLen - x0) < 20.)[0]]
+                    thisSDev = sigmaFit[np.where(np.abs(wLen - x0) < 20.)[0]]
+                    gaussFit = gauss(x,maxFlux,x0,sigma)
+                    if show:
+                        plt.plot(x,thisFlux,label='flux')
+                        plt.plot(x,thisSDev,label='sigma')
+                        plt.plot(x,gaussFit,label='fit')
+                        plt.legend()
+                        plt.show()
+                    newArea = getAreaGauss(x,thisFlux,maxFlux,x0,sigma,addOnBothSidesOfX=0.,show=False,save=None)
+                    print('old area = ',area,', newly fitted area = ',newArea)
+                    if show:
+                        plt.plot(x,gaussFit,label='fit')
+                        plt.plot(x,thisFlux,label='flux')
+                    newAreas = []
+                    for iRun in range(100):
+                        thisFluxWithErr = np.zeros(x.shape,dtype='float32')
+                        for thisFluxPos in range(x.shape[0]):
+                            thisFluxWithErr[thisFluxPos] = gaussFit[thisFluxPos] + np.random.normal(0.,thisSDev[thisFluxPos])
+                        if show:
+                            plt.plot(x,thisFlux,label='%d' % (iRun))
+                        try:
+                            newAreas.append(getAreaGauss(x,thisFluxWithErr,maxFlux,x0,sigma,addOnBothSidesOfX=0.,show=False,save=None)[0])
+                        except Exception as e:
+                            plt.plot(x,thisFlux,label='original')
+                            plt.plot(x,thisFluxWithErr,label='with errors')
+                            plt.show()
+                            newAreas.append(area)
+                            STOP
+                    if show:
+                        plt.legend()
+                        plt.show()
+                    newAreas = np.array(newAreas)
+                    print('newAreas = ',len(newAreas),': ',newAreas)
+                    if show:
+                        plt.hist(newAreas)
+                        plt.show()
+                    sDev = np.std(newAreas)
+                    print('sDev = ',sDev)
+                    csvLines.setData(keys[iLine]+'e',i,'%.3E' % (sDev))
+    csvFree.writeCSVFile(csvLines,csvLinesFileName,'\t')
 
 if __name__ == '__main__':
     spectrumFileName = '/Users/azuri/spectra/GTC/LDu1_sum.fits'
     csvLinesFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/observation.dat'
-    hash_fitsFiles = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/HASH/fitsfiles.csv')
+    hash_fitsFiles = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/fitsfiles.csv')
     idPNMain = None
-    for i in range(hash_fitsfiles.size()):
+    for i in range(hash_fitsFiles.size()):
         if spectrumFileName[spectrumFileName.rfind('/')+1:] == hash_fitsFiles.getData('fileName',i):
             idPNMain = hash_fitsFiles.getData('idPNMain',i)
     if idPNMain is None:
