@@ -51,7 +51,8 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,addOnBothSidesOfX=0.,
                                                      ])
     except Exception as e:
         print(e)
-        STOP
+        #STOP
+        return[np.NaN,np.NaN,[np.NaN,np.NaN,np.NaN,np.NaN,np.NaN,np.NaN]]
 #    print('popt = ',popt)
 
     print('amplitude a1 = ',popt[0])

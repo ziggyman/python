@@ -761,7 +761,7 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
                                             areasNII6583.append(areaNII6583)
                                             areasSII6716.append(areaSII6716)
                                             areasSII6731.append(areaSII6731)
-        #                                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
+        #                                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6584',
         #                                                                    diag_den='[SII] 6731/6716',
         #                                                                    value_tem=areaNII5755 / (areaNII6548 if areaNII6548 > 0. else 0.00001),
         #                                                                    value_den=areaSII6731 / (areaSII6716 if areaSII6716 > 0. else 0.00001),
@@ -805,7 +805,7 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
 #    STOP
     return csvOut
 
-def addLinesToTable(csvPaper,csvLines=None):
+def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
     idsPaper = csvPaper.getData(' HASH ID ')
     idsPaper = [id.strip() for id in idsPaper]
     print('idsPaper = ',len(idsPaper),': ',idsPaper)
@@ -854,68 +854,69 @@ def addLinesToTable(csvPaper,csvLines=None):
     csvOut.addColumn('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$')
     csvOut.addColumn('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$')
     
-    obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat')
-    with open(obsFileName,'w') as f:
-        f.write('NAME\tH1r_4861A\tH1r_4861Ae\tH1r_6563A\tH1r_6563Ae\tN2_5755A\tN2_5755Ae\tN2_6548A\tN2_6548Ae\tN2_6584A\tN2_6584Ae\tO3_4363A\tO3_4363Ae\tO3_5007A\tO3_5007Ae\tS2_6716A\tS2_6716Ae\tS2_6731A\tS2_6731Ae\n')
-        for id in idsPaper:
-            print('id = ',type(id),': <'+id+'>')
-            idx = -1
-            for i in range(len(idsLines)):
-                if idsLines[i] == id:
-                    idx = i
-            print('idx = ',idx)
-    #        print('np.where(',idsLines,' == <'+id+'>) = ',np.where(idsLines == id))
-    #        idx = np.where(idsLines == id)[0]
-            if idx == -1:
-                STOP
-    #        print("csvLines.getData('$\mathrm{[NII]_{5755}}$') = ",csvLines.getData('$\mathrm{[NII]_{5755}}$'))
-            NII5755 = float(csvLines.getData('$\mathrm{[NII]_{5755}}$',idx))
-            NII6548 = float(csvLines.getData('$\mathrm{[NII]_{6548}}$',idx))
-            NII6583 = float(csvLines.getData('$\mathrm{[NII]_{6583}}$',idx))
-            print('NII5755 = ',NII5755)
-            print('NII6548 = ',NII6548)
-            print('NII6583 = ',NII6583)
+    if obsFileName is None:
+        obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat')
+        with open(obsFileName,'w') as f:
+            f.write('NAME\tH1r_4861A\tH1r_4861Ae\tH1r_6563A\tH1r_6563Ae\tN2_5755A\tN2_5755Ae\tN2_6548A\tN2_6548Ae\tN2_6584A\tN2_6584Ae\tO3_4363A\tO3_4363Ae\tO3_5007A\tO3_5007Ae\tS2_6716A\tS2_6716Ae\tS2_6731A\tS2_6731Ae\n')
+            for id in idsPaper:
+                print('id = ',type(id),': <'+id+'>')
+                idx = -1
+                for i in range(len(idsLines)):
+                    if idsLines[i] == id:
+                        idx = i
+                print('idx = ',idx)
+        #        print('np.where(',idsLines,' == <'+id+'>) = ',np.where(idsLines == id))
+        #        idx = np.where(idsLines == id)[0]
+                if idx == -1:
+                    STOP
+        #        print("csvLines.getData('$\mathrm{[NII]_{5755}}$') = ",csvLines.getData('$\mathrm{[NII]_{5755}}$'))
+                NII5755 = float(csvLines.getData('$\mathrm{[NII]_{5755}}$',idx))
+                NII6548 = float(csvLines.getData('$\mathrm{[NII]_{6548}}$',idx))
+                NII6583 = float(csvLines.getData('$\mathrm{[NII]_{6583}}$',idx))
+                print('NII5755 = ',NII5755)
+                print('NII6548 = ',NII6548)
+                print('NII6583 = ',NII6583)
 
-            SII6716 = float(csvLines.getData('$\mathrm{[SII]_{6716}}$',idx))
-            SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6731}}$',idx))
-            print('SII6716 = ',SII6716)
-            print('SII6731 = ',SII6731)
+                SII6716 = float(csvLines.getData('$\mathrm{[SII]_{6716}}$',idx))
+                SII6731 = float(csvLines.getData('$\mathrm{[SII]_{6731}}$',idx))
+                print('SII6716 = ',SII6716)
+                print('SII6731 = ',SII6731)
 
-            OIII4363 = float(csvLines.getData('$\mathrm{[OIII]_{4363}}$',idx))
-            OIII5007 = float(csvLines.getData('$\mathrm{[OIII]_{5007}}$',idx))
-            print('OIII4363 = ',OIII4363)
-            print('OIII5007 = ',OIII5007)
+                OIII4363 = float(csvLines.getData('$\mathrm{[OIII]_{4363}}$',idx))
+                OIII5007 = float(csvLines.getData('$\mathrm{[OIII]_{5007}}$',idx))
+                print('OIII4363 = ',OIII4363)
+                print('OIII5007 = ',OIII5007)
 
-            Halpha = float(csvLines.getData('$\mathrm{H_\\alpha}$',idx))
-            Hbeta = float(csvLines.getData('$\mathrm{H_\\beta}$',idx))
-            if Hbeta == 0.:
-                Hbeta = Halpha / 1000.
-            print('Halpha = ',Halpha)
-            print('Hbeta = ',Hbeta)
-            if Hbeta > 0.:
-                print('Halpha / Hbeta = ',Halpha / Hbeta)
+                Halpha = float(csvLines.getData('$\mathrm{H_\\alpha}$',idx))
+                Hbeta = float(csvLines.getData('$\mathrm{H_\\beta}$',idx))
+                if Hbeta == 0.:
+                    Hbeta = Halpha / 1000.
+                print('Halpha = ',Halpha)
+                print('Hbeta = ',Hbeta)
+                if Hbeta > 0.:
+                    print('Halpha / Hbeta = ',Halpha / Hbeta)
 
-#        f.write('NAME\tH1r_4861A\tH1r_4861Ae\tH1r_6563A\tH1r_6563Ae\tN2_5755A\tN2_5755Ae\tN2_6548A\tN2_6548Ae\tN2_6584A\tN2_6584Ae\tO3_4363A\tO3_4363Ae\tO3_5007A\tO3_5007Ae\tS2_6716A\tS2_6716Ae\tS2_6731A\tS2_6731Ae\n')
-            f.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (id,
-                                                                  str(Hbeta),
-                                                                  str(Hbeta*0.1),
-                                                                  str(Halpha),
-                                                                  str(Halpha*0.1),
-                                                                  str(NII5755),
-                                                                  str(NII5755*0.1),
-                                                                  str(NII6548),
-                                                                  str(NII6548*0.1),
-                                                                  str(NII6583),
-                                                                  str(NII6583*0.1),
-                                                                  str(OIII4363),
-                                                                  str(OIII4363*0.1),
-                                                                  str(OIII5007),
-                                                                  str(OIII5007*0.1),
-                                                                  str(SII6716),
-                                                                  str(SII6716*0.1),
-                                                                  str(SII6731),
-                                                                  str(SII6731*0.1),
-                                                                 ))
+    #        f.write('NAME\tH1r_4861A\tH1r_4861Ae\tH1r_6563A\tH1r_6563Ae\tN2_5755A\tN2_5755Ae\tN2_6548A\tN2_6548Ae\tN2_6584A\tN2_6584Ae\tO3_4363A\tO3_4363Ae\tO3_5007A\tO3_5007Ae\tS2_6716A\tS2_6716Ae\tS2_6731A\tS2_6731Ae\n')
+                f.write('%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (id,
+                                                                    str(Hbeta),
+                                                                    str(Hbeta*0.1),
+                                                                    str(Halpha),
+                                                                    str(Halpha*0.1),
+                                                                    str(NII5755),
+                                                                    str(NII5755*0.1),
+                                                                    str(NII6548),
+                                                                    str(NII6548*0.1),
+                                                                    str(NII6583),
+                                                                    str(NII6583*0.1),
+                                                                    str(OIII4363),
+                                                                    str(OIII4363*0.1),
+                                                                    str(OIII5007),
+                                                                    str(OIII5007*0.1),
+                                                                    str(SII6716),
+                                                                    str(SII6716*0.1),
+                                                                    str(SII6731),
+                                                                    str(SII6731*0.1),
+                                                                    ))
     (_, _, filenames) = next(os.walk(spectraPath))
     for filename in filenames:
         if filename[filename.rfind('.'):] == '.fits':
@@ -937,7 +938,7 @@ def addLinesToTable(csvPaper,csvLines=None):
 
     ### General settings
     # Setting verbosity level. Enter pn.my_logging? for details
-    pn.log_.level = 2 # set this to 3 to have more details
+    pn.log_.level = 1 # set this to 3 to have more details
     
     obs = pn.Observation(obsFileName, fileFormat='lines_in_cols', errIsRelative=False, delimiter='\t')
     obs.addMonteCarloObs(N = 500)
@@ -948,6 +949,8 @@ def addLinesToTable(csvPaper,csvLines=None):
     # include in diags the relevant line ratios
     diags.addDiag([
                 '[NII] 5755/6584', 
+                '[NII] 5755/6548',
+                '[NII] 5755/6584+',  
                 '[OIII] 4363/5007', 
                 '[SII] 6731/6716', 
                 ])
@@ -957,7 +960,7 @@ def addLinesToTable(csvPaper,csvLines=None):
         print('id = ',idsPaper[i],': intensities = ',type(intensitiesObs),': ',intensitiesObs)
         print('id = ',idsPaper[i],': H_alpha = ',intensitiesObs['H1r_6563A'],
                                   ', H_beta = ',intensitiesObs['H1r_4861A'],
-                                  ': H_a/H_b = ',intensitiesObs['H1r_6563A']/intensitiesObs['H1r_4861A'] if Hbeta > 0. else 0.,
+                                  ': H_a/H_b = ',intensitiesObs['H1r_6563A']/intensitiesObs['H1r_4861A'] if intensitiesObs['H1r_4861A'] > 0. else 0.,
                                   ', E_BV = ',E_BV[i])
     E_BV[np.where(E_BV < 0.)[0]] = 0.
     print('E(B-V) = ',obs.extinction.E_BV)
@@ -975,7 +978,7 @@ def addLinesToTable(csvPaper,csvLines=None):
         print('id = ',idsPaper[i],', O3_5007A = ',intensitiesObs['O3_5007A'],' => ',intensitiesCor['O3_5007A'])
         print('id = ',idsPaper[i],', S2_6716A = ',intensitiesObs['S2_6716A'],' => ',intensitiesCor['S2_6716A'])
         print('id = ',idsPaper[i],', S2_6731A = ',intensitiesObs['S2_6731A'],' => ',intensitiesCor['S2_6731A'])
-    STOP                              
+    #STOP
 
     print('len(idsPaper) = ',len(idsPaper),', len(E_BV) = ',len(E_BV),', len(idsLines) = ',len(idsLines))
     if len(idsPaper) != len(idsLines):
@@ -1072,33 +1075,69 @@ def addLinesToTable(csvPaper,csvLines=None):
         OIIIHb = None
         SIIHa = None
         HaHb = None
-        if (NII5755 > 0.) and (NII6548 > 0.) and (NII6584 > 0.):
+        if (NII5755 > 0.) and (NII6548 > 0.) and (NII6583 > 0.):
             if Halpha > 0.:
                 NIIHa = NII6583 / Halpha
-            denN = n2.getTemDen((NII6584 + NII6548) / NII5755, tem=10000., to_eval = '(L(6584) + L(6548)) / L(5755)')
+            denN = n2.getTemDen((NII6583 + NII6548) / NII5755, tem=10000., to_eval = '(L(6584) + L(6548)) / L(5755)')
             print('idPNMain = ',id,': denN = ',denN)
+#
+#             STOP
         if (OIII4363 > 0.) and (OIII5007 > 0.):
             if Hbeta > 0.:
                 OIIIHb = OIII5007 / Hbeta
-            denO = o3.getTemDen(OIII5007 / OIII4363, tem=10000., wave1=5007, wave2=4363, maxIter=100)
+            denO = o3.getTemDen(OIII5007 / OIII4363, tem=10000., wave1=5007, wave2=4363, maxIter=1000)
             print('idPNMain = ',id,': denO = ',denO)
         if  (SII6716 > 0.) and (SII6731 > 0.):
             if Halpha > 0.:
                 SIIHa = (SII6716 + SII6731) / Halpha
-            denS = s2.getTemDen(int_ratio=SII6716/SII6731,tem=10000.,wave1=6716,wave2=6731,maxIter=100)
+            denS = s2.getTemDen(int_ratio=SII6716/SII6731,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
             print('idPNMain = ',id,': denS = ',denS)
-            if (NII5755 > 0.) and (NII6548 > 0.):
-                temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
-                                                    diag_den='[SII] 6731/6716',
-                                                    value_tem=NII5755 / NII6548,
-                                                    value_den=SII6731 / SII6716)
-                print('idPNMain = ',id,': temNS = ',temNS,', denNS = ',denNS)
+            if (NII5755 > 0.) and ((NII6548 > 0.) or (NII6583 > 0.)):
+                #if NII6583 > NII6548:
+                if False:
+                    print('trying getCrossTemDen(NII,SII)')
+                    temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6584',
+                                                        diag_den='[SII] 6731/6716',
+                                                        obs=obs,
+                                                        #value_tem=NII5755 / NII6548,
+                                                        #value_den=SII6731 / SII6716,
+                                                        )
+                    print('idPNMain = ',id,': NII6583 > NII6548: temNS = ',temNS,', denNS = ',denNS)
+                    #except:
+                    #    print('getCrossTemDen 5755/6584 failed')
+                #else:
+                try:
+                    print('trying getCrossTemDen(NII,SII)a')
+                    temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
+                                                        diag_den='[SII] 6731/6716',
+                                                        obs=obs,
+                                                        #value_tem=NII5755 / NII6548,
+                                                        #value_den=SII6731 / SII6716,
+                                                        )
+                    print('idPNMain = ',id,': NII6583 < NII6548: temNS = ',temNS,', denNS = ',denNS)
+                except:
+                    print('getCrossTemDen 5755/6548 failed')
+                try:
+                    print('trying getCrossTemDen(NII,SII)b')
+                    temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6584+',
+                                                        diag_den='[SII] 6731/6716',
+                                                        obs=obs,
+                                                        #value_tem=NII5755 / NII6548,
+                                                        #value_den=SII6731 / SII6716,
+                                                        )
+                    print('idPNMain = ',id,': temNS = ',temNS,', denNS = ',denNS)
+                except:
+                    print('getCrossTemDen 5755/6584+ failed')
+                STOP
             if (OIII4363 > 0.) and (OIII5007 > 0.):
                 temOS, denOS = diags.getCrossTemDen(diag_tem='[OIII] 4363/5007',
                                                     diag_den='[SII] 6731/6716',
-                                                    value_tem=OIII4363 / OIII5007,
-                                                    value_den=SII6731 / SII6716)
+                                                    obs=obs,
+                                                    #value_tem=OIII4363 / OIII5007,
+                                                    #value_den=SII6731 / SII6716,
+                                                    )
                 print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
+                STOP
         if (Halpha > 0.) and (Hbeta > 0.):
             HaHb = Halpha / Hbeta
         print('csvOut.header = ',csvOut.header)
@@ -1244,5 +1283,5 @@ if __name__ == '__main__':
 #        for id in ids:
 #            combineImages(id[1])
         createImageTable(ids)
-        addLinesToTable(csvPaper)#,csvLines)
+        addLinesToTable(csvPaper,obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))#,csvLines)
     writeFinalTable()

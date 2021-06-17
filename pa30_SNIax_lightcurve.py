@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import csvFree,csvData
+from myUtils import degToHMS,degToDMS
 
 distance = 2300. #pc
 Mv_max = -19. #mag
@@ -68,6 +69,9 @@ plt.plot(Vx,Vy)
 plt.ylim([np.min(rmagPlot),np.max(BmagPlot)])
 plt.legend()
 plt.gca().invert_yaxis()
+plt.xlabel('days since maximum')
+plt.ylabel('apparent magnitude')
+plt.savefig('/Users/azuri/daten/uni/HKU/Pa30/Stritzinger2015/table3.pdf')
 plt.show()
 
 radius = 100. #arcsec
@@ -89,4 +93,39 @@ for dist in [distance,distance+eDistance,distance-eDistance]:
     ageDays = ageHours / 24.
     ageYrs = ageDays / 365.2425
     print('dist = ',dist,': ageYrs = ',ageYrs)
-    print('dist = ',dist,': age in Yrs = ',ageSec * 3.154e7)
+    print('dist = ',dist,': age in Yrs = ',ageSec / 3.154e7)
+
+kickVelocity = 90.# km/s
+distanceTraveled_km = kickVelocity * 3600. * 24. * 365.2425 * 1000.#km
+distanceTraveled_pc = distanceTraveled_km / 3.086e+13
+print('distanceTraveled_pc = ',distanceTraveled_pc)
+
+L_max = 1e40
+L_min = 1e37
+L0 = 3.0128e28
+
+Mv_max = -2.5 * np.log10(L_max / L0)
+Mv_min = -2.5 * np.log10(L_min / L0)
+print('Mv_max = ',Mv_max,', Mv_min = ',Mv_min)
+
+
+
+
+import astropy.units as u
+from astropy.coordinates import SkyCoord
+
+raDeg = 23.3333
+decDeg = 66.66667
+
+ra = degToHMS(raDeg)
+dec = degToDMS(decDeg)
+
+print('ra = ',ra,', dec = ',dec)
+
+raDeg2000 = 127.37996101
+decDeg2000 = 4.44349150
+
+ra2000 = degToHMS(raDeg2000)
+dec2000 = degToDMS(decDeg2000)
+
+print('ra2000 = ',ra2000,', dec2000 = ',dec2000)
