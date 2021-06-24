@@ -45,6 +45,23 @@ surveys = [
            ]
 
 diags = pn.Diagnostics()
+# include in diags the relevant line ratios
+diags.addDiag([
+            '[NII] 5755/6584', 
+            '[NII] 5755/6548',
+            '[NII] 5755/6584+',  
+            '[OIII] 4363/5007', 
+            '[SII] 6731/6716', 
+            ])
+diags.addClabel('[SII] 6731/6716', '[SII]a')
+
+# Tell PyNeb tu use parallelisation
+pn.config.use_multiprocs()        
+
+### General settings
+# Setting verbosity level. Enter pn.my_logging? for details
+pn.log_.level = 1 # set this to 3 to have more details
+
 c0 = 299792.458 #km/s
 o3 = pn.Atom('O', 3)
 s2 = pn.Atom('S', 2)
@@ -447,6 +464,14 @@ def fixInUseInIquote():
 #
 #        for i in range(iphasCSV.size()):
 
+def splitObservationFile(obsFileIn):
+    with open(obsFileIn,'r') as f:
+        lines = f.readlines()
+    for line in lines[1:]:
+        with open(obsFileIn[:obsFileIn.rfind('.')]+'_'+line[:line.find('\t')]+obsFileIn[obsFileIn.rfind('.'):],'w') as f:
+            f.write(lines[0])
+            f.write(line)
+
 def makeSpectraTable(ids, calculateLineIntensities = False):
     (_, _, filenames) = next(os.walk(spectraPath))
     print('filenames = ',filenames)
@@ -805,6 +830,25 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
 #    STOP
     return csvOut
 
+def getMeanAndStd(arrayIn):
+    arr = removeBadValues(arrayIn)
+    return [np.mean(arr),np.std(arr)]
+
+def removeBadValues(arrayIn):
+    arrayOut = arrayIn[np.where(arrayIn > 0.)[0]]
+#    print('removeBadValues: arrayOut = ',arrayOut.shape,', ',arrayOut)
+    idx = [not math.isnan(elem) for elem in arrayOut]
+#    print('removeBadValues: idx = ',len(idx),', ',idx)
+    arrayOut = arrayOut[idx]
+#    print('removeBadValues: arrayOut = ',arrayOut.shape,', ',arrayOut)
+    idx = [not math.isinf(elem) for elem in arrayOut]
+#    print('removeBadValues: idx = ',len(idx),', ',idx)
+    arrayOut = arrayOut[idx]
+#    print('removeBadValues: arrayOut = ',arrayOut.shape,', ',arrayOut)
+    return arrayOut
+
+#def removeBadValues(arrayA,arrayB)
+
 def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
     idsPaper = csvPaper.getData(' HASH ID ')
     idsPaper = [id.strip() for id in idsPaper]
@@ -847,12 +891,16 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
     csvOut.addColumn('$\mathrm{(6584)/(H_\\alpha)}$')
     csvOut.addColumn('E(B-V)')
     csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])}$')
+    csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])a}$')
+    csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])b}$')
     csvOut.addColumn('$\mathrm{T_{e^-}([OIII],[SII])}$')
     csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])}$')
+    csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])a}$')
+    csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])b}$')
     csvOut.addColumn('$\mathrm{\\rho_{e^-}([OIII],[SII])}$')
-    csvOut.addColumn('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$')
-    csvOut.addColumn('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$')
-    csvOut.addColumn('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$')
+#    csvOut.addColumn('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$')
+#    csvOut.addColumn('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$')
+#    csvOut.addColumn('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$')
     
     if obsFileName is None:
         obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat')
@@ -933,54 +981,22 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
                 STOP
             print('filename = ',filename,': idPNMain = ',idPNMain)
             calculateErrors(os.path.join(spectraPath,filename),idPNMain,obsFileName)
-    # Tell PyNeb tu use parallelisation
-    pn.config.use_multiprocs()        
 
-    ### General settings
-    # Setting verbosity level. Enter pn.my_logging? for details
-    pn.log_.level = 1 # set this to 3 to have more details
-    
-    obs = pn.Observation(obsFileName, fileFormat='lines_in_cols', errIsRelative=False, delimiter='\t')
-    obs.addMonteCarloObs(N = 500)
-    obs.extinction.law = 'F99'
-    obs.def_EBV(label1='H1r_6563A',label2='H1r_4861A',r_theo=2.86)
-    print('E(B-V) = ',obs.extinction.E_BV)
-    E_BV = obs.extinction.E_BV
-    # include in diags the relevant line ratios
-    diags.addDiag([
-                '[NII] 5755/6584', 
-                '[NII] 5755/6548',
-                '[NII] 5755/6584+',  
-                '[OIII] 4363/5007', 
-                '[SII] 6731/6716', 
-                ])
-    diags.addClabel('[SII] 6731/6716', '[SII]a')
-    for i in range(len(idsPaper)):
-        intensitiesObs = obs.getIntens(obsName=idsPaper[i],returnObs=True)
-        print('id = ',idsPaper[i],': intensities = ',type(intensitiesObs),': ',intensitiesObs)
-        print('id = ',idsPaper[i],': H_alpha = ',intensitiesObs['H1r_6563A'],
-                                  ', H_beta = ',intensitiesObs['H1r_4861A'],
-                                  ': H_a/H_b = ',intensitiesObs['H1r_6563A']/intensitiesObs['H1r_4861A'] if intensitiesObs['H1r_4861A'] > 0. else 0.,
-                                  ', E_BV = ',E_BV[i])
-    E_BV[np.where(E_BV < 0.)[0]] = 0.
-    print('E(B-V) = ',obs.extinction.E_BV)
-    obs.correctData()
-    for i in range(len(idsPaper)):
-        intensitiesObs = obs.getIntens(obsName=idsPaper[i],returnObs=True)
-        intensitiesCor = obs.getIntens(obsName=idsPaper[i],returnObs=False)
-        print('id = ',idsPaper[i],': E(B-V) = ',E_BV[i])
-        print('id = ',idsPaper[i],': H_alpha = ',intensitiesObs['H1r_6563A'],' => ',intensitiesCor['H1r_6563A'])
-        print('id = ',idsPaper[i],', H_beta = ',intensitiesObs['H1r_4861A'],' => ',intensitiesCor['H1r_4861A'])
-        print('id = ',idsPaper[i],', N2_5755A = ',intensitiesObs['N2_5755A'],' => ',intensitiesCor['N2_5755A'])
-        print('id = ',idsPaper[i],', N2_6548A = ',intensitiesObs['N2_6548A'],' => ',intensitiesCor['N2_6548A'])
-        print('id = ',idsPaper[i],', N2_6584A = ',intensitiesObs['N2_6584A'],' => ',intensitiesCor['N2_6584A'])
-        print('id = ',idsPaper[i],', O3_4363A = ',intensitiesObs['O3_4363A'],' => ',intensitiesCor['O3_4363A'])
-        print('id = ',idsPaper[i],', O3_5007A = ',intensitiesObs['O3_5007A'],' => ',intensitiesCor['O3_5007A'])
-        print('id = ',idsPaper[i],', S2_6716A = ',intensitiesObs['S2_6716A'],' => ',intensitiesCor['S2_6716A'])
-        print('id = ',idsPaper[i],', S2_6731A = ',intensitiesObs['S2_6731A'],' => ',intensitiesCor['S2_6731A'])
+#    for i in range(len(idsPaper)):
+#        intensitiesObs = obs.getIntens(obsName=idsPaper[i],returnObs=True)
+#        intensitiesCor = obs.getIntens(obsName=idsPaper[i],returnObs=False)
+#        print('id = ',idsPaper[i],': E(B-V) = ',E_BV[i])
+#        print('id = ',idsPaper[i],': H_alpha = ',intensitiesObs['H1r_6563A'],' => ',intensitiesCor['H1r_6563A'])
+#        print('id = ',idsPaper[i],', H_beta = ',intensitiesObs['H1r_4861A'],' => ',intensitiesCor['H1r_4861A'])
+#        print('id = ',idsPaper[i],', N2_5755A = ',intensitiesObs['N2_5755A'],' => ',intensitiesCor['N2_5755A'])
+#        print('id = ',idsPaper[i],', N2_6548A = ',intensitiesObs['N2_6548A'],' => ',intensitiesCor['N2_6548A'])
+#        print('id = ',idsPaper[i],', N2_6584A = ',intensitiesObs['N2_6584A'],' => ',intensitiesCor['N2_6584A'])
+#        print('id = ',idsPaper[i],', O3_4363A = ',intensitiesObs['O3_4363A'],' => ',intensitiesCor['O3_4363A'])
+#        print('id = ',idsPaper[i],', O3_5007A = ',intensitiesObs['O3_5007A'],' => ',intensitiesCor['O3_5007A'])
+#        print('id = ',idsPaper[i],', S2_6716A = ',intensitiesObs['S2_6716A'],' => ',intensitiesCor['S2_6716A'])
+#        print('id = ',idsPaper[i],', S2_6731A = ',intensitiesObs['S2_6731A'],' => ',intensitiesCor['S2_6731A'])
     #STOP
 
-    print('len(idsPaper) = ',len(idsPaper),', len(E_BV) = ',len(E_BV),', len(idsLines) = ',len(idsLines))
     if len(idsPaper) != len(idsLines):
         sortedIndicesPaper = np.argsort(idsPaper)
         sortedIndicesLines = np.argsort(idsLines)
@@ -1000,9 +1016,9 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
         id = idsPaper[i]
         print('id = ',type(id),': <'+id+'>')
         idx = -1
-        for i in range(len(idsLines)):
-            if idsLines[i] == id:
-                idx = i
+        for j in range(len(idsLines)):
+            if idsLines[j] == id:
+                idx = j
         print('idx = ',idx)
 #        print('np.where(',idsLines,' == <'+id+'>) = ',np.where(idsLines == id))
 #        idx = np.where(idsLines == id)[0]
@@ -1032,7 +1048,28 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
 #            Halpha = float(csvLines.getData('$\mathrm{H_\\alpha}$',idx))
 #            Hbeta = float(csvLines.getData('$\mathrm{H_\\beta}$',idx))
 #        else:
-        intensities = obs.getIntens(obsName = id, returnObs=False)
+
+        thisObsFileName = obsFileName[:obsFileName.rfind('.')]+'_'+id+obsFileName[obsFileName.rfind('.'):]
+        print('thisObsFileName = ',thisObsFileName)
+        obs = pn.Observation(thisObsFileName, fileFormat='lines_in_cols', errIsRelative=False, delimiter='\t')
+        obs.addMonteCarloObs(N = 500)
+        obs.extinction.law = 'F99'
+        obs.def_EBV(label1='H1r_6563A',label2='H1r_4861A',r_theo=2.86)
+        print('E(B-V) = ',obs.extinction.E_BV)
+        E_BV = obs.extinction.E_BV
+#        for i in range(len(idsPaper)):
+#            intensitiesObs = obs.getIntens(obsName=idsPaper[i],returnObs=True)
+#            print('id = ',idsPaper[i],': intensities = ',type(intensitiesObs),': ',intensitiesObs)
+#            print('id = ',idsPaper[i],': H_alpha = ',intensitiesObs['H1r_6563A'],
+#                                    ', H_beta = ',intensitiesObs['H1r_4861A'],
+#                                    ': H_a/H_b = ',intensitiesObs['H1r_6563A']/intensitiesObs['H1r_4861A'] if intensitiesObs['H1r_4861A'] > 0. else 0.,
+#                                    ', E_BV = ',E_BV[i])
+        E_BV[np.where(E_BV < 0.)[0]] = 0.
+        print('len(idsPaper) = ',len(idsPaper),', len(E_BV) = ',len(E_BV),', len(idsLines) = ',len(idsLines))
+        print('E(B-V) = ',obs.extinction.E_BV)
+        obs.correctData()
+
+        intensities = obs.getIntens(returnObs=False)#,obsName = id, 
         """H1_4861A\tH1_6563A\tN2_5755A\tN2_6548A\tN2_6584A\tO3_4363A\tO3_5007A\tS2_6716A\tS2_6731A"""
         Halpha = intensities['H1r_6563A']
         Hbeta = intensities['H1r_4861A']
@@ -1043,14 +1080,15 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
         SII6731 = intensities['S2_6731A']
         OIII4363 = intensities['O3_4363A']
         OIII5007 = intensities['O3_5007A']
-        print('obs.getIntens(obsName = ',id,', returnObs = True) = ',obs.getIntens(obsName = id, returnObs = True))
-        print('NII5755 = ',NII5755)
-        print('NII6548 = ',NII6548)
-        print('NII6583 = ',NII6583)
-        print('SII6716 = ',SII6716)
-        print('SII6731 = ',SII6731)
-        print('OIII4363 = ',OIII4363)
-        print('OIII5007 = ',OIII5007)
+        print('obs.getIntens(obsName = ',id,', returnObs = True) = ',obs.getIntens(returnObs = True))#,obsName = id, 
+        print('NII5755 = ',NII5755.shape,': ',NII5755)
+        print('NII6548 = ',NII6548.shape,': ',NII6548)
+        print('NII6583 = ',NII6583.shape,': ',NII6583)
+        print('SII6716 = ',SII6716.shape,': ',SII6716)
+        print('SII6731 = ',SII6731.shape,': ',SII6731)
+        print('OIII4363 = ',OIII4363.shape,': ',OIII4363)
+        print('OIII5007 = ',OIII5007.shape,': ',OIII5007)
+        #STOP
 #        rc = pn.RedCorr(E_BV = 1.2, R_V = 3.2, law = 'F99')
 #        rc.setCorr(Halpha / Hbeta, 6563., 4861.)
 #        wave = [linesOfInterest['SIIa'],
@@ -1066,98 +1104,116 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
 #        print('wave = ',wave,': correc = ',correc)
 #        STOP
 
-        temNS,denNS = [None,None]
-        temOS,denOS = [None,None]
-        denS = None
-        denO = None
-        denN = None
-        NIIHa = None
-        OIIIHb = None
-        SIIHa = None
-        HaHb = None
-        if (NII5755 > 0.) and (NII6548 > 0.) and (NII6583 > 0.):
-            if Halpha > 0.:
-                NIIHa = NII6583 / Halpha
-            denN = n2.getTemDen((NII6583 + NII6548) / NII5755, tem=10000., to_eval = '(L(6584) + L(6548)) / L(5755)')
-            print('idPNMain = ',id,': denN = ',denN)
+        temNS,denNS,eTemNS,eDenNS = [None,None,None,None]
+        temNSa,denNSa,eTemNSa,eDenNSa = [None,None,None,None]
+        temNSb,denNSb,eTemNSb,eDenNSb = [None,None,None,None]
+        temOS,denOS,eTemOS,eDenOS = [None,None,None,None]
+#        denS = None
+#        denO = None
+#        denN = None
+        NIIHa,eNIIHa = [None,None]
+        OIIIHb,eOIIIHb = [None,None]
+        SIIHa,eSIIHa = [None,None]
+        HaHb,eHaHb = [None,None]
+        if (NII5755[0] > 0.) and (NII6548[0] > 0.) and (NII6583[0] > 0.):
+            if Halpha[0] > 0.:
+                arr = removeBadValues(NII6583 / Halpha)
+                NIIHa, eNIIHa = [np.mean(arr), np.std(arr)]
+#            denN = n2.getTemDen((NII6583 + NII6548) / NII5755, tem=10000., to_eval = '(L(6584) + L(6548)) / L(5755)')
+#            print('idPNMain = ',id,': denN = ',denN)
 #
 #             STOP
-        if (OIII4363 > 0.) and (OIII5007 > 0.):
-            if Hbeta > 0.:
-                OIIIHb = OIII5007 / Hbeta
-            denO = o3.getTemDen(OIII5007 / OIII4363, tem=10000., wave1=5007, wave2=4363, maxIter=1000)
-            print('idPNMain = ',id,': denO = ',denO)
-        if  (SII6716 > 0.) and (SII6731 > 0.):
-            if Halpha > 0.:
-                SIIHa = (SII6716 + SII6731) / Halpha
-            denS = s2.getTemDen(int_ratio=SII6716/SII6731,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
-            print('idPNMain = ',id,': denS = ',denS)
-            if (NII5755 > 0.) and ((NII6548 > 0.) or (NII6583 > 0.)):
+        if (OIII4363[0] > 0.) and (OIII5007[0] > 0.):
+            if Hbeta[0] > 0.:
+                arr = removeBadValues(OIII5007 / Hbeta)
+                OIIIHb,eOIIIHb = [np.mean(arr),np.std(arr)]
+#            denO = o3.getTemDen(OIII5007 / OIII4363, tem=10000., wave1=5007, wave2=4363, maxIter=1000)
+#            print('idPNMain = ',id,': denO = ',denO)
+        if  (SII6716[0] > 0.) and (SII6731[0] > 0.):
+            if Halpha[0] > 0.:
+                arr = removeBadValues((SII6716 + SII6731) / Halpha)
+                SIIHa,eSIIHa = [np.mean(arr),np.std(arr)]
+#            denS = s2.getTemDen(int_ratio=SII6716/SII6731,tem=10000.,wave1=6716,wave2=6731,maxIter=1000)
+#            print('idPNMain = ',id,': denS = ',denS)
+            if (NII5755[0] > 0.) and ((NII6548[0] > 0.) or (NII6583[0] > 0.)):
                 #if NII6583 > NII6548:
-                if False:
+                try:
                     print('trying getCrossTemDen(NII,SII)')
-                    temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6584',
+                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6584',
                                                         diag_den='[SII] 6731/6716',
                                                         obs=obs,
                                                         #value_tem=NII5755 / NII6548,
                                                         #value_den=SII6731 / SII6716,
                                                         )
+                    temNS, eTemNS = getMeanAndStd(tem)
+                    denNS, eDenNS = getMeanAndStd(den)
                     print('idPNMain = ',id,': NII6583 > NII6548: temNS = ',temNS,', denNS = ',denNS)
-                    #except:
-                    #    print('getCrossTemDen 5755/6584 failed')
+                except:
+                    print('getCrossTemDen 5755/6584 failed')
                 #else:
                 try:
                     print('trying getCrossTemDen(NII,SII)a')
-                    temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
+                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6548',
                                                         diag_den='[SII] 6731/6716',
                                                         obs=obs,
                                                         #value_tem=NII5755 / NII6548,
                                                         #value_den=SII6731 / SII6716,
                                                         )
-                    print('idPNMain = ',id,': NII6583 < NII6548: temNS = ',temNS,', denNS = ',denNS)
+                    temNSa, eTemNSa = getMeanAndStd(tem)
+                    denNSa, eDenNSa = getMeanAndStd(den)
+                    print('idPNMain = ',id,': NII6583 < NII6548: temNSa = ',temNSa,', denNSa = ',denNSa)
                 except:
                     print('getCrossTemDen 5755/6548 failed')
                 try:
                     print('trying getCrossTemDen(NII,SII)b')
-                    temNS, denNS = diags.getCrossTemDen(diag_tem='[NII] 5755/6584+',
+                    tem, den = diags.getCrossTemDen(diag_tem='[NII] 5755/6584+',
                                                         diag_den='[SII] 6731/6716',
                                                         obs=obs,
                                                         #value_tem=NII5755 / NII6548,
                                                         #value_den=SII6731 / SII6716,
                                                         )
-                    print('idPNMain = ',id,': temNS = ',temNS,', denNS = ',denNS)
+                    temNSb, eTemNSb = getMeanAndStd(tem)
+                    denNSb, eDenNSb = getMeanAndStd(den)
+                    print('idPNMain = ',id,': temNSb = ',temNSb,', denNS = ',denNSb)
                 except:
                     print('getCrossTemDen 5755/6584+ failed')
-                STOP
-            if (OIII4363 > 0.) and (OIII5007 > 0.):
-                temOS, denOS = diags.getCrossTemDen(diag_tem='[OIII] 4363/5007',
-                                                    diag_den='[SII] 6731/6716',
-                                                    obs=obs,
-                                                    #value_tem=OIII4363 / OIII5007,
-                                                    #value_den=SII6731 / SII6716,
-                                                    )
-                print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
-                STOP
-        if (Halpha > 0.) and (Hbeta > 0.):
-            HaHb = Halpha / Hbeta
+                #STOP
+#            if (OIII4363 > 0.) and (OIII5007 > 0.):
+#                temOS, denOS = diags.getCrossTemDen(diag_tem='[OIII] 4363/5007',
+#                                                    diag_den='[SII] 6731/6716',
+#                                                    obs=obs,
+#                                                    #value_tem=OIII4363 / OIII5007,
+#                                                    #value_den=SII6731 / SII6716,
+#                                                    )
+#                print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
+#                STOP
+        if (Halpha[0] > 0.) and (Hbeta[0] > 0.):
+            arr = removeBadValues(Halpha / Hbeta)
+            HaHb, eHaHb = [np.mean(arr), np.std(arr)]
         print('csvOut.header = ',csvOut.header)
-        csvOut.setData('E(B-V)',idx,E_BV[i])
+        E_BV = removeBadValues(E_BV)
+        csvOut.setData('E(B-V)',idx,'$%.3f \pm %.3f$' % (np.mean(E_BV), np.std(E_BV)))
         csvOut.setData('Target Name',idx,getNameFromIdPNMain(id,csvPaper))
-        csvOut.setData('$\mathrm{(H_\\alpha)/(H_\\beta)}$',idx,'%.2f' % (HaHb) if ((HaHb is not None) and (not math.isnan(HaHb))) else ' ')
-        csvOut.setData('$\mathrm{(6717,31)/(H_\\alpha)}$',idx,'%.2f' % (SIIHa) if ((SIIHa is not None) and (not math.isnan(SIIHa))) else ' ')
-        csvOut.setData('$\mathrm{(5007)/(H_\\beta)}$',idx,'%.2f' % (OIIIHb) if ((OIIIHb is not None) and (not math.isnan(OIIIHb))) else ' ')
-        csvOut.setData('$\mathrm{(6584)/(H_\\alpha)}$',idx,'%.2f' % (NIIHa) if ((NIIHa is not None) and (not math.isnan(NIIHa))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(temNS)),int(np.std(temNS))) if ((temNS is not None) and (not math.isnan(temNS))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(temOS)),int(np.std(temOs))) if ((temOS is not None) and (not math.isnan(temOS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(denNS)),int(np.std(denNS))) if ((denNS is not None) and (not math.isnan(denNS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'$%d\pm%d$' % (int(np.mean(denOS)),int(np.std(denOS))) if ((denOS is not None) and (not math.isnan(denOS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$',idx,'$%d\pm%d$' % (int(np.mean(denS)),int(np.std(denS))) if ((denS is not None) and (not math.isnan(denS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$',idx,'$%d\pm%d$' % (int(np.mean(denO)),int(np.std(denO))) if ((denO is not None) and (not math.isnan(denO))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$',idx,'$%d\pm%d$' % (int(np.mean(denN)),int(np.std(denN))) if ((denN is not None) and (not math.isnan(denN))) else ' ')
+        csvOut.setData('$\mathrm{(H_\\alpha)/(H_\\beta)}$',idx,'$%.2f \pm %.2f$' % (HaHb, eHaHb) if ((HaHb is not None) and (not math.isnan(HaHb))) else ' ')
+        csvOut.setData('$\mathrm{(6717,31)/(H_\\alpha)}$',idx,'$%.2f \pm %.2f$' % (SIIHa,eSIIHa) if ((SIIHa is not None) and (not math.isnan(SIIHa))) else ' ')
+        csvOut.setData('$\mathrm{(5007)/(H_\\beta)}$',idx,'$%.2f \pm %.2f$' % (OIIIHb,eOIIIHb) if ((OIIIHb is not None) and (not math.isnan(OIIIHb))) else ' ')
+        csvOut.setData('$\mathrm{(6584)/(H_\\alpha)}$',idx,'$%.2f \pm %.2f$' % (NIIHa,eNIIHa) if ((NIIHa is not None) and (not math.isnan(NIIHa))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'$%d \pm %d$' % (int(temNS),int(eTemNS)) if ((temNS is not None) and (not math.isnan(temNS))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])a}$',idx,'$%d \pm %d$' % (int(temNSa),int(eTemNSa)) if ((temNSa is not None) and (not math.isnan(temNS))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])b}$',idx,'$%d \pm %d$' % (int(temNSb),int(eTemNSb)) if ((temNSb is not None) and (not math.isnan(temNS))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'$%d \pm %d$' % (int(temOS),int(eTemOs)) if ((temOS is not None) and (not math.isnan(temOS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'$%d \pm %d$' % (int(denNS),int(eDenNS)) if ((denNS is not None) and (not math.isnan(denNS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])a}$',idx,'$%d \pm %d$' % (int(denNSa),int(eDenNSa)) if ((denNSa is not None) and (not math.isnan(denNS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])b}$',idx,'$%d \pm %d$' % (int(denNSb),int(eDenNSb)) if ((denNSb is not None) and (not math.isnan(denNS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'$%d \pm %d$' % (int(denOS),int(eDenOS)) if ((denOS is not None) and (not math.isnan(denOS))) else ' ')
 
     sortedIndices = np.argsort(np.array([name.lower() for name in csvOut.getData('Target Name')]))
     csvOut.sort(sortedIndices)
     csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'lines_and_temden.csv'))
+    csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'table_paper_sorted_with_temden.csv'),'&')
+
+#def plots():
+#    csvOut = csvFree.readCSVFile(os.path.join(imPath[:imPath.rfind('/')],'lines_and_temden.csv'))
 
     NIIHa = csvOut.getData('$\mathrm{(6584)/(H_\\alpha)}$')
     SIIHa = csvOut.getData('$\mathrm{(6717,31)/(H_\\alpha)}$')
@@ -1168,9 +1224,9 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
     for i in range(len(NIIHa)):
         print('NIIHa[',i,'] = <'+NIIHa[i]+'>, SIIHa[',i,'] = <'+SIIHa[i]+'>, OIIIHb[',i,'] = <'+OIIIHb[i]+'>')
         if (NIIHa[i].replace(' ','') != '') and (SIIHa[i].replace(' ','') != '') and (OIIIHb[i].replace(' ','') != ''):
-            n.append(float(NIIHa[i]))
-            s.append(float(SIIHa[i]))
-            o.append(float(OIIIHb[i]))
+            n.append(float(NIIHa[i][1:NIIHa[i].rfind('$')]))
+            s.append(float(SIIHa[i][1:SIIHa[i].rfind('$')]))
+            o.append(float(OIIIHb[i][1:OIIIHb[i].rfind('$')]))
     plt.scatter(np.log10(np.array(n)),np.log10(np.array(o)),color='k',s=10,marker='D')
     plt.xlabel(r'log $\mathrm{(6584)/H_\alpha}$')
     plt.ylabel(r'log $\mathrm{(5007)/H_\beta}$')
@@ -1184,10 +1240,8 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
     plt.savefig(os.path.join(latexPath,'images/OIIIHbetaVsSIIHalpha.pdf'),bbox_inches='tight')
     plt.show()
     plt.close()
-
-    csvFree.writeCSVFile(csvOut,os.path.join(imPath[:imPath.rfind('/')],'table_paper_sorted_with_temden.csv'),'&')
-
     return csvOut
+
 
 def getNameFromIdPNMain(idPNMain,csvTablePaper):
 #    print('csvTablePaper.header = ',csvTablePaper.header)
@@ -1261,7 +1315,7 @@ if __name__ == '__main__':
     #    coneSearch(csvPaper)
 
     #fixInUseInIquote()
-    if True:
+    if False:
         ids = findHASHid(csvPaper, csvTargets)
 #        ids.append(['Ou 1','8458'])
 #        ids.append(['IPHASX J055242.8+262116','9824'])
@@ -1283,5 +1337,9 @@ if __name__ == '__main__':
 #        for id in ids:
 #            combineImages(id[1])
         createImageTable(ids)
+        splitObservationFile(os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))
         addLinesToTable(csvPaper,obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))#,csvLines)
+
+#    plots()
+
     writeFinalTable()
