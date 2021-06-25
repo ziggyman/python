@@ -8,6 +8,7 @@ import math
 import matplotlib.pyplot as plt
 from PIL import Image
 import pyneb as pn
+from pyneb.utils.FortranRecordReader import T
 from scipy.optimize import curve_fit
 import subprocess
 
@@ -891,12 +892,12 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
     csvOut.addColumn('$\mathrm{(6584)/(H_\\alpha)}$')
     csvOut.addColumn('E(B-V)')
     csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])}$')
-    csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])a}$')
-    csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])b}$')
+#    csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])a}$')
+#    csvOut.addColumn('$\mathrm{T_{e^-}([NII],[SII])b}$')
     csvOut.addColumn('$\mathrm{T_{e^-}([OIII],[SII])}$')
     csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])}$')
-    csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])a}$')
-    csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])b}$')
+#    csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])a}$')
+#    csvOut.addColumn('$\mathrm{\\rho_{e^-}([NII],[SII])b}$')
     csvOut.addColumn('$\mathrm{\\rho_{e^-}([OIII],[SII])}$')
 #    csvOut.addColumn('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$')
 #    csvOut.addColumn('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$')
@@ -1178,33 +1179,39 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
                 except:
                     print('getCrossTemDen 5755/6584+ failed')
                 #STOP
-#            if (OIII4363 > 0.) and (OIII5007 > 0.):
-#                temOS, denOS = diags.getCrossTemDen(diag_tem='[OIII] 4363/5007',
-#                                                    diag_den='[SII] 6731/6716',
-#                                                    obs=obs,
+            if (OIII4363[0] > 0.) and (OIII5007[0] > 0.):
+                tem, den = diags.getCrossTemDen(diag_tem='[OIII] 4363/5007',
+                                                    diag_den='[SII] 6731/6716',
+                                                    obs=obs,
 #                                                    #value_tem=OIII4363 / OIII5007,
 #                                                    #value_den=SII6731 / SII6716,
-#                                                    )
-#                print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
+                                                    )
+                temOS,eTemOS = getMeanAndStd(tem)
+                denOS,eDenOS = getMeanAndStd(den)
+                print('idPNMain = ',id,': temOS = ',temOS,', denOS = ',denOS)
 #                STOP
         if (Halpha[0] > 0.) and (Hbeta[0] > 0.):
             arr = removeBadValues(Halpha / Hbeta)
             HaHb, eHaHb = [np.mean(arr), np.std(arr)]
         print('csvOut.header = ',csvOut.header)
         E_BV = removeBadValues(E_BV)
-        csvOut.setData('E(B-V)',idx,'$%.3f \pm %.3f$' % (np.mean(E_BV), np.std(E_BV)))
+        if math.isnan(np.mean(E_BV)):
+            print('E_BV = ',E_BV)
+            csvOut.setData('E(B-V)',idx,'0.0')
+        else:
+            csvOut.setData('E(B-V)',idx,'$%.2f \pm %.2f$' % (np.mean(E_BV), np.std(E_BV)))
         csvOut.setData('Target Name',idx,getNameFromIdPNMain(id,csvPaper))
         csvOut.setData('$\mathrm{(H_\\alpha)/(H_\\beta)}$',idx,'$%.2f \pm %.2f$' % (HaHb, eHaHb) if ((HaHb is not None) and (not math.isnan(HaHb))) else ' ')
         csvOut.setData('$\mathrm{(6717,31)/(H_\\alpha)}$',idx,'$%.2f \pm %.2f$' % (SIIHa,eSIIHa) if ((SIIHa is not None) and (not math.isnan(SIIHa))) else ' ')
         csvOut.setData('$\mathrm{(5007)/(H_\\beta)}$',idx,'$%.2f \pm %.2f$' % (OIIIHb,eOIIIHb) if ((OIIIHb is not None) and (not math.isnan(OIIIHb))) else ' ')
         csvOut.setData('$\mathrm{(6584)/(H_\\alpha)}$',idx,'$%.2f \pm %.2f$' % (NIIHa,eNIIHa) if ((NIIHa is not None) and (not math.isnan(NIIHa))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'$%d \pm %d$' % (int(temNS),int(eTemNS)) if ((temNS is not None) and (not math.isnan(temNS))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])a}$',idx,'$%d \pm %d$' % (int(temNSa),int(eTemNSa)) if ((temNSa is not None) and (not math.isnan(temNS))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])b}$',idx,'$%d \pm %d$' % (int(temNSb),int(eTemNSb)) if ((temNSb is not None) and (not math.isnan(temNS))) else ' ')
-        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'$%d \pm %d$' % (int(temOS),int(eTemOs)) if ((temOS is not None) and (not math.isnan(temOS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'$%d \pm %d$' % (int(denNS),int(eDenNS)) if ((denNS is not None) and (not math.isnan(denNS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])a}$',idx,'$%d \pm %d$' % (int(denNSa),int(eDenNSa)) if ((denNSa is not None) and (not math.isnan(denNS))) else ' ')
-        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])b}$',idx,'$%d \pm %d$' % (int(denNSb),int(eDenNSb)) if ((denNSb is not None) and (not math.isnan(denNS))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])}$',idx,'$%d \pm %d$' % (int(np.mean([temNS,temNSa,temNSb])),int(np.mean([eTemNS,eTemNSa,eTemNSb]))) if ((temNS is not None) and (not math.isnan(temNS))) else ' ')
+#        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])a}$',idx,'$%d \pm %d$' % (int(temNSa),int(eTemNSa)) if ((temNSa is not None) and (not math.isnan(temNS))) else ' ')
+#        csvOut.setData('$\mathrm{T_{e^-}([NII],[SII])b}$',idx,'$%d \pm %d$' % (int(temNSb),int(eTemNSb)) if ((temNSb is not None) and (not math.isnan(temNS))) else ' ')
+        csvOut.setData('$\mathrm{T_{e^-}([OIII],[SII])}$',idx,'$%d \pm %d$' % (int(temOS),int(eTemOS)) if ((temOS is not None) and (not math.isnan(temOS))) else ' ')
+        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])}$',idx,'$%d \pm %d$' % (int(np.mean([denNS,denNSa,denNSb])),int(np.mean([eDenNS,eDenNSa,eDenNSb]))) if ((denNS is not None) and (not math.isnan(denNS))) else ' ')
+#        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])a}$',idx,'$%d \pm %d$' % (int(denNSa),int(eDenNSa)) if ((denNSa is not None) and (not math.isnan(denNS))) else ' ')
+#        csvOut.setData('$\mathrm{\\rho_{e^-}([NII],[SII])b}$',idx,'$%d \pm %d$' % (int(denNSb),int(eDenNSb)) if ((denNSb is not None) and (not math.isnan(denNS))) else ' ')
         csvOut.setData('$\mathrm{\\rho_{e^-}([OIII],[SII])}$',idx,'$%d \pm %d$' % (int(denOS),int(eDenOS)) if ((denOS is not None) and (not math.isnan(denOS))) else ' ')
 
     sortedIndices = np.argsort(np.array([name.lower() for name in csvOut.getData('Target Name')]))
@@ -1224,9 +1231,9 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
     for i in range(len(NIIHa)):
         print('NIIHa[',i,'] = <'+NIIHa[i]+'>, SIIHa[',i,'] = <'+SIIHa[i]+'>, OIIIHb[',i,'] = <'+OIIIHb[i]+'>')
         if (NIIHa[i].replace(' ','') != '') and (SIIHa[i].replace(' ','') != '') and (OIIIHb[i].replace(' ','') != ''):
-            n.append(float(NIIHa[i][1:NIIHa[i].rfind('$')]))
-            s.append(float(SIIHa[i][1:SIIHa[i].rfind('$')]))
-            o.append(float(OIIIHb[i][1:OIIIHb[i].rfind('$')]))
+            n.append(float(NIIHa[i][1:NIIHa[i].find(' ')]))
+            s.append(float(SIIHa[i][1:SIIHa[i].find(' ')]))
+            o.append(float(OIIIHb[i][1:OIIIHb[i].find(' ')]))
     plt.scatter(np.log10(np.array(n)),np.log10(np.array(o)),color='k',s=10,marker='D')
     plt.xlabel(r'log $\mathrm{(6584)/H_\alpha}$')
     plt.ylabel(r'log $\mathrm{(5007)/H_\beta}$')
@@ -1277,15 +1284,16 @@ def writeFinalTable():
     with open(os.path.join(imPath[:imPath.rfind('/')],'table_paper_sorted_with_temden_minus_lineRatios.csv'),'r') as f:
         lines = f.readlines()
     with open(os.path.join(latexPath,'table_paper_sorted_with_temden.tex'),'w') as f:
-        f.write('\\documentclass[12pt]{article}\n')
+        f.write('\\documentclass[8pt]{article}\n')
+        f.write('\\usepackage[margin=2cm,a4paper]{geometry}')
         f.write('\\usepackage{graphicx}\n')
         f.write('\\usepackage{natbib}\n')
         f.write('\\usepackage{longtable}\n')
-        f.write('\\usepackage{pdflscape}\n')
+#        f.write('\\usepackage{pdflscape}\n')
         f.write('\\setcitestyle{numbers}\n')
         f.write('\\setcitestyle{square}\n')
         f.write('\\begin{document}\n')
-        f.write('\\begin{landscape}\n')
+#        f.write('\\begin{landscape}\n')
         f.write('\\clearpage\n')
         f.write('\\onecolumn\n')
         f.write('\\begin{longtable}{ | *{21}{l|} }\n')
@@ -1295,10 +1303,11 @@ def writeFinalTable():
         f.write('\\hline\endfoot  % footer material\n')
         f.write('\\hline\n')
         for line in lines[1:]:
-            f.write(line.rstrip()+'\\\\\n')
+            if line.count('pm') > 1:
+                f.write(line.rstrip()+'\\\\\n')
         f.write('\\hline\n')
         f.write('\\end{longtable}\n')
-        f.write('\\end{landscape}\n')
+#        f.write('\\end{landscape}\n')
         f.write('\\clearpage\n')
         f.write('\\twocolumn\n')
         f.write('\\end{document}\n')
