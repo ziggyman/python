@@ -588,7 +588,7 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
                                     idx = np.where(lam[idx] > 3950.)[0]
                                     plt.plot(lam[idx], flux[idx], 'k-')
                                     plt.xlabel('wavelength [$\mathrm{\AA}$]')
-                                    plt.ylabel('$\mathrm{F_\lambda}$ [$\mathrm{ergs/s/cm^2/\AA}$]')
+                                    plt.ylabel('$\mathrm{F_\lambda}$ [$\mathrm{ergs s^{-1} cm^{-2} \AA^{-1}}$]')
                                     plt.title(objectName)
                                     plt.savefig(pdfFileName,bbox_inches='tight')
                                     plt.close()
@@ -1281,6 +1281,8 @@ def writeFinalTable():
     csvTable.removeColumn('$\mathrm{[OIII]_{5007}}$')
     csvFree.writeCSVFile(csvTable,os.path.join(imPath[:imPath.rfind('/')],'table_paper_sorted_with_temden_minus_lineRatios.csv'),'&')
 
+    csvVRad = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/vrad.csv')
+
     with open(os.path.join(imPath[:imPath.rfind('/')],'table_paper_sorted_with_temden_minus_lineRatios.csv'),'r') as f:
         lines = f.readlines()
     with open(os.path.join(latexPath,'table_paper_sorted_with_temden.tex'),'w') as f:
@@ -1324,7 +1326,7 @@ if __name__ == '__main__':
     #    coneSearch(csvPaper)
 
     #fixInUseInIquote()
-    if False:
+    if True:
         ids = findHASHid(csvPaper, csvTargets)
 #        ids.append(['Ou 1','8458'])
 #        ids.append(['IPHASX J055242.8+262116','9824'])

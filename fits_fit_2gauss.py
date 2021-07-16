@@ -78,11 +78,14 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,addOnBothSidesOfX=0.,
 
     gauss12 = gauss2(xFit,*popt)
 
+
     if show or (save is not None):
         plt.plot(x,imageData)
         plt.plot(xFit,yGauss1)
         plt.plot(xFit,yGauss2)
         plt.plot(xFit,gauss12)
+        plt.xlabel('Wavelength [$\AA$]')
+        plt.ylabel('$\mathrm{F}_\lambda [$\mathrm{ergs s^{-1} cm^{-2} \AA^{-1}}$]')
     if save is not None:
         plt.savefig(save,bbox_inches='tight')
     if show:
