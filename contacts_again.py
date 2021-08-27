@@ -1,10 +1,10 @@
 import numpy as np
 import csvFree,csvData
 
-eventRegistrationFile = '/Users/azuri/daten/parties/Flaming Dragon/Event Registration.csv'
-oldContactsFile = '/Users/azuri/daten/parties/Flaming Dragon/contacts/contacts.csv'
-contactsToImport = '/Users/azuri/daten/parties/Flaming Dragon/contacts/contacts_to_import.csv'
-existingContactsFile = '/Users/azuri/daten/parties/Flaming Dragon/existing_contacts.csv'
+eventRegistrationFile = '/Users/azuri/daten/parties/Wild Woods/Event Registration Wild Woods.csv'
+oldContactsFile = '/Users/azuri/daten/parties/Wild Woods/contacts/contacts.csv'
+contactsToImport = '/Users/azuri/daten/parties/Wild Woods/contacts/contacts_to_import.csv'
+existingContactsFile = '/Users/azuri/daten/parties/Wild Woods/existing_contacts.csv'
 
 csvEventRegistration = csvFree.readCSVFile(eventRegistrationFile)
 csvOldContacts = csvFree.readCSVFile(oldContactsFile)
@@ -17,10 +17,10 @@ newLine = ['' for i in csvOldContacts.header]
 
 for i in range(csvEventRegistration.size()):
     csvContactsToImport.append(newLine)
-    csvContactsToImport.setData('Name',i,csvEventRegistration.getData('Name',i)+' Flaming Dragon Guest')
+    csvContactsToImport.setData('Name',i,csvEventRegistration.getData('Name',i)+' Wild Woods Guest')
     csvContactsToImport.setData('Group Membership',i,'* myContacts')
     csvContactsToImport.setData('Phone 1 - Type',i,'Mobile')
-    csvContactsToImport.setData('Phone 1 - Value',i,csvEventRegistration.getData('WhatsApp - directions will most likely be sent out via WhatsApp broadcast so make sure you add the number +852 5963 3756 to your contacts',i))
+    csvContactsToImport.setData('Phone 1 - Value',i,csvEventRegistration.getData('WhatsApp number - for payment payment instructions; directions will be sent out via WhatsApp broadcast so make sure you add the number +852 5963 3756 to your contacts',i))
 
 for i in np.arange(csvContactsToImport.size()-1,-1,-1):
     print('checking contact ',i)

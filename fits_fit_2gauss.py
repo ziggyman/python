@@ -20,6 +20,10 @@ def gauss2(x,a1,a2,x01,x02,sigma1,sigma2,yBackground=0.):
 def gauss3(x,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,yBackground=0.):
     return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground) + gauss(x,a3,x03,sigma3,yBackground)
 
+#calculate 4 Gaussians
+def gauss4(x,a1,a2,a3,a4,x01,x02,x03,x04,sigma1,sigma2,sigma3,sigma4,yBackground=0.):
+    return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground) + gauss(x,a3,x03,sigma3,yBackground) + gauss(x,a4,x04,sigma4,yBackground)
+
 # read image data from fits file
 def getImageData(fname, hduNum=1):
     hdulist = pyfits.open(fname)
@@ -51,8 +55,7 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,addOnBothSidesOfX=0.,
                                                      ])
     except Exception as e:
         print(e)
-        #STOP
-        return[np.NaN,np.NaN,[np.NaN,np.NaN,np.NaN,np.NaN,np.NaN,np.NaN]]
+        STOP
 #    print('popt = ',popt)
 
     print('amplitude a1 = ',popt[0])
@@ -78,14 +81,11 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,addOnBothSidesOfX=0.,
 
     gauss12 = gauss2(xFit,*popt)
 
-
     if show or (save is not None):
         plt.plot(x,imageData)
         plt.plot(xFit,yGauss1)
         plt.plot(xFit,yGauss2)
         plt.plot(xFit,gauss12)
-        plt.xlabel('Wavelength [$\AA$]')
-        plt.ylabel('$\mathrm{F}_\lambda [$\mathrm{ergs s^{-1} cm^{-2} \AA^{-1}}$]')
     if save is not None:
         plt.savefig(save,bbox_inches='tight')
     if show:
@@ -187,6 +187,78 @@ def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=Tr
         plt.close()
 
     return [areaUnderCurve1,areaUnderCurve2,areaUnderCurve3,popt]
+
+def getAreas4Gauss(x,imageData,a1,a2,a3,a4,x01,x02,x03,x04,sigma1,sigma2,sigma3,sigma4,show=True,xlabel=None,ylabel=None,save=None):
+    # fit 2 Gaussians
+    areaUnderCurve1,areaUnderCurve2,areaUnderCurve3,areaUnderCurve4,popt = [None,None,None,None,None,]
+    try:
+        popt,pcov = curve_fit(gauss4,x,imageData,p0=[a1,
+                                                     a2,
+                                                     a3,
+                                                     a4,
+                                                     x01,
+                                                     x02,
+                                                     x03,
+                                                     x04,
+                                                     sigma1,
+                                                     sigma2,
+                                                     sigma3,
+                                                     sigma4,
+                                                     ])
+        print('amplitude a1 = ',popt[0])
+        print('amplitude a2 = ',popt[1])
+        print('amplitude a3 = ',popt[2])
+        print('amplitude a4 = ',popt[3])
+        print('position x01 = ',popt[4])
+        print('position x02 = ',popt[5])
+        print('position x03 = ',popt[6])
+        print('position x04 = ',popt[7])
+        print('sigma1 = ',popt[8])
+        print('sigma2 = ',popt[9])
+        print('sigma3 = ',popt[10])
+        print('sigma4 = ',popt[11])
+
+        #calculate fitted gaussians and overplot them
+        yGauss1 = gauss(x,popt[0],popt[4],popt[8])
+        yGauss2 = gauss(x,popt[1],popt[5],popt[9])
+        yGauss3 = gauss(x,popt[2],popt[6],popt[10])
+        yGauss4 = gauss(x,popt[3],popt[7],popt[11])
+
+        areaUnderCurve1 = np.trapz(yGauss1,x=x)
+        print('areaUnderCurve1 = ',areaUnderCurve1)
+        areaUnderCurve2 = np.trapz(yGauss2,x=x)
+        print('areaUnderCurve2 = ',areaUnderCurve2)
+        areaUnderCurve3 = np.trapz(yGauss3,x=x)
+        print('areaUnderCurve3 = ',areaUnderCurve3)
+        areaUnderCurve4 = np.trapz(yGauss4,x=x)
+        print('areaUnderCurve4 = ',areaUnderCurve4)
+
+        gauss1234 = gauss4(x,*popt)
+
+        if show or (save is not None):
+            plt.plot(x,imageData)
+            plt.plot(x,yGauss1)
+            plt.plot(x,yGauss2)
+            plt.plot(x,yGauss3)
+            plt.plot(x,yGauss4)
+            plt.plot(x,gauss1234)
+            if xlabel is not None:
+                plt.xlabel(xlabel)
+            if ylabel is not None:
+                plt.ylabel(ylabel)
+        if save is not None:
+            plt.savefig(save,bbox_inches='tight')
+        if show:
+            plt.show()
+        if save is not None:
+            plt.close()
+    except Exception as e:
+        print(e)
+#        STOP
+#    print('popt = ',popt)
+
+
+    return [areaUnderCurve1,areaUnderCurve2,areaUnderCurve3,areaUnderCurve4,popt]
 
 # main function
 if __name__ == "__main__":
