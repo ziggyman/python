@@ -660,7 +660,7 @@ def calcElectronDensity(goodVRads, positiveIndices, negativeIndices = None, back
             if negativeIndices is None:#        wavelengthICol = [wLen - (vRad * wLen / c0) for wLen in wavelengths[iCol]]
                 if doPlot:
                     plt.plot([wLen - (goodVRads[ind][1][0] * wLen / c0) for wLen in goodVRads[ind][9][0]],goodVRads[ind][7][0],label='col'+str(goodVRads[ind][4]))
-        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrads, [6700.,6745.])
+        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrads, [6723.5-17.,6723.5+17.])
         print('wLen = ',wLen)
         print('sumOfSpectra = ',sumOfSpectra)
 #        print('wLensFull = ',wLensFull)
@@ -1260,7 +1260,7 @@ def fit_SII_WIYN():
 #                plt.show()
 #        print('specs = ',len(specs),': ',specs)
 #        print('vrad = ',vrad)
-        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrad, [6700.,6745.],conserveFlux=True)
+        wLen,sumOfSpectra = addRadialVelocityCorrectedSpectra(wLens, specs, vrad, [6723.5-17.,6723.5+17.],conserveFlux=True)
         #print('sumOfSpectra = ',sumOfSpectra)
 #        sumOfSpectra -= np.amin(sumOfSpectra)
 #        plt.plot(wLen,sumOfSpectra,label='sum')
