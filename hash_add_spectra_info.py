@@ -5,29 +5,29 @@ from myUtils import getHeader, find_nth, setHeaderKeyWord
 
 import csvFree,csvData
 
-pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_240321.csv'
-fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_fitsfiles_240321.csv'
-namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_240321.csv'
+pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_111121.csv'
+fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_FitsFiles_111121.csv'
+namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_111121.csv'
 
-inputSpectraDir = '/Users/azuri/spectra/AAO_bulge/AAOmega_bulge/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
+inputSpectraDir = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
 fibreFile = None#'556Rcomb.fibres.lis'
-doneFile = '/Users/azuri/spectra/AAO_bulge/AAOmega_bulge_spectra_done.txt'#None
-searchFile = '/Users/azuri/spectra/AAO_bulge/hash_search.csv'
-searchFileOut = '/Users/azuri/daten/uni/HKU/HASH/hash_found.csv'
+doneFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/spectra_done.txt'#None
+searchFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/hash_search.csv'
+searchFileOut = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/hash_found.csv'
 
-outFile = '/Users/azuri/daten/uni/HKU/HASH/add_spectra.sql'
-catalogName = 'AAOmega_bulge'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
-setName = 'AAOmega_bulge'
-catalogFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'cat.sql'
-hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/'+catalogName+'_hashpn.txt'
+outFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/add_spectra.sql'
+catalogName = 'FrenchAmateurs_Nov2021_spectra'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
+setName = 'FRA'
+catalogFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'+catalogName+'cat.sql'
+hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'+catalogName+'_hashpn.txt'
 
 #pnMain = csvFree.readCSVFile(pnMainFile)
 #fits = csvFree.readCSVFile(fitsFile)
-fitsStartId = 10779
+fitsStartId = 12611
 reference = catalogName#'FrenchAmateurs'#
-instrument = '2dF E2V3'#'DBS'#
-telescope = 'AAO 3.9m'#'AAO 2.3m'#
-sites = ['2dF']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
+instrument = ''#2dF E2V3'#'DBS'#
+telescope = ''#AAO 3.9m'#'AAO 2.3m'#
+sites = ['CL','CO','KO']#['2dF']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
 
 def getHashIDsFromNames():
     (_, _, filenames) = next(os.walk(inputSpectraDir))
@@ -159,7 +159,11 @@ def addSpectraInfo(hashFoundFile = None):
                         tel = telescope
                     else:
                         header = getHeader(os.path.join(inputSpectraDir,name),0)
-                        tel = header['BSS_INST'].strip()[:find_nth(header['BSS_INST'].strip(),' ',2)]
+                        observer = header['OBSERVER'].strip()
+                        if observer == '2SPOT':
+                            tel = 'Ritchey-Chrétien RC12'
+                        else:
+                            tel = 'Newton 200mm F/5'
                         print('tel = ',tel)
                     print("name = <"+name+'>')
                     for site in sites:
@@ -313,9 +317,11 @@ def justMakeCatalog():
         ids = []
         nFound = 0
         for rowFits in fitsReader:
+            print('rowFits = ',rowFits)
     #        print("int(rowFits['idFitsFiles']) = ",int(rowFits['idFitsFiles']))
             if (int(rowFits['idFitsFiles']) >= fitsStartId) and (rowFits['setname'] == setName):
                 idPNMain = rowFits['idPNMain']
+                print('idPNMain = ',idPNMain)
                 if idPNMain not in ids:
                     fb.write("INSERT INTO `"+catalogName+"`(`idPNMain`,`mapflag`)")
                     fb.write("VALUES (%d,'%s');\n" % (int(idPNMain),
@@ -413,6 +419,6 @@ if __name__ == "__main__":
 #    getIDs()
 #    ids = getHashIDsFromNames()
 #    print(ids)
-#    ids = addSpectraInfo('/Users/azuri/spectra/AAO_bulge/hash_found_all_closest_distances_checked.csv')
+    ids = addSpectraInfo()#'/Users/azuri/spectra/AAO_bulge/hash_found_all_closest_distances_checked.csv')
     justMakeCatalog()
 #    print("don't forget to add entry to MainPNData.DataInfo")
