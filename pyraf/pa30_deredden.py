@@ -6,7 +6,7 @@ import numpy as np
 import scipy
 from Pa30_LBT import readLBTFiles,readGvaramadzeFile
 
-from myUtils import getWavelength,calibratedFluxToAbsoluteFlux,boxCarMeanSmooth
+from myUtils import getWavelength,calibratedFluxToAbsoluteFlux,boxCarMeanSmooth,smooth
 #execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
 
 #ebv = 1.206
@@ -18,25 +18,29 @@ A_V = 2.4 #Claire
 ebv = A_V / R_V
 print('A_V = ',A_V,' => ebv = ',ebv)
 
-lineRangesScalePlot = [[[3704.6,4053.3],[3600.,4053.3]],
+lineRangesScalePlot = [[[4281.1,5454.],[4200.,6900.]],
+                       [[3704.6,4053.3],[3600.,4053.3]],
                        [[4282.,4430.],[4230.,4430.]],
                        [[4429.,4590.],[4429.,4590.]],
+                       [[4282.,4590.],[4200.,4600.]],
                        [[4590.,4736.],[4590.,4736.]],
                        [[4731.,4874.],[4731.,4874.]],
-                       [[5112.,5455.],[5112.,5492.]],
-                       [[5912.,6268.],[5912.,6268.]],
+                       [[5112.,5455.],[5100.,5700.]],#5492.
+                       [[5912.,6268.],[5800.,6300.]],#5912.,6268.]],
                       ]
 
 leDu_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_20181009_941_PLeDu_scaled.fits"
 somme_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_somme6_scaled.fits"
 gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_GT080716_cal_sum_cleaned_scaled.fits"
 wiyn_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN151014_cal_sum_cleaned_t.fits"
+gvaramadze_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/gvaramadze.fits"
 #    wiyn_file = "/Volumes/work/azuri/spectra/sparsepak/stella/Pa30_WIYN2014-10-15_botzfxsEcBld_sum-skyMean_52_cal_cleaned_absoluteFlux.fits"#Pa30_WN151014_cal_sum_cleaned.fits"
 
 gtc_hdulist = pyfits.open(gtc_file)
 wiyn_hdulist = pyfits.open(wiyn_file)
 leDu_hdulist = pyfits.open(leDu_file)
 somme_hdulist = pyfits.open(somme_file)
+gvaramadze_hdulist = pyfits.open(gvaramadze_file)
 
 gtc_header = gtc_hdulist[0].header
 gtc_wavelength = getWavelength(gtc_header,1)
@@ -105,8 +109,10 @@ plt.show()
 
 
 # observed Flux
-
-gvaramadze_wavelength,gvaramadze_spectrum = readGvaramadzeFile()
+gvaramadze_header = gvaramadze_hdulist[0].header
+gvaramadze_wavelength = getWavelength(gvaramadze_header,1)
+gvaramadze_spectrum = fits.getdata(gvaramadze_file)
+#gvaramadze_wavelength,gvaramadze_spectrum = readGvaramadzeFile()
 gvaramadze_wavelength = np.array(gvaramadze_wavelength)
 gvaramadze_spectrum = np.array(gvaramadze_spectrum)
 garnavich_wavelength, garnavich_spectrum = readLBTFiles()
@@ -114,7 +120,7 @@ garnavich_wavelength = np.array(garnavich_wavelength)
 garnavich_spectrum = np.array(garnavich_spectrum)
 garnavich_spectrum = garnavich_spectrum[garnavich_wavelength < 5455.]
 garnavich_wavelength = garnavich_wavelength[garnavich_wavelength < 5455.]
-garnavich_spectrum_smoothed = scipy.ndimage.median_filter(garnavich_spectrum, 11)#boxCarMeanSmooth(somme_spectrum, 0, 21)
+garnavich_spectrum_smoothed = smooth(garnavich_spectrum,9)#scipy.ndimage.mean_filter(garnavich_spectrum, 7)#boxCarMeanSmooth(somme_spectrum, 0, 21)
 
 #gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_GT080716_cal_sum_cleaned_scaled.fits"
 #wiyn_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN151014_cal_sum_cleaned_t.fits"
@@ -135,6 +141,7 @@ gtc_hdulist.writeto(gtc_file[0:gtc_file.rfind('.')]+'_dereddened.fits', overwrit
 wiyn_header = wiyn_hdulist[0].header
 wiyn_wavelength = getWavelength(wiyn_header,1)
 wiyn_spectrum = fits.getdata(wiyn_file)
+wiyn_spectrum = smooth(wiyn_spectrum,5)#scipy.ndimage.mean_filter(wiyn_spectrum, 7)
 print('wiyn_wavelength = ',wiyn_wavelength)
 
 leDu_hdulist = pyfits.open(leDu_file)
@@ -181,6 +188,7 @@ somme_spectrum_smoothed_dereddened = pyasl.unred(somme_wavelength, somme_spectru
 wiyn_spectrum_dereddened = pyasl.unred(wiyn_wavelength, wiyn_spectrum, ebv=ebv, R_V = R_V)
 wiyn_hdulist[0].data = wiyn_spectrum_dereddened
 wiyn_hdulist.writeto(wiyn_file[0:wiyn_file.rfind('.')]+'_dereddened.fits', overwrite=True)
+plt.rcParams.update({'font.size': 14})
 plt.plot(garnavich_wavelength,Garnavich_spectrum_smoothed_scaled,'-', color='#64a030', label='Garnavich 11/09/2020')
 plt.plot(gvaramadze_wavelength,gvaramadze_spectrum_scaled,'m-', label='Gvaramadze 20/07/2017')
 plt.plot(gtc_wavelength, gtc_spectrum, 'r-', label='GTC 08/07/2016')
@@ -188,7 +196,7 @@ plt.plot(wiyn_wavelength, wiyn_spectrum, 'b-', label='WIYN 15/10/2014')
 #plt.plot(wiyn_wavelength, wiyn_spectrum_dereddened, 'b-')#, label='WIYN dereddened')
 plt.xlabel("wavelength [$\mathrm{\AA}$]")
 plt.ylabel('flux [$\mathrm{erg/cm^2/s/\AA}$]')
-plt.legend()
+plt.legend(fontsize=12)
 xlim = [3550.,7585.]
 #plt.xlim(xlim)
 #plt.ylim([-10.,-5.9])
@@ -245,7 +253,7 @@ for line in lineRangesScalePlot:
         plt.plot(wiyn_wavelength_line,wiyn_spectrum_line,'b-', label='WIYN 15/10/2014')
     plt.xlabel("wavelength [$\mathrm{\AA}$]")
     plt.ylabel('flux [arbitrary units]')
-    plt.legend()
+    plt.legend(fontsize=12)
     plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN+GTC+Garnavich+Gvaramadze_%d-%d.eps' % (int(plotRange[0]),int(plotRange[1]))
     print('writing plot to file <'+plotname+'>')
     plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
