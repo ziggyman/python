@@ -14,6 +14,7 @@ import os
 #from pyraf import iraf
 import re
 import subprocess
+import time
 from time import sleep
 from hammer import Pixel,XY,LonLat,Hammer
 
@@ -1159,3 +1160,18 @@ def smooth(x,window_len=11,window='hanning'):
 
     y=np.convolve(w/w.sum(),s,mode='valid')
     return y[int(window_len/2):-int(window_len/2)]
+
+def toYearFraction(date):
+    def sinceEpoch(date): # returns seconds since epoch
+        return time.mktime(date.timetuple())
+    s = sinceEpoch
+
+    year = date.year
+    startOfThisYear = datetime(year=year, month=1, day=1)
+    startOfNextYear = datetime(year=year+1, month=1, day=1)
+
+    yearElapsed = s(date) - s(startOfThisYear)
+    yearDuration = s(startOfNextYear) - s(startOfThisYear)
+    fraction = yearElapsed/yearDuration
+
+    return date.year + fraction

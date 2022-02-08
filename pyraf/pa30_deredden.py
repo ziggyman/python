@@ -17,7 +17,10 @@ R_V = 3.1  # (Fitzpatrick and Massa 2007)
 A_V = 2.4 #Claire
 ebv = A_V / R_V
 print('A_V = ',A_V,' => ebv = ',ebv)
-
+#plt.rcParams.update({
+#  "text.usetex": True,
+#  "font.family": "Helvetica"
+#})
 lineRangesScalePlot = [[[4281.1,5454.],[4200.,6900.]],
                        [[3704.6,4053.3],[3600.,4053.3]],
                        [[4282.,4430.],[4230.,4430.]],
@@ -28,6 +31,65 @@ lineRangesScalePlot = [[[4281.1,5454.],[4200.,6900.]],
                        [[5112.,5455.],[5100.,5700.]],#5492.
                        [[5912.,6268.],[5800.,6300.]],#5912.,6268.]],
                       ]
+
+leDu_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_20181009_941_PLeDu.fits"
+somme_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_somme6.fits"
+gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_GT080716_cal_sum_cleaned.fits"
+wiyn_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN151014_cal_sum_cleaned_t.fits"
+gvaramadze_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/gvaramadze.fits"
+gvaramadze_hdulist = pyfits.open(gvaramadze_file)
+gvaramadze_header = gvaramadze_hdulist[0].header
+gvaramadze_wavelength = getWavelength(gvaramadze_header,1)
+gvaramadze_spectrum = fits.getdata(gvaramadze_file)
+#gvaramadze_wavelength,gvaramadze_spectrum = readGvaramadzeFile()
+gvaramadze_wavelength = np.array(gvaramadze_wavelength)
+gvaramadze_spectrum = np.array(gvaramadze_spectrum)
+garnavich_wavelength, garnavich_spectrum = readLBTFiles()
+garnavich_wavelength = np.array(garnavich_wavelength)
+garnavich_spectrum = np.array(garnavich_spectrum)
+garnavich_spectrum = garnavich_spectrum[garnavich_wavelength < 5455.]
+garnavich_wavelength = garnavich_wavelength[garnavich_wavelength < 5455.]
+garnavich_spectrum_smoothed = smooth(garnavich_spectrum,9)#scipy.ndimage.mean_filter(garnavich_spectrum, 7)#boxCarMeanSmooth(somme_spectrum, 0, 21)
+gtc_hdulist = pyfits.open(gtc_file)
+wiyn_hdulist = pyfits.open(wiyn_file)
+leDu_hdulist = pyfits.open(leDu_file)
+somme_hdulist = pyfits.open(somme_file)
+
+gtc_header = gtc_hdulist[0].header
+gtc_wavelength = getWavelength(gtc_header,1)
+gtc_spectrum = fits.getdata(gtc_file)
+print('gtc_wavelength = ',gtc_wavelength)
+
+wiyn_header = wiyn_hdulist[0].header
+wiyn_wavelength = getWavelength(wiyn_header,1)
+wiyn_spectrum = fits.getdata(wiyn_file)
+print('wiyn_wavelength = ',wiyn_wavelength)
+
+leDu_header = leDu_hdulist[0].header
+leDu_wavelength = getWavelength(leDu_header,1)
+print('leDu_wavelength = ',leDu_wavelength)
+leDu_spectrum = fits.getdata(leDu_file)
+#    leDu_spectrum_absolute = calibratedFluxToAbsoluteFlux(leDu_spectrum, 3370.0)
+print('leDu_wavelength = ',leDu_wavelength)
+
+somme_header = somme_hdulist[0].header
+somme_wavelength = getWavelength(somme_header,1)
+somme_spectrum = fits.getdata(somme_file)
+#    somme_spectrum_absolute = calibratedFluxToAbsoluteFlux(somme_spectrum, 3370.0)
+print('somme_wavelength = ',somme_wavelength)
+
+#plt.plot(leDu_wavelength,leDu_spectrum,label='Le Du')
+#plt.plot(somme_wavelength,somme_spectrum,label='Somme')
+plt.plot(wiyn_wavelength,wiyn_spectrum,label='WIYN')
+plt.plot(gtc_wavelength,gtc_spectrum,label='GTC')
+plt.plot(gvaramadze_wavelength,gvaramadze_spectrum,label='Gvaramadze')
+plt.plot(garnavich_wavelength,garnavich_spectrum,label='Garnavich')
+plt.legend()
+plt.xlabel("wavelength [$\mathrm{\AA}$]")
+plt.ylabel('flux [$\mathrm{erg/cm^2/s/\AA}$]')
+plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN+GTC+Garnavich+Gvaramadze.eps'
+plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
+plt.show()
 
 leDu_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_20181009_941_PLeDu_scaled.fits"
 somme_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_somme6_scaled.fits"
@@ -40,7 +102,6 @@ gtc_hdulist = pyfits.open(gtc_file)
 wiyn_hdulist = pyfits.open(wiyn_file)
 leDu_hdulist = pyfits.open(leDu_file)
 somme_hdulist = pyfits.open(somme_file)
-gvaramadze_hdulist = pyfits.open(gvaramadze_file)
 
 gtc_header = gtc_hdulist[0].header
 gtc_wavelength = getWavelength(gtc_header,1)
@@ -71,12 +132,12 @@ somme_spectrum_smoothed = scipy.ndimage.median_filter(somme_spectrum, 21)#boxCar
 #somme_spectrum_absolute_smoothed = boxCarMeanSmooth(somme_spectrum_absolute, 0, 21)
 
 leDu_spectrum_smoothed_dereddened = pyasl.unred(leDu_wavelength, leDu_spectrum_smoothed, ebv=ebv, R_V = R_V)
-plt.plot(leDu_wavelength,np.log10(leDu_spectrum_smoothed),'-', color='#64a030', label='LeDu scaled and smoothed')
+plt.plot(leDu_wavelength,np.log10(leDu_spectrum_smoothed),'-', color='#64a030', label='$\mathrm{LeD\^u\,scaled\,and\,smoothed}$')
 plt.plot(leDu_wavelength,np.log10(leDu_spectrum_smoothed_dereddened),'-', color='#64a030')#, label='Le Du scaled, smoothed, and dereddened')
 
 somme_spectrum_smoothed_dereddened = pyasl.unred(somme_wavelength, somme_spectrum_smoothed, ebv=ebv, R_V = R_V)
-plt.plot(somme_wavelength,np.log10(somme_spectrum_smoothed),'m-', label='Somme scaled and smoothed')
-plt.plot(somme_wavelength,np.log10(somme_spectrum_smoothed_dereddened),'m-')#, label='Somme scaled, smoothed, and dereddened')
+#plt.plot(somme_wavelength,np.log10(somme_spectrum_smoothed),'m-', label='Somme scaled and smoothed')
+#plt.plot(somme_wavelength,np.log10(somme_spectrum_smoothed_dereddened),'m-')#, label='Somme scaled, smoothed, and dereddened')
 
 gtc_spectrum_dereddened = pyasl.unred(gtc_wavelength, gtc_spectrum, ebv=ebv, R_V = R_V)
 plt.plot(gtc_wavelength, np.log10(gtc_spectrum), 'r-', label='GTC scaled')
@@ -96,9 +157,9 @@ xlim = [3550.,7585.]
 #    plt.xlim(xlim)
 #plt.ylim([-10.,-5.9])
 #    plt.ylim([-10.0,-7.0])
-plt.text(4123., -9.265, 'original')
+plt.text(5000., -15., 'original')
 #plt.text(4123., -7.0846, 'dereddened with E(B-V)=%.2f'%(ebv))
-plt.text(5550., -8.4, 'dereddened with E(B-V)=%.2f'%(ebv))
+plt.text(5550., -13.588, 'dereddened with E(B-V)=%.2f'%(ebv))
 #plotname = '/Users/azuri/daten/uni/HKU/Pa30/report/images/Pa30_WN+GTC_dereddened_R_V=%.1f_ebv=%.3f_x%d-%d' % (R_V, ebv, int(xlim[0]), int(xlim[1]))
 plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN+GTC+Somme+LeDu_dereddened_logarithmic_R_V=%.1f_ebv=%.3f_x%d-%d' % (R_V, ebv, int(xlim[0]), int(xlim[1]))
 plotname = plotname.replace('.','_')+'.eps'
