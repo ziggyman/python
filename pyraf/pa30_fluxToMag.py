@@ -1,10 +1,14 @@
 import pyphot
 from pyphot import unit
 import astropy.io.fits as pyfits
+from astropy.time import Time
 from datetime import datetime as dt
 import numpy as np
+from matplotlib import pyplot as plt
 from myUtils import getWavelength,smooth,toYearFraction
 from Pa30_LBT import readLBTFiles
+
+photometry_file = '/Users/azuri/daten/uni/HKU/Pa30/variability/pa30_photometry_visual.txt'
 
 gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_GT080716_cal_sum_cleaned.fits"
 wiyn_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN151014_cal_sum_cleaned_t.fits"
@@ -37,6 +41,18 @@ wiyn_wavelength = getWavelength(wiyn_header,1) * unit['AA']
 wiyn_spectrum = pyfits.getdata(wiyn_file) * unit['erg/s/cm**2/AA']
 print('wiyn_wavelength = ',wiyn_wavelength)
 
+with open(photometry_file,'r') as f:
+    lines = f.readlines()
+photometry = []
+for line in lines:
+    if line[0] != '#':
+        phot = line.strip().split()
+        phot[0] = Time(float(phot[0]), format='mjd').decimalyear#toYearFraction(dt.fromtimestamp(float(phot[0])))
+        phot[1] = float(phot[1])
+        phot[2] = float(phot[2])
+        photometry.append(phot)
+print('photometry = ',photometry)
+
 lib = pyphot.get_library()
 print("Library contains: ", len(lib), " filters")
 print("dir(lib) = ",dir(lib))
@@ -68,9 +84,8 @@ for specName,date,wlen,spec in [['wiyn',dt(2014,10,15),wiyn_wavelength,wiyn_spec
                                 ['gtc',dt(2016,7,8),gtc_wavelength,gtc_spectrum],
                                 ['gvaramadze',dt(2017,7,20),gvaramadze_wavelength,gvaramadze_spectrum],
                                 ['garnavich',dt(2020,9,11),garnavich_wavelength,garnavich_spectrum]]:
-    synphot_temp = []
     for filter in filters:
-        f = filter.getFlux(gtc_wavelength, gtc_spectrum)
+        f = filter.getFlux(wlen, spec)
 #    print('f = ',f)
 #    print('dir(f) = ',dir(f))
 #    print('f.value = ',f.value)
@@ -80,15 +95,74 @@ for specName,date,wlen,spec in [['wiyn',dt(2014,10,15),wiyn_wavelength,wiyn_spec
 #
         mag = -2.5 * np.log10(f.value) - filter.Vega_zero_mag
         print(specName,': ',filter.name,': apparent mag Vega = ',mag)
-        synphot_temp.append({'mag': mag, 'filter_name': filter.name, 'spec_name': specName, 'date':toYearFraction(date)})
+        synphot.append({'mag': mag, 'filter_name': filter.name, 'spec_name': specName, 'date':toYearFraction(date)})
 #        mag = -2.5 * np.log10(f.value) - filter.AB_zero_mag
 #        print('apparent GTC B mag AB = ',mag)
 
-    synphot.append(synphot_temp)
 print('synphot = ',len(synphot),': ',synphot)
 
+labels=['WIYN','GTC','Gvaramadze','Garnavich']
+for i in range(len(filters)):
+    synphots = [x for x in [synphot[i],
+                            synphot[len(filters)+i],
+                            synphot[(2*len(filters))+i],
+                            synphot[(3*len(filters))+i]]]
+    dates = [x['date'] for x in synphots]
+    mags = [x['mag'] for x in synphots]
+    filter_names = [x['filter_name'] for x in synphots]
+    spec_names = [x['spec_name'] for x in synphots]
+    print('dates = ',dates)
+    print('mags = ',mags)
+    print('filter_names = ',filter_names)
+    print('spec_names = ',spec_names)
+    for j in range(4):
+        plt.scatter(dates[j],
+                    mags[j],
+                    label=labels[j])
+        print('plotted [',dates[j],', ',mags[j],'], label = ',labels[j])
+
+    for phot in photometry:
+        if (filter_names[0] == 'GROUND_JOHNSON_B') and (phot[3] == 'JohnsonB'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'GROUND_JOHNSON_V') and (phot[3] == 'JohnsonV'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'SDSS_g') and (phot[3] == 'IGAPS.Gunn_g(UVEX)'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'SDSS_r') and (phot[3] == 'IGAPS.Gunn_r(UVEX)'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+    plt.title(filter_names[0])
+    plt.xlabel('year')
+    plt.ylabel('apparent magnitude')
+    plt.legend()
+    plt.gca().invert_yaxis()
+#    plt.xlim(1970,2022)
+    plt.show()
 
 if False:
+    filters = lib.load_filters(['GROUND_JOHNSON_B',
+                            'GROUND_JOHNSON_V',
+                            'GaiaDR2_BP',
+                            'SDSS_u',
+                            'SDSS_g',
+                            'SDSS_r',
+                            'PS1_g',
+                            'PS1_r',
+                            'PS1_i',
+                            'GaiaDR2_BP',
+                            'GaiaDR2_RP',
+                            'GaiaDR2_G',
+#                            '2MASS_H',
+#                            '2MASS_J',
+#                            '2MASS_Ks',
+                            ])
     execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
 
     gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/Pa30_GT080716_cal_sum_cleaned_scaled.fits"
