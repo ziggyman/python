@@ -3,12 +3,13 @@ from pyphot import unit
 import astropy.io.fits as pyfits
 from astropy.time import Time
 from datetime import datetime as dt
+import math
 import numpy as np
 from matplotlib import pyplot as plt
 from myUtils import getWavelength,smooth,toYearFraction
 from Pa30_LBT import readLBTFiles
 
-photometry_file = '/Users/azuri/daten/uni/HKU/Pa30/variability/pa30_photometry_visual.txt'
+photometry_file = '/Users/azuri/daten/uni/HKU/Pa30/variability/pa30_photometry_visual_1.txt'
 
 gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_GT080716_cal_sum_cleaned.fits"
 wiyn_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN151014_cal_sum_cleaned_t.fits"
@@ -61,7 +62,6 @@ for i in range(len(lib.content)):
 
 filters = lib.load_filters(['GROUND_JOHNSON_B',
                             'GROUND_JOHNSON_V',
-                            'GaiaDR2_BP',
                             'SDSS_u',
                             'SDSS_g',
                             'SDSS_r',
@@ -92,10 +92,12 @@ for specName,date,wlen,spec in [['wiyn',dt(2014,10,15),wiyn_wavelength,wiyn_spec
 #    print('f.dimensionless = ',f.dimensionless)
 #    print('f.unitless = ',f.unitless)
 #    print('f.magnitude = ',f.magnitude)
-#
-        mag = -2.5 * np.log10(f.value) - filter.Vega_zero_mag
-        print(specName,': ',filter.name,': apparent mag Vega = ',mag)
-        synphot.append({'mag': mag, 'filter_name': filter.name, 'spec_name': specName, 'date':toYearFraction(date)})
+#       
+        magV = -2.5 * np.log10(f.value) - filter.Vega_zero_mag
+        magAB = -2.5 * np.log10(f.value) - filter.AB_zero_mag
+        print(specName,': ',filter.name,': apparent mag Vega = ',magV)
+        print(specName,': ',filter.name,': apparent mag AB = ',magAB)
+        synphot.append({'magVega': magV, 'magAB': magAB, 'filter_name': filter.name, 'spec_name': specName, 'date':toYearFraction(date)})
 #        mag = -2.5 * np.log10(f.value) - filter.AB_zero_mag
 #        print('apparent GTC B mag AB = ',mag)
 
@@ -108,18 +110,21 @@ for i in range(len(filters)):
                             synphot[(2*len(filters))+i],
                             synphot[(3*len(filters))+i]]]
     dates = [x['date'] for x in synphots]
-    mags = [x['mag'] for x in synphots]
+    Vmags = [x['magVega'] for x in synphots]
+    ABmags = [x['magAB'] for x in synphots]
     filter_names = [x['filter_name'] for x in synphots]
     spec_names = [x['spec_name'] for x in synphots]
     print('dates = ',dates)
-    print('mags = ',mags)
+    print('Vmags = ',Vmags)
+    print('ABmags = ',ABmags)
     print('filter_names = ',filter_names)
     print('spec_names = ',spec_names)
     for j in range(4):
-        plt.scatter(dates[j],
-                    mags[j],
-                    label=labels[j])
-        print('plotted [',dates[j],', ',mags[j],'], label = ',labels[j])
+        if not math.isinf(ABmags[j]):
+            plt.scatter(dates[j],
+                        ABmags[j],
+                        label=labels[j])
+            print('plotted [',dates[j],', ',ABmags[j],'], label = ',labels[j])
 
     for phot in photometry:
         if (filter_names[0] == 'GROUND_JOHNSON_B') and (phot[3] == 'JohnsonB'):
@@ -138,18 +143,42 @@ for i in range(len(filters)):
             plt.scatter(phot[0],phot[1],label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'PS1_g') and (phot[3] == 'PS1.g'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'PS1_r') and (phot[3] == 'PS1.r'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'PS1_i') and (phot[3] == 'PS1.i'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'GaiaDR2_BP') and (phot[3] == 'phot_bp_mean_mag'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'GaiaDR2_RP') and (phot[3] == 'phot_rp_mean_mag'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
+        elif (filter_names[0] == 'GaiaDR2_G') and (phot[3] == 'phot_g_mean_mag'):
+            plt.scatter(phot[0],phot[1],label=phot[3])
+            #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
+            print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
     plt.title(filter_names[0])
     plt.xlabel('year')
     plt.ylabel('apparent magnitude')
     plt.legend()
     plt.gca().invert_yaxis()
-#    plt.xlim(1970,2022)
+    plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_synphot'+filter_names[0]+'.eps'
+    plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
     plt.show()
 
 if False:
     filters = lib.load_filters(['GROUND_JOHNSON_B',
                             'GROUND_JOHNSON_V',
-                            'GaiaDR2_BP',
                             'SDSS_u',
                             'SDSS_g',
                             'SDSS_r',
