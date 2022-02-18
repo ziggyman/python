@@ -32,6 +32,9 @@ lineRangesScalePlot = [[[4281.1,5454.],[4200.,6900.]],
                        [[5912.,6268.],[5800.,6300.]],#5912.,6268.]],
                       ]
 
+lines_names = ['O VI','O VI','O VIII','O VIII','O VIII', 'C V', 'O VI', 'O VI', 'O VII', 'C IV', 'O VIII', 'C VI']
+lines_wave = [3811,3834,4340,4501,4658,4944,5270,5291,5670,5808,6068,6202]
+
 leDu_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_20181009_941_PLeDu.fits"
 somme_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_somme6.fits"
 gtc_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_GT080716_cal_sum_cleaned.fits"
@@ -50,6 +53,16 @@ garnavich_spectrum = np.array(garnavich_spectrum)
 garnavich_spectrum = garnavich_spectrum[garnavich_wavelength < 5455.]
 garnavich_wavelength = garnavich_wavelength[garnavich_wavelength < 5455.]
 garnavich_spectrum_smoothed = smooth(garnavich_spectrum,9)#scipy.ndimage.mean_filter(garnavich_spectrum, 7)#boxCarMeanSmooth(somme_spectrum, 0, 21)
+
+def plot_lines():
+    print('plt.xlim() = ',plt.xlim())
+    plt_ylim = plt.ylim()
+    plt_xlim = plt.xlim()
+    for i in range(len(lines_names)):
+        if (lines_wave[i] >= plt_xlim[0]) and (lines_wave[i] <= plt_xlim[1]):
+            plt.plot([lines_wave[i],lines_wave[i]],[plt_ylim[0],plt_ylim[1]-((plt_ylim[1]-plt_ylim[0])/15.)],'k-')
+            plt.text(lines_wave[i],plt_ylim[1] - ((plt_ylim[1]-plt_ylim[0])/15.),lines_names[i])
+
 gtc_hdulist = pyfits.open(gtc_file)
 wiyn_hdulist = pyfits.open(wiyn_file)
 leDu_hdulist = pyfits.open(leDu_file)
@@ -90,6 +103,18 @@ plt.ylabel('flux [$\mathrm{erg/cm^2/s/\AA}$]')
 plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN+GTC+Garnavich+Gvaramadze.eps'
 plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
 plt.show()
+
+#plt.plot(wiyn_wavelength,wiyn_spectrum,label='WIYN')
+#plt.plot(gtc_wavelength,gtc_spectrum,label='GTC')
+#plt.plot(gvaramadze_wavelength,gvaramadze_spectrum,label='Gvaramadze')
+#plt.plot(garnavich_wavelength,garnavich_spectrum,label='Garnavich')
+#plt.legend()
+#plt.xlabel("wavelength [$\mathrm{\AA}$]")
+#plt.ylabel('flux [$\mathrm{erg/cm^2/s/\AA}$]')
+#plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN+GTC+Garnavich+Gvaramadze.eps'
+#plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
+#plt.show()
+
 
 leDu_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_20181009_941_PLeDu_scaled.fits"
 somme_file = "/Users/azuri/daten/uni/HKU/Pa30/variability/_pa30_somme6_scaled.fits"
@@ -315,6 +340,8 @@ for line in lineRangesScalePlot:
     plt.xlabel("wavelength [$\mathrm{\AA}$]")
     plt.ylabel('flux [arbitrary units]')
     plt.legend(fontsize=12)
+    if line != lineRangesScalePlot[0]:
+        plot_lines()
     plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN+GTC+Garnavich+Gvaramadze_%d-%d.eps' % (int(plotRange[0]),int(plotRange[1]))
     print('writing plot to file <'+plotname+'>')
     plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)

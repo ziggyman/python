@@ -47,7 +47,7 @@ with open(photometry_file,'r') as f:
 photometry = []
 for line in lines:
     if line[0] != '#':
-        phot = line.strip().split()
+        phot = line.strip().split('\t')
         phot[0] = Time(float(phot[0]), format='mjd').decimalyear#toYearFraction(dt.fromtimestamp(float(phot[0])))
         phot[1] = float(phot[1])
         phot[2] = float(phot[2])
@@ -127,44 +127,44 @@ for i in range(len(filters)):
             print('plotted [',dates[j],', ',ABmags[j],'], label = ',labels[j])
 
     for phot in photometry:
-        if (filter_names[0] == 'GROUND_JOHNSON_B') and (phot[3] == 'JohnsonB'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+        if (filter_names[0] == 'GROUND_JOHNSON_B') and ('JohnsonB' in phot[3]):
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
-        elif (filter_names[0] == 'GROUND_JOHNSON_V') and (phot[3] == 'JohnsonV'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+        elif (filter_names[0] == 'GROUND_JOHNSON_V') and ('JohnsonV' in phot[3]):
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'SDSS_g') and (phot[3] == 'IGAPS.Gunn_g(UVEX)'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'SDSS_r') and (phot[3] == 'IGAPS.Gunn_r(UVEX)'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'PS1_g') and (phot[3] == 'PS1.g'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'PS1_r') and (phot[3] == 'PS1.r'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'PS1_i') and (phot[3] == 'PS1.i'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'GaiaDR2_BP') and (phot[3] == 'phot_bp_mean_mag'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'GaiaDR2_RP') and (phot[3] == 'phot_rp_mean_mag'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
         elif (filter_names[0] == 'GaiaDR2_G') and (phot[3] == 'phot_g_mean_mag'):
-            plt.scatter(phot[0],phot[1],label=phot[3])
+            plt.scatter(phot[0],phot[1], marker='s',label=phot[3])
             #plt.errorbar(phot[0],phot[1], yerr=phot[2], fmt="o")
             print('plotted [',phot[0],', ',phot[1],'], label = ',phot[3])
     plt.title(filter_names[0])
@@ -172,8 +172,8 @@ for i in range(len(filters)):
     plt.ylabel('apparent magnitude')
     plt.legend()
     plt.gca().invert_yaxis()
-    plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_synphot'+filter_names[0]+'.eps'
-    plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)
+    plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_synphot'+filter_names[0]+'.png'
+    plt.savefig(plotname, format='png', frameon=False, bbox_inches='tight', pad_inches=0.1)
     plt.show()
 
 if False:
