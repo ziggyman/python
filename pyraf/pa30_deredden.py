@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy
 from Pa30_LBT import readLBTFiles,readGvaramadzeFile
+import lineid_plot
 
 from myUtils import getWavelength,calibratedFluxToAbsoluteFlux,boxCarMeanSmooth,smooth
 #execfile("/Users/azuri/entwicklung/python/myUtils.py")# import getDate, findClosestDate,...
@@ -340,8 +341,8 @@ for line in lineRangesScalePlot:
     plt.xlabel("wavelength [$\mathrm{\AA}$]")
     plt.ylabel('flux [arbitrary units]')
     plt.legend(fontsize=12)
-    if line != lineRangesScalePlot[0]:
-        plot_lines()
+#    if line != lineRangesScalePlot[0]:
+#        plot_lines()
     plotname = '/Users/azuri/daten/uni/HKU/Pa30/variability/Pa30_WN+GTC+Garnavich+Gvaramadze_%d-%d.eps' % (int(plotRange[0]),int(plotRange[1]))
     print('writing plot to file <'+plotname+'>')
     plt.savefig(plotname, format='eps', frameon=False, bbox_inches='tight', pad_inches=0.1)

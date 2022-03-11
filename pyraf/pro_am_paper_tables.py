@@ -56,7 +56,7 @@ for csvFile in csvFiles:
             f.write('	\\caption{Table containing 104 objects classified as mimics}\n')
             f.write('	\\label{tab3}\\\\\n')
         elif csvFile == csvFiles[3]:
-            f.write('	\\caption{Table of all our combined spectral observations of PN candidates until December 2021}\n')
+            f.write('	\\caption{Table of all our combined spectral observations of PN candidates up until December 2021}\n')
             f.write('	\\label{tabX}\\\\\n')
         elif csvFile == csvFiles[4]:
             f.write('	\\caption{Table of 66 PN mimics revealed by both professional and amateur spectroscopy of some of our PN candidates}\n')

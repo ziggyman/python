@@ -112,6 +112,17 @@ def getWavelengthArr(fname, hduNum=0):
     wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * cdelt + header['CRVAL1']
     return wLen
 
+def readMyPNLineList(fName = '/Users/azuri/entwicklung/python/data_reduction/pnLineList.dat'):
+    with open(fName,'r') as f:
+        lines = f.readlines()
+    lineWave = []
+    lineLabel = []
+    for line in lines[1:]:
+        label,wave = line.strip().split()
+        lineWave.append(float(wave))
+        lineLabel.append(label)
+    return [lineWave,lineLabel]
+
 # read header from inputFileName, add metaKeys and metaData to that header,
 # adjust the size according to ccdData, and write ccdData and header to outputFileName
 def writeFits(ccdData, inputFileName, outputFileName, metaKeys=None, metaData=None, overwrite=True):
@@ -195,7 +206,10 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
             try:
                 expType = hdulist[0].header['EXPTYPE']
             except:
-                expType = hdulist[0].header['OBJECT']
+                try:
+                    expType = hdulist[0].header['IMAGETYP']
+                except:
+                    expType = hdulist[0].header['OBJECT']
             if ' ' in expType:
                 expType = expType[:expType.find(' ')]
             objectName = hdulist[0].header['OBJECT']
@@ -2457,14 +2471,23 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
             plt.plot(xCorSpecX+shift,xCorSpec,label='reference spectrum')
             plt.legend()
             plt.show()
-        shiftLineList(lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])),
-                      lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:]))+'tmp',
+        if '%' in lineListIn:
+            lineListTmp = lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:]))
+        else:
+            lineListTmp = lineListIn
+        shiftLineList(lineListTmp,
+                      lineListTmp+'tmp',
                       shift)
         print('extractAndReidentifyARCs: referenceApertureDefinitionFile = <'+refApDef+'>')
         tempFile = arc[:arc.rfind('/')+1]+'database/aptmp'+arc[arc.rfind('/')+1:arc.rfind('.')]
         print('extractAndReidentifyARCs: tempFile = <'+tempFile+'>')
 
-        copyfile(refApDef % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])),tempFile)
+        if '%' in refApDef:
+            refApDefTmp = refApDef % (int(gratingAngle[:gratingAngle.find('.')]),
+                             int(gratingAngle[gratingAngle.find('.')+1:]))
+        else:
+            refApDefTmp = refApDef
+        copyfile(refApDefTmp,tempFile)
         shiftApertureDefs(tempFile,tempFile,shift)
         lineListNew, coeffs, xRange, rms = reidentify(arcInterp,
                                                       arc,

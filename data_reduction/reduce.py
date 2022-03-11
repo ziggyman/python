@@ -1,5 +1,6 @@
 #from astropy.nddata import CCDData
 from astropy.coordinates import EarthLocation
+import astropy.io.fits as pyfits
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove,extractSum
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
 from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyARCs, dispCor
@@ -15,26 +16,28 @@ overscanSection = '[4:21,1:133]'#'[1983:,:]'
 trimSection = '[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao-aug2013/night3/'
+workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/night1/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
 #refVerticalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/apvertical_trace'
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
-refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_2014')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_2007')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_2014_transposed')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_2007_transposed')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_85')#16_3')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d_aug2013')
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d_aug2013')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_May2007')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle15_85_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2018.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_mar2014.dat')
-lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2013.dat')
+#lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2013.dat')
+lineList = os.path.join(refPath,'saao_refspec_lines_identified_good_may2007.dat')
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
 referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_aug2013.fits'
@@ -48,6 +51,33 @@ fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsLi
 
 if not os.path.exists(os.path.join(workPath,'database')):
     os.makedirs(os.path.join(workPath,'database'))
+
+def fixHeaders():
+    with open(os.path.join(workPath,'allFits.list'),'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        fName = line.strip()
+        hdulist = pyfits.open(os.path.join(workPath,fName))
+        typeName = 'EXPTYPE'
+        try:
+            expType = hdulist[0].header['EXPTYPE']
+        except:
+            try:
+                expType = hdulist[0].header['IMAGETYP']
+                typeName = 'IMAGETYP'
+            except:
+                print('neither EXPTYPE nor IMAGETYP found in header of file '+fName)
+                STOP
+        if expType == 'COMPARISON':
+            hdulist[0].header[typeName] = 'ARC'
+        elif expType == 'flat':
+            hdulist[0].header[typeName] = 'FLAT'
+        elif expType == 'zero':
+            hdulist[0].header[typeName] = 'BIAS'
+        elif expType == 'object':
+            hdulist[0].header[typeName] = 'SCIENCE'
+
+        hdulist.writeto(os.path.join(workPath,fName), overwrite=True)
 
 def readFileToArr(fname):
     text_file = open(fname, "r")
@@ -67,6 +97,7 @@ def getListOfFiles(fname):
             fList = [os.path.join(workPath, fileName) for fileName in fList]
     return fList
 
+fixHeaders()
 inList=os.path.join(workPath,'allFits.list')
 suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxfif','otzfiEc','otzxfiEc','otzfifEc','otzxfifEc','otzfifEcd','otzxfifEcd','otzfifEcdF','otzxfifEcdF']
 
@@ -74,6 +105,7 @@ suffixes = ['','ot','otz','otzf','otzfi','otzfif','otzx','otzxf','otzxfi','otzxf
 #    silentRemove(inList[:inList.rfind('/')+1]+'*.list')
 #    copyfile(inList+'bak', inList)
 exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
+#exptypes = ['zero','flat','COMPARISON','SCIENCE','FLUXSTDS']
 objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
 if False:
 #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
@@ -81,6 +113,7 @@ if False:
 #    STOP
     separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
 #    STOP
+if False:
     objectFiles = os.path.join(workPath,'SCIENCE.list')
     # subtract overscan and trim all images
     for inputList in ['ARC', 'BIAS', 'FLAT', 'SCIENCE','FLUXSTDS']:
@@ -169,6 +202,7 @@ if False:
 
     # create master SkyFlat
     combinedSkyFlat = os.path.join(workPath,'combinedSkyFlat.fits')
+if False:
     print('creating combinedSkyFlat <'+combinedSkyFlat+'>')
     combine(getListOfFiles(os.path.join(workPath,'FLATSKYFLAT_otzf.list')),
             combinerMethod='median',
@@ -180,7 +214,7 @@ if False:
             scaling=True,
             minVal=0.0001,
             fitsOutName=combinedSkyFlat)
-
+if False:
     interpolateTraceIm([combinedSkyFlat],
                         refVerticalTraceDB,
                         refHorizontalTraceDB)
@@ -208,6 +242,7 @@ if False:
                                                                      referenceSpectrum,
                                                                      display=False)
 
+if True:
     # extract arcs and science data
     #extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis)
     inputList = getListOfFiles(os.path.join(workPath,'ARC_otzxfif.list'))
