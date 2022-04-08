@@ -5,7 +5,7 @@ plt.style.use(astropy_mpl_style)
 from astropy.utils.data import get_pkg_data_filename
 from astropy.io import fits
 
-listName = '/Users/azuri/spectra/saao/saao_may2007/RAW/allFlats.list'
+listName = '/Users/azuri/spectra/saao/saao_may2007/RAW/night5/FLAT.list'
 with open(listName,'r') as f:
     lines = f.readlines()
 lines = [line.strip() for line in lines]

@@ -105,11 +105,13 @@ def getWavelengthArr(fname, hduNum=0):
     hdulist.close()
     if 'CDELT1' in header.keys():
         cdelt = header['CDELT1']
+        wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * cdelt + header['CRVAL1']
     elif 'CD1_1' in header.keys():
         cdelt = header['CD1_1']
+        wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * cdelt + header['CRVAL1']
     else:
-        raise('ERROR: neither CDELT1 nor CD1_1 found in header of file <'+fname+'>')
-    wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * cdelt + header['CRVAL1']
+        print('WARNING: neither CDELT1 nor CD1_1 found in header of file <'+fname+'>')
+        wLen = np.arange(header['NAXIS1']) + 1.0
     return wLen
 
 def readMyPNLineList(fName = '/Users/azuri/entwicklung/python/data_reduction/pnLineList.dat'):
@@ -1033,9 +1035,9 @@ def calcTrace(dbFile, apNum=0, xRange = None):
 # image with centers of aperture set to zero
 def markCenter(imFileIn, trace, imFileOut=None):
     image = CCDData.read(imFileIn, unit="adu")
-#    print('markCenter: image = ',image)
-#    print('markCenter: trace = ',len(trace),': ',trace)
-#    print('markCenter: trace[0].shape = ',trace[0].shape)
+    print('markCenter: image.shape = ',image.shape)
+    print('markCenter: trace = ',len(trace),': ',trace)
+    print('markCenter: trace[0].shape = ',trace[0].shape)
     for i in np.arange(0,trace[0].shape[0],1):
         image.data[int(trace[0][i]), int(trace[1][i])] = 0.
     if imFileOut is not None:
@@ -1753,7 +1755,13 @@ def chisqfunc(fac, object, sky, sigma):
     chisq = np.sum(((object - model) / sigma)**2)
     return chisq
 
-def sigmaRej(values, sigLow, sigHigh, replace=False, adjustSigLevels=False, useMean=False, keepFirstAndLastX=False):
+def sigmaRej(values, 
+             sigLow, 
+             sigHigh, 
+             replace=False, 
+             adjustSigLevels=False, 
+             useMean=False, 
+             keepFirstAndLastX=False):
     print('sigmaRej: sigLow = ',sigLow,', sigHigh = ',sigHigh,', adjustSigLevels = ',adjustSigLevels,', replace = ',replace,', useMean = ',useMean,', keepFirstAndLastX = ',keepFirstAndLastX)
     ySkyMedian = None
     if useMean:
@@ -1793,7 +1801,14 @@ def sigmaRej(values, sigLow, sigHigh, replace=False, adjustSigLevels=False, useM
         print('sigmaRej: rejected ',nRej,' out of ',len(values),' pixels')
     return [np.array(outArr),np.array(outIndices)]
 
-def sigmaReject(y, nIter, lowReject, highReject, replace=False, adjustSigLevels=False, useMean=False, keepFirstAndLastX=True):
+def sigmaReject(y, 
+                nIter,
+                lowReject, 
+                highReject, 
+                replace=False, 
+                adjustSigLevels=False, 
+                useMean=False, 
+                keepFirstAndLastX=True):
     indices = np.arange(0,len(y),1)
     yGood, goodIndices = sigmaRej(y, lowReject, highReject, replace=replace, adjustSigLevels=adjustSigLevels, useMean=useMean, keepFirstAndLastX=keepFirstAndLastX)
     indices = indices[goodIndices]
@@ -1806,7 +1821,18 @@ def sigmaReject(y, nIter, lowReject, highReject, replace=False, adjustSigLevels=
     return [yGood,indices]
 
 # NOTE: requires x to be normalized
-def sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, lowReject, highReject, adjustSigLevels=False, useMean=False, display=False):
+def sfit(x,
+         y, 
+         fittingFunction, 
+         solveFunction, 
+         order, 
+         nIterReject, 
+         nIterFit, 
+         lowReject, 
+         highReject, 
+         adjustSigLevels=False, 
+         useMean=False, 
+         display=False):
     coeffs = fittingFunction(x,y,order)
     fittedValues = solveFunction(x,coeffs)
     fittedIndices = np.arange(0,fittedValues.shape[0],1)
@@ -1826,7 +1852,7 @@ def sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, low
                                                                  replace=False,
                                                                  adjustSigLevels=adjustSigLevels,
                                                                  useMean=useMean,
-                                                                 keepFirstAndLastX=True,
+                                                                 keepFirstAndLastX=False,
                                                                 )
         fittedValuesNotRejected += fittedValuesTemp[fittedIndicesTemp]
         fittedIndices = fittedIndices[fittedIndicesTemp]
@@ -2079,7 +2105,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
 #@param xSpec: np.array1d
 #@param ySpec: np.array1d
 #@param lineProfile: [x:np.array1d,y:np.array1d]
-def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGoodLines=None,display=False):
+def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGoodLines=None,display=False,chiSquareLimit=0.25):
     xXCor, xCorChiSquares = xCor([xSpec,ySpec],lineProfile)
     linesX = findLines(ySpec,
                        xXCor,
@@ -2091,22 +2117,26 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
                        plot=display,
                       )
     print('findGoodLines: linesX = ',linesX)
-
-    goodProfIndices = np.where(np.absolute( lineProfile[0] ) < np.min([np.absolute(lineProfile[0][0]), lineProfile[0][len(lineProfile[0])-1]]))
-    lineProfile[0] = lineProfile[0][goodProfIndices]
-    lineProfile[1] = lineProfile[1][goodProfIndices]
+    print('lineProfile = ',lineProfile)
+#    print('lineProfile[0][0] = ',lineProfile[0][0])
+#    print('lineProfile[0][len(lineProfile[0])-1] = ',lineProfile[0][len(lineProfile[0])-1])
+#    goodProfIndices = np.where(np.absolute( lineProfile[0] ) < np.min([np.absolute(lineProfile[0][0]), lineProfile[0][len(lineProfile[0])-1]]))
+#    print('goodProfIndices = ',goodProfIndices)
+#    lineProfile[0] = lineProfile[0][goodProfIndices]
+#    lineProfile[1] = lineProfile[1][goodProfIndices]
+#    print('lineProfile = ',lineProfile)
 
     if display:
         plt.plot(ySpec)
         plt.title('findGoodLines')
     chiSquares = []
-    chiSquareLimit = 0.25#0.16
+#    chiSquareLimit = 0.25#0.16
     for line in linesX:
-#        print('findGoodLines: line = ',line)
-#        print('findGoodLines: lineProfile[0]+line = ',lineProfile[0]+line)
-#        print('findGoodLines: np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1) = ',np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1))
-#        print('findGoodLines: ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)] = ',ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)])
-#        print('findGoodLines: np.amax(lineProfile[1]) = ',np.amax(lineProfile[1]))
+        print('findGoodLines: line = ',line)
+        print('findGoodLines: lineProfile[0]+line = ',lineProfile[0]+line)
+        print('findGoodLines: np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1) = ',np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1))
+        print('findGoodLines: ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)] = ',ySpec[np.arange(int(np.amin(lineProfile[0]+line)),int(np.amax(lineProfile[0]+line)),1)])
+        print('findGoodLines: np.amax(lineProfile[1]) = ',np.amax(lineProfile[1]))
         xs = np.arange(int(np.amin(lineProfile[0]+line)),
                        int(np.amax(lineProfile[0]+line)),
                        1)
@@ -2281,7 +2311,9 @@ def reidentify(arcFitsName2D,
                lineListIn,
                lineListOut=None,
                specOut=None,
-               display=False):
+               display=False,
+               chiSquareLimit=0.25,
+               degree=5):
     with open(referenceApertureDefinitionFile,'r') as f:
         lines = f.readlines()
     with open(referenceApertureDefinitionFile,'w') as f:
@@ -2300,7 +2332,8 @@ def reidentify(arcFitsName2D,
         plt.show()
     print('reidentify: specIn = ',specY.shape,': ',specY)
     print('reidentify: profileIn = ',bestLineProfile)
-    goodLines = findGoodLines(np.arange(0,specY.shape[0],1),specY,bestLineProfile,outFileNameGoodLines=lineListOut,display=display)
+
+    goodLines = findGoodLines(np.arange(0,specY.shape[0],1),specY,bestLineProfile,outFileNameGoodLines=lineListOut,display=display,chiSquareLimit=chiSquareLimit)
     print('reidentify: found ',len(goodLines),' goodLines at ',goodLines)
     if not lineListOut is None:
         with open(lineListOut[:lineListOut.rfind('.')]+'_temp.dat','w') as f:
@@ -2311,7 +2344,10 @@ def reidentify(arcFitsName2D,
         gratingAngle = getHeaderValue(arc, 'GR-ANGLE', hduNum=0).strip()
     except:
         gratingAngle = '0.0'
-    lineList = readFileToArr(lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])))
+    if '%' in lineListIn:
+        lineList = readFileToArr(lineListIn % (int(gratingAngle[:gratingAngle.find('.')]),int(gratingAngle[gratingAngle.find('.')+1:])))
+    else:
+        lineList = readFileToArr(lineListIn)
     for line in lineList:
         print('reidentify: line = <'+line+'>')
         print('reidentify: line[:line.find(' ')] = <'+line[:line.find(' ')]+'>, line[line.find(' ')+1:] = <'+line[line.find(' ')+1:]+'>')
@@ -2324,7 +2360,7 @@ def reidentify(arcFitsName2D,
                 f.write('%.5f %.5f\n' % (line[0],line[1]))
 
     xSpec = np.arange(0,specY.shape[0],1.)
-    coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=5, display=display)
+    coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=degree, display=display)
     if display:
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
@@ -2412,8 +2448,10 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
 def shiftLineList(lineListIn,lineListOut,shift):
     with open(lineListIn,'r') as f:
         lines = f.readlines()
+    print('lines = ',lines)
     lines = [line.strip() for line in lines]
     lines = [line.split(' ') for line in lines]
+    print('lines = ',lines)
     lines = [[float(line[0])+shift,float(line[1])] for line in lines]
     with open(lineListOut,'w') as f:
         for line in lines:
@@ -2434,7 +2472,15 @@ def shiftApertureDefs(apDefFileIn,apDefFileOut,shift):
             else:
                 f.write(line)
 
-def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, display=False):
+def getListOfFiles(fname):
+    fList = readFileToArr(fname)
+    print('fname = ',fname,': fList = ',fList)
+    if len(fList) > 0:
+        if fList[0].rfind('/') == -1:
+            fList = [os.path.join(workPath, fileName) for fileName in fList]
+    return fList
+
+def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, display=False, chiSquareLimit=0.25,degree=5):
     print('refApDef = <'+refApDef)
     wavelengthsOrigOut = []
     wavelengthsResampledOut = []
@@ -2495,7 +2541,9 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
                                                       lineListIn+'tmp',
                                                       lineListOut=arc[:arc.rfind('.')]+'_lines.dat',
                                                       specOut=arc[:-5]+'Ecd.fits',
-                                                      display=display)
+                                                      display=display,
+                                                      chiSquareLimit=chiSquareLimit,
+                                                      degree=degree)
         xSpec = np.arange(xRange[0],xRange[1]+1,1.)
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
@@ -3176,3 +3224,9 @@ def fixStdWidth(stdFileName):
                 f.write('%.1f\t %.2f\t %.1f\n' % (wLen[i],flux[i], (wLen[i]-wLen[i-1]) ))
             else:
                 f.write('%.1f\t %.2f\t %.1f\n' % (wLen[i],flux[i], ((wLen[i]-wLen[i-1]) / 2.) + ((wLen[i+1]-wLen[i]) / 2.) ))
+
+def plotSpec(fitsFileName):
+    wLen = getWavelengthArr(fitsFileName)
+    spec = getImageData(fitsFileName,0)
+    plt.plot(wLen,spec)
+    plt.show()
