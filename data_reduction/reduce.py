@@ -17,7 +17,7 @@ overscanSection = '[4:21,1:133]'#'[1983:,:]'
 trimSection = '[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070515/'
+workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070517/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
     #exptypes = ['zero','flat','COMPARISON','SCIENCE','FLUXSTDS']
     objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
-    if True:
+    if False:
     #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
     #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
     #    STOP

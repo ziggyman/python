@@ -5,21 +5,21 @@ from myUtils import getHeader, find_nth, setHeaderKeyWord
 
 import csvFree,csvData
 
-pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_111121.csv'
-fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_FitsFiles_111121.csv'
-namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_111121.csv'
+pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_110422.csv'
+fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_FitsFiles_110422.csv'
+namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_110422.csv'
 
-inputSpectraDir = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
+inputSpectraDir = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'#/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
 fibreFile = None#'556Rcomb.fibres.lis'
-doneFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/spectra_done.txt'#None
-searchFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/hash_search.csv'
-searchFileOut = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/hash_found.csv'
+doneFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/spectra_done.txt'#None
+searchFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/hash_search.csv'
+searchFileOut = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/hash_found.csv'
 
-outFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/add_spectra.sql'
+outFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/add_spectra.sql'
 catalogName = 'FrenchAmateurs_Nov2021_spectra'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
-setName = 'FRA'
-catalogFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'+catalogName+'cat.sql'
-hashpnFile = '/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'+catalogName+'_hashpn.txt'
+setName = 'SAAO_May2007'
+catalogFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'+catalogName+'cat.sql'
+hashpnFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'+catalogName+'_hashpn.txt'
 
 #pnMain = csvFree.readCSVFile(pnMainFile)
 #fits = csvFree.readCSVFile(fitsFile)
@@ -27,7 +27,7 @@ fitsStartId = 12611
 reference = catalogName#'FrenchAmateurs'#
 instrument = ''#2dF E2V3'#'DBS'#
 telescope = ''#AAO 3.9m'#'AAO 2.3m'#
-sites = ['CL','CO','KO']#['2dF']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
+sites = ['SA']#'CL','CO','KO']#['2dF']#['CN','PO','KO','CO']#['inner_CR','outer_CR','CN','CR']#
 
 def getHashIDsFromNames():
     (_, _, filenames) = next(os.walk(inputSpectraDir))
