@@ -11,6 +11,7 @@ import pyneb as pn
 from pyneb.utils.FortranRecordReader import T
 from scipy.optimize import curve_fit
 import subprocess
+from iphas_paper_calculate_uncertainties import getPNGsfromHashIDs
 
 import csvData
 import csvFree
@@ -473,10 +474,11 @@ def splitObservationFile(obsFileIn):
             f.write(lines[0])
             f.write(line)
 
-def makeSpectraTable(ids, calculateLineIntensities = False):
+def makeSpectraTable(ids, hashPNMainFileName, calculateLineIntensities = False):
     (_, _, filenames) = next(os.walk(spectraPath))
     print('filenames = ',filenames)
     #STOP
+    csvHashPNMain = csvFree.readCSVFile(hashPNMainFileName)
 
     areasSII6716 = []
     areasSII6731 = []
@@ -533,6 +535,8 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
                         idPNMain = None
                         if filename == 'Pa30_GT080716.fits':
                             idPNMain = '15569'
+                        elif filename == 'IPHASXJ230323_GT200816_t.fits':
+                            idPNMain = '8248'
                         else:
                             hashFitsFiles = csv.DictReader(open('/Users/azuri/daten/uni/HKU/IPHAS-GTC/fitsfiles.csv'))
                             for hashFitsFile in hashFitsFiles:
@@ -549,6 +553,9 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
                             for id in ids:
                                 if id[1] == idPNMain:
                                     objectName = id[0]
+                                    png = getPNGsfromHashIDs(csvHashPNMain,[idPNMain])[0]
+                                    print('idPNMain = ',idPNMain,': png = ',png)
+                                    
                                     if filename in ['LDu1_sum.fits',
                                                     'We2-260_GT210816.fits',
                                                     'Kn24_GT230616.fits',
@@ -589,10 +596,13 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
                                     plt.plot(lam[idx], flux[idx], 'k-')
                                     plt.xlabel('wavelength [$\mathrm{\AA}$]')
                                     plt.ylabel('$\mathrm{F_\lambda}$ [$\mathrm{ergs s^{-1} cm^{-2} \AA^{-1}}$]')
-                                    plt.title(objectName)
+                                    plt.title(png)#objectName)
+                                    pdfFileName = pdfFileName[:-4].replace('.','_')+'.pdf'
                                     plt.savefig(pdfFileName,bbox_inches='tight')
                                     plt.close()
-
+                                    print('pdf saved to <'+pdfFileName+'>')
+#                                    if 'Ou3' in pdfFileName:
+#                                        STOP
                                     hasPos = has.find('fileName',filename,0)
                                     print('hasPos = ',hasPos)
                                     show = False
@@ -797,15 +807,15 @@ def makeSpectraTable(ids, calculateLineIntensities = False):
         #                                    fl.write(filename+',den,%s\n' % (str(den)))
                                             #csvOut.header = ['idPNMain','Halpha','Hbeta','SII6716','SII6731','NII5755','NII6548','NII6583','OIII4363','OIII5007','$T_{e^-}$','$\rho_{e^-}$']
                                             rowStr = '%s,'
-                                            rowStr += ('%.2E' if areaHalpha > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaHbeta > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaSII6716 > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaSII6731 > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaNII5755 > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaNII6548 > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaNII6583 > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaOIII4363 > 0. else '%.0f')+','
-                                            rowStr += ('%.2E' if areaOIII5007 > 0. else '%.0f')
+                                            rowStr += ('%0.2E' if areaHalpha > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaHbeta > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaSII6716 > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaSII6731 > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaNII5755 > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaNII6548 > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaNII6583 > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaOIII4363 > 0. else '%.0f')+','
+                                            rowStr += ('%0.2E' if areaOIII5007 > 0. else '%.0f')
                                             print('rowStr = <'+rowStr+'>')
                                             rowStr = rowStr % (idPNMain,
                                                             areaHalpha,
@@ -1341,16 +1351,16 @@ if __name__ == '__main__':
 #        filterWISE432ImagesInBashFile()
 #        filterNVSSImagesInBashFile()
 #        filterGalexImagesInBashFile()
-        csvLines = makeSpectraTable(ids, calculateLineIntensities = True)
+        csvLines = makeSpectraTable(ids, hashPNMainFileName='/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_PNMain.csv', calculateLineIntensities = True)
 #        for id in ids:
 #            print('id = ',id)
 #        STOP
 #        for id in ids:
 #            combineImages(id[1])
-        createImageTable(ids)
-        splitObservationFile(os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))
-        addLinesToTable(csvPaper,obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))#,csvLines)
+#        createImageTable(ids)
+#        splitObservationFile(os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))
+#        addLinesToTable(csvPaper,obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))#,csvLines)
 
 #    plots()
 
-    writeFinalTable()
+#    writeFinalTable()

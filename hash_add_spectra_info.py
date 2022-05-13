@@ -1,7 +1,10 @@
 import os
 import csv#Free,csvData
 import shutil
+from astropy.io import fits as pyfits
+import numpy as np
 from myUtils import getHeader, find_nth, setHeaderKeyWord
+from drUtils import getHeaderValue, getWavelengthArr
 
 import csvFree,csvData
 
@@ -16,14 +19,14 @@ searchFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/hash_search.csv'
 searchFileOut = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/hash_found.csv'
 
 outFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/add_spectra.sql'
-catalogName = 'FrenchAmateurs_Nov2021_spectra'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
+catalogName = 'SAAO_May2007'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
 setName = 'SAAO_May2007'
 catalogFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'+catalogName+'cat.sql'
 hashpnFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'+catalogName+'_hashpn.txt'
 
 #pnMain = csvFree.readCSVFile(pnMainFile)
 #fits = csvFree.readCSVFile(fitsFile)
-fitsStartId = 12611
+fitsStartId = 12642
 reference = catalogName#'FrenchAmateurs'#
 instrument = ''#2dF E2V3'#'DBS'#
 telescope = ''#AAO 3.9m'#'AAO 2.3m'#
@@ -145,7 +148,7 @@ def addSpectraInfo(hashFoundFile = None):
             ids = []
             nFound = 1
             for rowFits in fitsReader:
-                print("int(rowFits['idFitsFiles']) = ",int(rowFits['idFitsFiles']))
+#                print("int(rowFits['idFitsFiles']) = ",int(rowFits['idFitsFiles']))
                 if (int(rowFits['idFitsFiles']) >= fitsStartId) and (rowFits['setname'] == setName):
                     name = rowFits['fileName']
                     print('name = ',name)
@@ -153,7 +156,8 @@ def addSpectraInfo(hashFoundFile = None):
                         instr = instrument
                     else:
                         header = getHeader(os.path.join(inputSpectraDir,name),0)
-                        instr = header['BSS_INST'].strip()[find_nth(header['BSS_INST'],' ',2)+1:]
+                        instr = header['INSTRUME'].strip()
+#                        instr = header['BSS_INST'].strip()[find_nth(header['BSS_INST'],' ',2)+1:]
                         print('instr = ',instr)
                     if telescope != '':
                         tel = telescope
@@ -163,7 +167,8 @@ def addSpectraInfo(hashFoundFile = None):
                         if observer == '2SPOT':
                             tel = 'Ritchey-Chrétien RC12'
                         else:
-                            tel = 'Newton 200mm F/5'
+#                            tel = 'Newton 200mm F/5'
+                            tel = header['TELESCOP'].strip()
                         print('tel = ',tel)
                     print("name = <"+name+'>')
                     for site in sites:
@@ -226,7 +231,7 @@ def addSpectraInfo(hashFoundFile = None):
     #                        name = name[:-1]
     #                    if name[-1] == 'R':
     #                        name = name[:-1]
-                        print(rowFits['idFitsFiles'],': name = <'+name+'>, bytes = ',bytes(name,'utf-8'))
+#                        print(rowFits['idFitsFiles'],': name = <'+name+'>, bytes = ',bytes(name,'utf-8'))
                         found = False
                         object = ''
                         if name[:3] == 'PNGx':
@@ -272,6 +277,9 @@ def addSpectraInfo(hashFoundFile = None):
                                     idPNMain = rowNames['idPNMain']
                                     print('found ',name,' in idPNMain = ',idPNMain,', rowNames[Name] = ',rowNames['Name'])
                                     object = rowNames['Name']
+                            if not found:
+                                print('ERROR: did not fine <'+name+'> in ',namesFile)
+                                STOP
                     else:
                         found = False
                         idPNMain = getIdFromSearchFile(name,hashFoundFile)
@@ -291,8 +299,10 @@ def addSpectraInfo(hashFoundFile = None):
                     for rowMain in pnMainReader:
                         if rowMain['idPNMain'] == idPNMain:
 #                            print('rowNames["Name"] = <'+rowNames['Name']+'>')
-                            f.write("UPDATE `FitsFiles` SET `reference` = '%s', `idPNMain` = %d, `object` = '%s', `instrument` = '%s', `telescope` = '%s', `RAJ2000` = '%s', `DECJ2000` = '%s', `DRAJ2000` = %.5f, `DDECJ2000` = %.5f, `convToText` = 'y' WHERE `idFitsFiles` = %d;\n"
-                                     % (reference, int(idPNMain), object, instr, tel, rowMain['RAJ2000'], rowMain['DECJ2000'], float(rowMain['DRAJ2000']), float(rowMain['DDECJ2000']), int(rowFits['idFitsFiles'])))
+                            f.write("UPDATE `FitsFiles` SET `reference` = '%s', `idPNMain` = %d, `object` = '%s', `instrument` = '%s', `telescope` = '%s', `convToText` = 'y' WHERE `idFitsFiles` = %d;\n"
+                                     % (reference, int(idPNMain), object, instr, tel, int(rowFits['idFitsFiles'])))
+#                            f.write("UPDATE `FitsFiles` SET `reference` = '%s', `idPNMain` = %d, `object` = '%s', `instrument` = '%s', `telescope` = '%s', `RAJ2000` = '%s', `DECJ2000` = '%s', `DRAJ2000` = %.5f, `DDECJ2000` = %.5f, `convToText` = 'y' WHERE `idFitsFiles` = %d;\n"
+#                                     % (reference, int(idPNMain), object, instr, tel, rowMain['RAJ2000'], rowMain['DECJ2000'], float(rowMain['DRAJ2000']), float(rowMain['DDECJ2000']), int(rowFits['idFitsFiles'])))
                             fb.write("INSERT INTO `"+catalogName+"`(`idPNMain`,`mapflag`)")
                             fb.write("VALUES (%d,'%s');\n" % (int(idPNMain),
                                                               'y'))
@@ -300,6 +310,7 @@ def addSpectraInfo(hashFoundFile = None):
 #                    if not found:
 #                        print('Problem: could not find name <'+name+'>')
 #                        STOP
+    print('ids = ',ids)
     return ids
 
 
@@ -317,7 +328,7 @@ def justMakeCatalog():
         ids = []
         nFound = 0
         for rowFits in fitsReader:
-            print('rowFits = ',rowFits)
+#            print('rowFits = ',rowFits)
     #        print("int(rowFits['idFitsFiles']) = ",int(rowFits['idFitsFiles']))
             if (int(rowFits['idFitsFiles']) >= fitsStartId) and (rowFits['setname'] == setName):
                 idPNMain = rowFits['idPNMain']
@@ -410,15 +421,49 @@ def fixFileNames():
             if fName != fNameNew:
                 os.rename(os.path.join(inputSpectraDir,fName),os.path.join(inputSpectraDir,fNameNew))
 
+def adjustWavelengthRange(dirName,wLenRange):
+    newDir = os.path.join(dirName,'wavelengthRangeAdjusted')
+    if not os.path.exists(newDir):
+        os.mkdir(newDir)
+    (_, _, filenames) = next(os.walk(dirName))
+    for fName in filenames:
+        if fName[fName.rfind('.'):] == '.fits':
+            fNameFull = os.path.join(dirName,fName)
+            wLenOrig = getWavelengthArr(fNameFull)
+            hdulist = pyfits.open(fNameFull)
+            dataOrig = hdulist[0].data
+            where = np.where(wLenOrig >= wLenRange[0])
+            print('wLenOrig.shape = ',wLenOrig.shape,': wLenOrig[0] = ',wLenOrig[0])
+            wLenNew = wLenOrig[where]
+            print('wLenNew.shape = ',wLenNew.shape,': wLenNew[0] = ',wLenNew[0])
+            dataNew = dataOrig[where]
+            where = np.where(wLenNew <= wLenRange[1])
+            wLenNew = wLenNew[where]
+            print('wLenNew.shape = ',wLenNew.shape,': wLenNew[0] = ',wLenNew[0])
+            dataNew = dataNew[where]
+            print('dataNew.shape = ',dataNew.shape)
+            hdulist[0].data = dataNew
+            newFileName = os.path.join(newDir,fName)
+            hdulist.writeto(newFileName, clobber=True)
+            hdulist.close()
+            print(newFileName,'written')
+            setHeaderKeyWord(newFileName,'NAXIS1',dataNew.shape[0])
+            print(newFileName,': NAXIS1 changed to ',getHeaderValue(newFileName,'NAXIS1'),'(',dataNew.shape[0],')')
+            setHeaderKeyWord(newFileName,'CRVAL1',wLenNew[0])
+            print(newFileName,': CRVAL1 changed to ',getHeaderValue(newFileName,'CRVAL1'),'(',wLenNew[0],')')
+
+
 if __name__ == "__main__":
-#    getHashIDsFromNames()
+    #getHashIDsFromNames()
 #    fixRAandDEC()
 #    fixFileNames()
 #    createHASHSearchInput()
 #    createHASHSearchInput(os.path.join(inputSpectraDir,fibreFile))
-#    getIDs()
+    #getIDs()
 #    ids = getHashIDsFromNames()
+#    print([int(id) for id in ids])
+#    ids = addSpectraInfo()#'/Users/azuri/spectra/AAO_bulge/hash_found_all_closest_distances_checked.csv')
 #    print(ids)
-    ids = addSpectraInfo()#'/Users/azuri/spectra/AAO_bulge/hash_found_all_closest_distances_checked.csv')
-    justMakeCatalog()
+#    justMakeCatalog()
 #    print("don't forget to add entry to MainPNData.DataInfo")
+    adjustWavelengthRange('/Users/azuri/spectra/saao/saao_may2007/RAW/hash',[3600.,9000.])
