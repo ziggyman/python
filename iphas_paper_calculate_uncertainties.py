@@ -1,3 +1,4 @@
+from fnmatch import fnmatch
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -16,6 +17,7 @@ from drUtils import getHeader#(fName, hduNum=0)
 from drUtils import applyVRadCorrection#(wavelength, vRad)
 from fits_fit_2gauss import gauss#(x,a,x0,sigma,yBackground=0.)
 from fits_fit_2gauss import getAreaGauss#(x,imageData,a1,x01,sigma1,addOnBothSidesOfX=0.,show=True,save=None)
+from myUtils import degToDMS,degToHMS,angularDistancePyAsl,dmsToDeg,hmsToDeg
 #from myUtils import 
 #from myUtils import 
 #from myUtils import 
@@ -471,11 +473,15 @@ def readCSdata(fNameTablea1a,fNameTablea1c,fNameTablea2):
     csvFree.writeCSVFile(csvCSdata2,fNameTablea2[:fNameTablea2.rfind('.')]+'.csv')
     return [csvCSdata1,csvCSdata2]
 
-def findGTCpngInCSdata(csvCSdata,csvGTCdata):
+def findGTCpngInCSdata(csvCSdata,csvGTCdata,csvCSCoordsHash,CScoordsOutFileName=None):
     nFound = 0
     nBoth = 0
     nCSinGTC = 0
+    both = []
     onlyCS = []
+    onlyGTC = []
+    distances = []
+    csCoords = []
     for iGTC in range(csvGTCdata.size()):
         if csvGTCdata.getData('CS',iGTC) == 'y':
             nCSinGTC += 1
@@ -483,14 +489,115 @@ def findGTCpngInCSdata(csvCSdata,csvGTCdata):
         if found >= 0:
             print('found ',csvGTCdata.getData('IAU PNG',iGTC),' at position ',found)
             nFound += 1
+            pngFound = csvCSdata.find('PNG',csvGTCdata.getData('IAU PNG',iGTC),0)[0]
+            print('found PNG ',csvGTCdata.getData('IAU PNG',iGTC),' in position ',pngFound)
             if csvGTCdata.getData('CS',iGTC) == 'y':
                 nBoth += 1
+                idPNMain = csvGTCdata.getData('HASH ID',iGTC)
+                raGTC = csvCSCoordsHash.getData('CS_RAJ2000',csvCSCoordsHash.find('idPNMain',idPNMain)[0])
+                decGTC = csvCSCoordsHash.getData('CS_DECJ2000',csvCSCoordsHash.find('idPNMain',idPNMain)[0])
+                if 'Group' in csvCSdata.header:
+                    raCS = degToHMS(float(csvCSdata.getData('RAdeg',pngFound)))
+                    decCS = degToDMS(float(csvCSdata.getData('DEdeg',pngFound)))
+                    distance = angularDistancePyAsl(hmsToDeg(raGTC),dmsToDeg(decGTC),hmsToDeg(raCS),dmsToDeg(decCS))
+                both.append([csvGTCdata.getData('IAU PNG',iGTC),
+                             raGTC,
+                             raCS if 'Group' in csvCSdata.header else ' ',
+                             decGTC,
+                             decCS if 'Group' in csvCSdata.header else ' ',
+                             distance*3600. if 'Group' in csvCSdata.header else ' ',
+                            ])
             else:
-                onlyCS.append(csvGTCdata.getData('IAU PNG',iGTC))
+                onlyCS.append([csvGTCdata.getData('IAU PNG',iGTC),
+                            csvCSdata.getData('Group',pngFound) if 'Group' in csvCSdata.header else csvCSdata.getData('Dist',pngFound)])
                 print('CS found in CS but not in HASH: ')
+            if 'Dist' in csvCSdata.header:
+                distances.append([csvGTCdata.getData('IAU PNG',iGTC),
+                                    csvCSdata.getData('Dist',pngFound),
+                                    ])
+
+        else:
+            if csvGTCdata.getData('CS',iGTC) == 'y':
+                idPNMain = csvGTCdata.getData('HASH ID',iGTC)
+                onlyGTC.append([csvGTCdata.getData('IAU PNG',iGTC),
+                                csvCSCoordsHash.getData('CS_RAJ2000',csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))[0]),
+                                csvCSCoordsHash.getData('CS_DECJ2000',csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))[0])])
+        if csvGTCdata.getData('CS',iGTC) == 'y':
+            idPNMain = csvGTCdata.getData('HASH ID',iGTC)
+            csCoords.append(csvCSCoordsHash.getData('CS_RAJ2000',csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))[0])+' '+
+                            csvCSCoordsHash.getData('CS_DECJ2000',csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))[0])+'\n')
+    if CScoordsOutFileName is not None:
+        with open(CScoordsOutFileName,'w') as f:
+            for row in csCoords:
+                f.write(row)
     print('found ',nFound,' GTC CS in csvCSdata, nBoth = ',nBoth,', nCSinGTC = ',nCSinGTC)
     print('onlyCS = ',onlyCS)
+    print('onlyGTC = ',len(onlyGTC))
+    for i in range(len(onlyGTC)):
+        print(onlyGTC[i])
+    print('distances = ',distances)
+    print('both = ',len(both))
+    for i in range(len(both)):
+        print(both[i])
 
+def getIntegrators(csvTable1,outFile):
+    with open(outFile,'w') as f:
+        f.write('mkdir IPHAS_GTC_Integrators\n')
+        for i in range(csvTable1.size()):
+            idPNMain = csvTable1.getData('HASH ID',i)
+            print('i = ',i,': idPNMain = ',idPNMain)
+            f.write('cp -pr /data/kegs/Integrators/'+idPNMain+' IPHAS_GTC_Integrators/\n')
+
+def readGaiaEDR3VOTable(fNameVOT):
+    from astropy.io.votable import parse
+    votable = parse(fNameVOT)
+    table = votable.get_first_table()#.to_table(use_names_over_ids=True)
+    data = table.array
+    print('data = ',data)
+    print('dir(table) = ',dir(table))
+    fields = table.fields
+    print('fields = ',fields)
+    print('dir(fields) = ',dir(fields))
+    csvTable = csvData.CSVData()
+    csvTable.header = [field.name for field in fields]
+    print('csvTable.header = ',len(csvTable.header),': ',csvTable.header)
+    for i in range(len(data)):
+        row = [str(dat) for dat in data[i]]
+        #print('type(row) = ',type(row))
+        #print('row = ',len(row),': ',row)
+        csvTable.append(row)
+        print('csvTable.size() = ',csvTable.size())
+        #STOP
+    for i in range(len(csvTable.header)):
+        print('csvTable.getData(',csvTable.header[i],',0) = ',csvTable.getData(csvTable.header[i],0))
+    target = ''
+    thisTargetIdx = []
+    removeRows = []
+    for i in range(csvTable.size()):
+        if target != csvTable.getData('target_id',i):
+            # find closest to previous target
+            print('old targets = ',thisTargetIdx)
+            if len(thisTargetIdx) > 1:
+                dists = [float(csvTable.getData('target_separation (deg)', targetIdx)) * 3600. for targetIdx in thisTargetIdx]
+                print('dists = ',dists)
+                minDist = min(dists)
+                for targetIdx in range(len(thisTargetIdx)):
+                    if dists[targetIdx] != minDist:
+                        removeRows.append(thisTargetIdx[targetIdx])
+                        print('removing row ',thisTargetIdx[targetIdx],' with dist ',dists[targetIdx],', minDist = ',minDist)
+            print('new target found at i = ',i,': target_id = <'+csvTable.getData('target_id',i)+'>, dist = ',float(csvTable.getData('target_separation (deg)',i))*3600.)
+            target = csvTable.getData('target_id',i)
+            thisTargetIdx = [i]
+        else:
+            thisTargetIdx.append(i)
+    print('len(removeRows) = ',len(removeRows))
+    for i in np.arange(len(removeRows)-1,-1,-1):
+        print('i = ',i)
+        csvTable.removeRow(removeRows[i])
+        print('row ',removeRows[i],' removed')
+    csvFree.writeCSVFile(csvTable,fNameVOT+'.csv',',')
+
+            
 if __name__ == '__main__':
     spectraDir = '/Users/azuri/spectra/GTC'
     csvLinesFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/observation.dat'
@@ -536,22 +643,31 @@ if __name__ == '__main__':
                          hash_fitsFiles,
                          '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted.tex',
                          '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex',)
-    CSdata1aFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea1.dat'
-    CSdata1cFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea1c.dat'
-    CSdata2FileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea2.dat'
-    csvCSdata1,csvCSdata2 = readCSdata(CSdata1aFileName,CSdata1cFileName,CSdata2FileName)
-    csvGTCdata = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex','&',False)
-    csvGTCdata2 = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_oldPNe_sorted_withPAandExpTime.tex','&',False)
-    print('csvGTCdata.size() = ',csvGTCdata.size())
-    print('csvGTCdata2.size() = ',csvGTCdata2.size())
-    csvGTCdata.append(csvGTCdata2.data)
-    print('csvGTCdata.size() = ',csvGTCdata.size())
-    headerNew = []
-    for i in range(len(csvGTCdata.header)):
-        print('setting <'+csvGTCdata.header[i]+'> to <'+csvGTCdata.header[i].strip()+'>')
-        headerNew.append(csvGTCdata.header[i].strip())
-    csvGTCdata.header = headerNew
-    print('csvGTCdata.header = ',csvGTCdata.header)
-    findGTCpngInCSdata(csvCSdata1,csvGTCdata)
-    #STOP
-    findGTCpngInCSdata(csvCSdata2,csvGTCdata)
+
+    if True:
+        CSdata1aFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea1.dat'
+        CSdata1cFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea1c.dat'
+        CSdata2FileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea2.dat'
+        csvCSdata1,csvCSdata2 = readCSdata(CSdata1aFileName,CSdata1cFileName,CSdata2FileName)
+        csvGTCdata = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex','&',False)
+        csvGTCdata2 = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_oldPNe_sorted_withPAandExpTime.tex','&',False)
+        print('csvGTCdata.size() = ',csvGTCdata.size())
+        print('csvGTCdata2.size() = ',csvGTCdata2.size())
+        csvGTCdata.append(csvGTCdata2.data)
+        print('csvGTCdata.size() = ',csvGTCdata.size())
+        headerNew = []
+        for i in range(len(csvGTCdata.header)):
+            print('setting <'+csvGTCdata.header[i]+'> to <'+csvGTCdata.header[i].strip()+'>')
+            headerNew.append(csvGTCdata.header[i].strip())
+        csvGTCdata.header = headerNew
+        csvCSCoordsHash = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_CSCoords_250522.csv')
+        print('csvGTCdata.header = ',csvGTCdata.header)
+        if os.path.exists('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords.dat'):
+            os.remove('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords.dat')
+        findGTCpngInCSdata(csvCSdata1,csvGTCdata,csvCSCoordsHash,'/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords.dat')
+        #STOP
+        print('csvGTCdata.header = ',csvGTCdata.header)
+        findGTCpngInCSdata(csvCSdata2,csvGTCdata,csvCSCoordsHash)
+        #getIntegrators(csvGTCdata,'/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_getIntegrators')
+    STOP
+    readGaiaEDR3VOTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaEDR3')

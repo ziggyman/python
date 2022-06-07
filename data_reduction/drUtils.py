@@ -863,6 +863,9 @@ def flatCorrect(fitsFilesIn,
         print('flatCorrect: iFile = ',iFile,' ',fitsFilesIn[iFile],': ccdDataFlattened = ',ccdDataFlattened)
         dataOut.append(ccdDataFlattened)
         if fitsFilesOut is not None:
+            print('iFile = ',iFile,', len(fitsFilesIn) = ',len(fitsFilesIn),', len(fitsFilesOut) = ',len(fitsFilesOut))
+            print('fitsFilesIn = ',fitsFilesIn)
+            print('fitsFilesOut = ',fitsFilesOut)
             writeFits(ccdDataFlattened, fitsFilesIn[iFile], fitsFilesOut[iFile], ['FLATCORR'], [flat], overwrite=overwrite)
     return dataOut
 

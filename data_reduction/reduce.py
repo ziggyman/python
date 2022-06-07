@@ -17,7 +17,7 @@ overscanSection = '[4:21,1:133]'#'[1983:,:]'
 trimSection = '[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
-workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070517/'
+workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_may2019/20190506/'
 
@@ -116,12 +116,17 @@ if __name__ == '__main__':
     exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
     #exptypes = ['zero','flat','COMPARISON','SCIENCE','FLUXSTDS']
     objects = [['*'],['*','DOMEFLAT','SKYFLAT'],['*'],['*','individual'],['*']]
+    masterBias = os.path.join(workPath,'combinedBias_ot.fits')
+    combinedFlat = os.path.join(workPath,'combinedFlat.fits')
+    masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
+    smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
     if False:
     #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
     #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
     #    STOP
         separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
     #    STOP
+    if False:
         objectFiles = os.path.join(workPath,'SCIENCE.list')
         # subtract overscan and trim all images
         for inputList in ['ARC', 'BIAS', 'FLAT', 'SCIENCE','FLUXSTDS']:
@@ -132,7 +137,6 @@ if __name__ == '__main__':
                             overwrite=True)
 
         # create master bias
-        masterBias = os.path.join(workPath,'combinedBias_ot.fits')
         combinedBias = combine(getListOfFiles(os.path.join(workPath,'BIAS_ot.list')),
                             combinerMethod='median',
                             clippingMethod='sigma',
@@ -152,7 +156,6 @@ if __name__ == '__main__':
                         overwrite=True)
 
         # create master DomeFlat
-        combinedFlat = os.path.join(workPath,'combinedFlat.fits')
         print('creating combinedFlat <'+combinedFlat+'>')
         flat = combine(getListOfFiles(os.path.join(workPath,'FLATDOMEFLAT_otz.list')),
                     combinerMethod='median',
@@ -164,24 +167,31 @@ if __name__ == '__main__':
                     scaling=False,
                     minVal=0.0001,
                     fitsOutName=combinedFlat)
-        masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
-        smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
         makeMasterFlat(combinedFlat,
                     9,
                     80.,
                     outFileNameMasterFlat=masterFlat,
                     outFileNameMasterFlatSmoothed=smoothedFlat)
-
+    if False:
         # remove cosmic rays
         for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
-            cosmicParameters = {'niter':3, 'sigclip':4.0, 'objlim':5.0, 'gain':1.145, 'readnoise':2.245, 'sepmed':False, 'cleantype':'meanmask', 'fsmode':'convolve', 'psfmodel':'gaussy', 'psffwhm':0.75}
+            cosmicParameters = {'niter':3, 
+                                'sigclip':8., 
+                                'objlim':10.0, 
+                                'gain':1.0, 
+                                'readnoise':6.5, 
+                                'sepmed':False, 
+                                'cleantype':'meanmask', 
+                                'fsmode':'convolve', 
+                                'psfmodel':'gaussy', 
+                                'psffwhm':2.5}
             #cosmicParameters = {'thresh':5., 'rbox':3}
             cleanCosmic(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
-                        #cosmicMethod='lacosmic',
-                        #cosmicParameters=cosmicParameters,
+                        cosmicMethod='lacosmic',
+                        cosmicParameters=cosmicParameters,
                         fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzx.list')),
                         overwrite=True)
-
+        #STOP
         # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
         for inputList in ['ARC','SCIENCE','FLUXSTDS']:
             flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
@@ -228,7 +238,7 @@ if __name__ == '__main__':
         makeSkyFlat(os.path.join(workPath,'combinedSkyFlati.fits'),
                     os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                     7)
-
+    if False:
         for inputList in ['ARC', 'SCIENCE','FLUXSTDS']:
             flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otzfi.list')),
                         os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
@@ -400,7 +410,7 @@ if __name__ == '__main__':
                     type='difference',
                     adjustSigLevels=False,
                     useMean=useMean,
-                    display=True)
+                    display=False)
 
 
 
