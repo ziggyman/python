@@ -18,10 +18,10 @@ from drUtils import applyVRadCorrection#(wavelength, vRad)
 from fits_fit_2gauss import gauss#(x,a,x0,sigma,yBackground=0.)
 from fits_fit_2gauss import getAreaGauss#(x,imageData,a1,x01,sigma1,addOnBothSidesOfX=0.,show=True,save=None)
 from myUtils import degToDMS,degToHMS,angularDistancePyAsl,dmsToDeg,hmsToDeg
-#from myUtils import 
-#from myUtils import 
-#from myUtils import 
-#from myUtils import 
+#from myUtils import
+#from myUtils import
+#from myUtils import
+#from myUtils import
 
 imPath = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/iphas-gtc-images'
 
@@ -354,8 +354,8 @@ def getPAandExpTimes(spectraDir,csvHashPNMain,csvHashFitsFiles,tableName,tableNa
     csvFree.writeCSVFile(csvTable,tableNameNew,'&')
 
 def getIDPNMainFromFitsFileName(fName,csvHashFitsFiles):
-    if ((fName[-5:] == '.fits') 
-        and (fName != 'strange_blue_star_GT220816.fits') 
+    if ((fName[-5:] == '.fits')
+        and (fName != 'strange_blue_star_GT220816.fits')
         and ('SNR' not in fName)
         and (fName != 'K1-6a_GT160516.fits')
         and ('sub' not in fName)
@@ -597,7 +597,42 @@ def readGaiaEDR3VOTable(fNameVOT):
         print('row ',removeRows[i],' removed')
     csvFree.writeCSVFile(csvTable,fNameVOT+'.csv',',')
 
-            
+def readBailerJonesTable(fNameIn):
+    csvOut = csvData.CSVData()
+    csvOut.header = ['source_id',
+                     'RAdeg',
+                     'DEdeg',
+                     'rgeo',
+                     'b_rgeo',
+                     'B_rgeo',
+                     'rpgeo',
+                     'b_rpgeo',
+                     'B_rpgeo',
+                     'Flag']
+    with open(fNameIn,'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        csvLine = []
+        csvLine.append(line[0:19].strip())
+        csvLine.append(line[20:35].strip())
+        csvLine.append(line[36:51].strip())
+        csvLine.append(line[51:66].strip())
+        csvLine.append(line[67:81].strip())
+        csvLine.append(line[82:96].strip())
+        csvLine.append(line[96:111].strip())
+        csvLine.append(line[112:126].strip())
+        csvLine.append(line[127:141].strip())
+        csvLine.append(line[142:].strip())
+        print('line = <'+line+'>')
+        print('csvLine = ',csvLine)
+        csvOut.append(csvLine)
+    csvFree.writeCSVFile(csvOut,fNameIn[:fNameIn.rfind('.')]+'.csv')
+
+def plotEDR3Distances(csvFileNameIn):
+    csvDists = csvFree.readCSVFile(csvFileNameIn)
+    plt.hist([float(num) for num in csvDists.getData('r_med_geo')],bins=20)
+    plt.show()
+
 if __name__ == '__main__':
     spectraDir = '/Users/azuri/spectra/GTC'
     csvLinesFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/observation.dat'
@@ -608,8 +643,8 @@ if __name__ == '__main__':
         (_, _, filenames) = next(os.walk(spectraDir))
         for spectrumFileName in filenames:
             print('spectrumFileName[-5:] = <'+spectrumFileName[-5:]+'>')
-            if ((spectrumFileName[-5:] == '.fits') 
-                and (spectrumFileName != 'strange_blue_star_GT220816.fits') 
+            if ((spectrumFileName[-5:] == '.fits')
+                and (spectrumFileName != 'strange_blue_star_GT220816.fits')
                 and ('SNR' not in spectrumFileName)
                 and (spectrumFileName != 'K1-6a_GT160516.fits')):
                 print('starting')
@@ -669,5 +704,8 @@ if __name__ == '__main__':
         print('csvGTCdata.header = ',csvGTCdata.header)
         findGTCpngInCSdata(csvCSdata2,csvGTCdata,csvCSCoordsHash)
         #getIntegrators(csvGTCdata,'/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_getIntegrators')
-    STOP
-    readGaiaEDR3VOTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaEDR3')
+    if False:
+        readGaiaEDR3VOTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaEDR3')
+#        readBailerJonesTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/bailer-jones2021_distsGaiaEDR3/gedr3dis.sam')
+    if True:
+        plotEDR3Distances('/Users/azuri/daten/uni/HKU/IPHAS-GTC/bailer-jones2021_distsGaiaEDR3/IPHAS_GTC_CS_dists.csv')
