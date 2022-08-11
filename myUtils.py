@@ -17,6 +17,7 @@ import subprocess
 import time
 from time import sleep
 from hammer import Pixel,XY,LonLat,Hammer
+import csvFree,csvData
 
 c0 = 299792.458 #km/s
 
@@ -1106,32 +1107,32 @@ def applyVRadCorrection(wavelength, vRad):
 
 def smooth(x,window_len=11,window='hanning'):
     """smooth the data using a window with requested size.
-    
+
     This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal 
+    The signal is prepared by introducing reflected copies of the signal
     (with the window size) in both ends so that transient parts are minimized
     in the begining and end part of the output signal.
-    
+
     input:
-        x: the input signal 
+        x: the input signal
         window_len: the dimension of the smoothing window; should be an odd integer
         window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
             flat window will produce a moving average smoothing.
 
     output:
         the smoothed signal
-        
+
     example:
 
     t=linspace(-2,2,0.1)
     x=sin(t)+randn(len(t))*0.1
     y=smooth(x)
-    
-    see also: 
-    
+
+    see also:
+
     numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
     scipy.signal.lfilter
- 
+
     TODO: the window parameter could be the window itself if an array instead of a string
     NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
     """
@@ -1175,3 +1176,55 @@ def toYearFraction(date):
     fraction = yearElapsed/yearDuration
 
     return date.year + fraction
+
+def readmeToCSV(readmeFileNameIn, dataFileNameIn, csvFileNameOut):
+    vars=[]
+    iLine = 0
+    with open(readmeFileNameIn,'r') as f:
+        while True:
+            line = f.readline()
+            print(iLine,': line = <'+line+'>')
+            if not line:
+                break
+            if 'Byte-by-byte Description of file:' in line:
+                print(iLine,': found beginning of header')
+                for i in range(3):
+                    line = f.readline()
+                    print(iLine,': line inside header = <'+line+'>')
+                    iLine += 1
+                iHeaderLine = 0
+                line = ' '
+                while True:
+                    line = f.readline()
+                    if line[0] == '-':
+                        break
+                    print(iHeaderLine,': line = ',line)
+                    if line[0:8] != '        ':
+                        print('header line contains variable description')
+                        vars.append({'name':line[22:34].strip(),
+                                     'unit':line[16:22].strip(),
+                                     'range':[int(j) for j in line[0:8].strip().split('-')],
+                                    })
+                        print('vars[',len(vars)-1,'] = ',vars[len(vars)-1])
+                    iHeaderLine += 1
+            iLine += 1
+
+    #convert text file to csv file
+    header = [v['name']+('['+v['unit']+']' if v['unit'] != '---' else '') for v in vars]
+    csvOut = csvData.CSVData()
+    csvOut.header = header
+    print('header = ',header)
+    with open(dataFileNameIn,'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        lineData = []
+        for p in vars:
+            ran = p['range']
+            print('ran = ',ran)
+            ran = slice(ran[0]-1,ran[0],1) if (len(ran) == 1) else slice(ran[0]-1,ran[1],1)
+            print('ran = ',ran)
+            lineData.append(line[ran].strip())
+        print('lineData = ',lineData)
+        csvOut.append(lineData)
+    print('csvOut.size() = ',csvOut.size())
+    csvFree.writeCSVFile(csvOut,csvFileNameOut,',')

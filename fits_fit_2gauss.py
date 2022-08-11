@@ -6,8 +6,6 @@ from scipy import exp
 from scipy.optimize import curve_fit
 from matplotlib import pyplot as plt
 
-imagename = '/Users/azuri/spectra/GTC/IPHASXJ055242.8+262116_GT030118.fits'
-
 # calculate one Gaussian
 def gauss(x,a,x0,sigma,yBackground=0.):
     return a*exp(-(x-x0)**2/(2*sigma**2))+yBackground
@@ -265,6 +263,8 @@ def getAreas4Gauss(x,imageData,a1,a2,a3,a4,x01,x02,x03,x04,sigma1,sigma2,sigma3,
 
 # main function
 if __name__ == "__main__":
+
+    imagename = '/Users/azuri/spectra/GTC/IPHASXJ055242.8+262116_GT030118.fits'
     #read image data from fits file
     imageData = getImageData(imagename, 0)
 #    print('imageData = ',imageData)
