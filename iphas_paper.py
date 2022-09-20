@@ -18,7 +18,7 @@ import csvFree
 from hammer import Pixel,XY,LonLat,Hammer
 
 #from drUtils import applyVRadCorrection
-from myUtils import hmsToDeg, dmsToDeg, getImageData, getWavelength, getHeader,plotLBMarks,applyVRadCorrection
+from myUtils import hmsToDeg, dmsToDeg, getImageData, getWavelength, getHeader,plotLBMarks,applyVRadCorrection,angularDistancePyAsl
 from fits_fit_2gauss import gauss,gauss2,gauss3,getAreaGauss,getAreas2Gauss,getAreas3Gauss
 from iphas_paper_calculate_uncertainties import calculateErrors#(spectrumFileName,idPNMain,csvLinesFileName)
 
@@ -49,16 +49,16 @@ surveys = [
 diags = pn.Diagnostics()
 # include in diags the relevant line ratios
 diags.addDiag([
-            '[NII] 5755/6584', 
+            '[NII] 5755/6584',
             '[NII] 5755/6548',
-            '[NII] 5755/6584+',  
-            '[OIII] 4363/5007', 
-            '[SII] 6731/6716', 
+            '[NII] 5755/6584+',
+            '[OIII] 4363/5007',
+            '[SII] 6731/6716',
             ])
 diags.addClabel('[SII] 6731/6716', '[SII]a')
 
 # Tell PyNeb tu use parallelisation
-pn.config.use_multiprocs()        
+pn.config.use_multiprocs()
 
 ### General settings
 # Setting verbosity level. Enter pn.my_logging? for details
@@ -225,7 +225,7 @@ def findHASHid(csvTablePaper, csvTableTargets):
     sortedIndices = np.argsort(np.array([nam.lower() for nam in csvTablePaper.getData('Name ')]))
     print('sortedIndices = ',type(sortedIndices),': ',sortedIndices)
     print('sortedIndices[0] = ',type(sortedIndices[0]),': ',sortedIndices[0])
-    
+
     csvTablePaper.sort(sortedIndices)
     csvFree.writeCSVFile(csvTablePaper,os.path.join(latexPath,'table_true_names_sorted.tex'),'&')
 
@@ -555,7 +555,7 @@ def makeSpectraTable(ids, hashPNMainFileName, calculateLineIntensities = False):
                                     objectName = id[0]
                                     png = getPNGsfromHashIDs(csvHashPNMain,[idPNMain])[0]
                                     print('idPNMain = ',idPNMain,': png = ',png)
-                                    
+
                                     if filename in ['LDu1_sum.fits',
                                                     'We2-260_GT210816.fits',
                                                     'Kn24_GT230616.fits',
@@ -912,7 +912,7 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
 #    csvOut.addColumn('$\mathrm{\\rho_{e^-}(SII,T=10.000)}$')
 #    csvOut.addColumn('$\mathrm{\\rho_{e^-}(OIII,T=10.000)}$')
 #    csvOut.addColumn('$\mathrm{\\rho_{e^-}(NII,T=10.000)}$')
-    
+
     if obsFileName is None:
         obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat')
         with open(obsFileName,'w') as f:
@@ -1036,7 +1036,7 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
         if idx == -1:
             STOP
 #        print("csvLines.getData('$\mathrm{[NII]_{5755}}$') = ",csvLines.getData('$\mathrm{[NII]_{5755}}$'))
-        
+
 #        if math.isinf(E_BV[i]):
 #            NII5755 = float(csvLines.getData('$\mathrm{[NII]_{5755}}$',idx))
 #            NII6548 = float(csvLines.getData('$\mathrm{[NII]_{6548}}$',idx))
@@ -1080,7 +1080,7 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
         print('E(B-V) = ',obs.extinction.E_BV)
         obs.correctData()
 
-        intensities = obs.getIntens(returnObs=False)#,obsName = id, 
+        intensities = obs.getIntens(returnObs=False)#,obsName = id,
         """H1_4861A\tH1_6563A\tN2_5755A\tN2_6548A\tN2_6584A\tO3_4363A\tO3_5007A\tS2_6716A\tS2_6731A"""
         Halpha = intensities['H1r_6563A']
         Hbeta = intensities['H1r_4861A']
@@ -1091,7 +1091,7 @@ def addLinesToTable(csvPaper,csvLines=None,obsFileName=None):
         SII6731 = intensities['S2_6731A']
         OIII4363 = intensities['O3_4363A']
         OIII5007 = intensities['O3_5007A']
-        print('obs.getIntens(obsName = ',id,', returnObs = True) = ',obs.getIntens(returnObs = True))#,obsName = id, 
+        print('obs.getIntens(obsName = ',id,', returnObs = True) = ',obs.getIntens(returnObs = True))#,obsName = id,
         print('NII5755 = ',NII5755.shape,': ',NII5755)
         print('NII6548 = ',NII6548.shape,': ',NII6548)
         print('NII6583 = ',NII6583.shape,': ',NII6583)
@@ -1324,6 +1324,76 @@ def writeFinalTable():
         f.write('\\twocolumn\n')
         f.write('\\end{document}\n')
 
+def getExptimes():
+    import re
+    textFilesList = '/Volumes/discovery/spectra/IPHAS_GTC_DATA/textfiles.list'
+    with open(textFilesList,'r') as f:
+        filenames = f.readlines()
+    print('filenames = ',filenames)
+    csv = csvData.CSVData()
+    for filename in filenames:
+        with open(filename.strip(),'r') as f:
+            lines = f.readlines()
+        for iLine in range(len(lines)):
+            lineData = lines[iLine].strip()
+            if lineData[:2] == 'OB':
+                print('lineData = ',lineData)
+                head = re.sub(' +', ' ', lineData).split(' ')
+                print('head = ',len(head),': ',head)
+                if csv.header == []:
+                    csv.header = head
+                dat = re.sub(' +',' ',re.sub('\t',' ',lines[iLine+2].strip())).split(' ')
+                print('dat = ',len(dat),': ',dat)
+                csv.append(dat)
+    print('csv.header = ',csv.header)
+    print('csv.data = ',csv.data)
+
+    table1 = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex','&',False)
+    print('table1.size() = ',table1.size())
+    table1.append(csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_oldPNe_sorted_withPAandExpTime.tex','&',False).data)
+    print('table1.size() = ',table1.size())
+    print('table1.header = ',table1.header)
+    ras = table1.getData(' RA ')
+    decs = table1.getData(' DEC ')
+    print('ras = ',len(ras),': ',ras)
+    for i in range(table1.size()):
+        table1.setData('$\\mathrm{t_{exp}}$ [s]',i,'')
+    #print('expTimes = ',table1.getData('$\\mathrm{t_{exp}}$ [s]'))
+    #STOP
+
+    nFound = 0
+    nNotFound = 0
+    for i in range(csv.size()):
+        ra = csv.getData('RA',i)
+        dec = csv.getData('DEC',i)
+        nexp = csv.getData('NEXP',i)
+        exptime = csv.getData('EXPTIME',i)
+        print('RA = '+ra+', DEC = '+dec+': '+nexp+' * '+exptime)
+        found = False
+        minSep = 1000.
+        idxMinSep = -1
+        for iRA in range(len(ras)):
+            sep = angularDistancePyAsl(hmsToDeg(ra),dmsToDeg(dec),hmsToDeg(ras[iRA]),dmsToDeg(decs[iRA]))*3600.
+            if sep < minSep:
+                minSep = sep
+                idxMinSep = iRA
+        if minSep < 10.:
+            print('found object in ',idxMinSep)
+            found = True
+            nFound += 1
+            if table1.getData('$\\mathrm{t_{exp}}$ [s]',idxMinSep) != '':
+                table1.setData('$\\mathrm{t_{exp}}$ [s]',idxMinSep,table1.getData('$\\mathrm{t_{exp}}$ [s]',idxMinSep)+' + '+(nexp+'*' if nexp != '1' else '')+exptime)
+            else:
+                table1.setData('$\\mathrm{t_{exp}}$ [s]',idxMinSep,(nexp+'*' if nexp != '1' else '')+exptime)
+        if not found:
+            print("ERROR: could not find RA ",ra,' in table1')
+            nNotFound += 1
+    print('nFound = ',nFound,', nNotFound = ',nNotFound)
+    print('exptimes = ',table1.getData('$\\mathrm{t_{exp}}$ [s]'))
+    for i in range(table1.size()):
+        table1.setData('$\\mathrm{t_{exp}}$ [s]',i,table1.getData('$\\mathrm{t_{exp}}$ [s]',i)+'\\\\')
+    csvFree.writeCSVFile(table1,'/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_allPNe_sorted_withPAandExpTime.tex','&')
+
 if __name__ == '__main__':
     print('reading table_paper_sorted')
     csvPaper = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_paper_sorted.csv','&',False)
@@ -1336,7 +1406,7 @@ if __name__ == '__main__':
     #    coneSearch(csvPaper)
 
     #fixInUseInIquote()
-    if True:
+    if False:
         ids = findHASHid(csvPaper, csvTargets)
 #        ids.append(['Ou 1','8458'])
 #        ids.append(['IPHASX J055242.8+262116','9824'])
@@ -1364,3 +1434,4 @@ if __name__ == '__main__':
 #    plots()
 
 #    writeFinalTable()
+    getExptimes()

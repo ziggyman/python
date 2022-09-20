@@ -24,6 +24,14 @@ ax.set_xlabel('Wavelength [$\mathrm{\AA}$]')
 ax.set_ylabel('$\mathrm{F}_\lambda$ [$\mathrm{erg}$ $\mathrm{s^{-1}} \mathrm{cm^{-2}} \mathrm{\AA^{-1}}]$')
 ax.set_xlim([4000,7200])
 ax.set_ylim([-0.1e-15,3.1e-15])
+ak = lineid_plot.initial_annotate_kwargs()
+ak['arrowprops']['arrowstyle'] = "->"
+
+pk = lineid_plot.initial_plot_kwargs()
+pk['color'] = "red"
+
+lineid_plot.plot_line_ids(
+    wLen,spec,lineWave,lineLabel,ax=ax,arrow_tip=2.4e-15,box_loc=2.7e-15, annotate_kwargs=ak, plot_kwargs=pk)
 lineid_plot.plot_line_ids(wLen,spec,lineWave,lineLabel,ax=ax,arrow_tip=2.4e-15,box_loc=2.7e-15)
 plt.savefig(fitsFileName[:fitsFileName.rfind('.')]+'.pdf', bbox_inches='tight')
 plt.show()

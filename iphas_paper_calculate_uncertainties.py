@@ -1,4 +1,5 @@
 from fnmatch import fnmatch
+from pickletools import read_unicodestringnl
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -360,7 +361,8 @@ def getIDPNMainFromFitsFileName(fName,csvHashFitsFiles):
         and (fName != 'K1-6a_GT160516.fits')
         and ('sub' not in fName)
         and ('_t.fits' not in fName)
-        and ('Pa30_GT' not in fName)):
+        and ('Pa30_GT' not in fName)
+        and ('_sub' not in fName)):
         print('starting')
         idPNMain = None
         for i in range(csvHashFitsFiles.size()):
@@ -482,6 +484,9 @@ def findGTCpngInCSdata(csvCSdata,csvGTCdata,csvCSCoordsHash,CScoordsOutFileName=
     onlyGTC = []
     distances = []
     csCoords = []
+    csCoordsCSV = csvData.CSVData()
+    csCoordsCSV.header = ['idPNMain','RA_CS','DEC_CS']
+    nMultipleCSs = 0
     for iGTC in range(csvGTCdata.size()):
         if csvGTCdata.getData('CS',iGTC) == 'y':
             nCSinGTC += 1
@@ -524,12 +529,30 @@ def findGTCpngInCSdata(csvCSdata,csvGTCdata,csvCSCoordsHash,CScoordsOutFileName=
                                 csvCSCoordsHash.getData('CS_DECJ2000',csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))[0])])
         if csvGTCdata.getData('CS',iGTC) == 'y':
             idPNMain = csvGTCdata.getData('HASH ID',iGTC)
-            csCoords.append(csvCSCoordsHash.getData('CS_RAJ2000',csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))[0])+' '+
-                            csvCSCoordsHash.getData('CS_DECJ2000',csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))[0])+'\n')
+            idx = csvCSCoordsHash.find('idPNMain',csvGTCdata.getData('HASH ID',iGTC))
+            print('idx = ',idx)
+            if len(idx) > 1:
+                nMultipleCSs += 1
+                print('more than one CS found for idPNMain ',idPNMain,': InUse = ',csvCSCoordsHash.getData('InUse',idx))
+                for idxs in np.arange(len(idx)-1,-1,-1):
+                    inUse = csvCSCoordsHash.getData('InUse',idx[idxs])
+                    print('idxs = ',idxs,': InUse = ',inUse)
+                    if inUse != '1':
+                        del idx[idxs]
+                print('idx = ',idx)
+                if nMultipleCSs == 2:
+                    STOP
+            if len(idx) != 1:
+                print('len(idx) = ',len(idx),' != 1')
+                STOP
+            csCoords.append(csvCSCoordsHash.getData('CS_RAJ2000',idx[0])+' '+
+                            csvCSCoordsHash.getData('CS_DECJ2000',idx[0])+'\n')
+            csCoordsCSV.append([idPNMain,csvCSCoordsHash.getData('CS_RAJ2000',idx[0]),csvCSCoordsHash.getData('CS_DECJ2000',idx[0])])
     if CScoordsOutFileName is not None:
         with open(CScoordsOutFileName,'w') as f:
             for row in csCoords:
                 f.write(row)
+    csvFree.writeCSVFile(csCoordsCSV,CScoordsOutFileName[:CScoordsOutFileName.rfind('.')]+'.csv')
     print('found ',nFound,' GTC CS in csvCSdata, nBoth = ',nBoth,', nCSinGTC = ',nCSinGTC)
     print('onlyCS = ',onlyCS)
     print('onlyGTC = ',len(onlyGTC))
@@ -538,7 +561,9 @@ def findGTCpngInCSdata(csvCSdata,csvGTCdata,csvCSCoordsHash,CScoordsOutFileName=
     print('distances = ',distances)
     print('both = ',len(both))
     for i in range(len(both)):
-        print(both[i])
+#        print(type(both[i][0]),' ',type(both[i][1]),' ',type(both[i][3]),' ',type(both[i][2]),' ',type(both[i][4]),' ',type(both[i][5]))
+        print(both[i][0],both[i][1],both[i][3],both[i][2],both[i][4],str(both[i][5]))
+    #STOP
 
 def getIntegrators(csvTable1,outFile):
     with open(outFile,'w') as f:
@@ -582,7 +607,7 @@ def readGaiaEDR3VOTable(fNameVOT):
                 print('dists = ',dists)
                 minDist = min(dists)
                 for targetIdx in range(len(thisTargetIdx)):
-                    if dists[targetIdx] != minDist:
+                    if (dists[targetIdx] != minDist) or (minDist > 2.2):
                         removeRows.append(thisTargetIdx[targetIdx])
                         print('removing row ',thisTargetIdx[targetIdx],' with dist ',dists[targetIdx],', minDist = ',minDist)
             print('new target found at i = ',i,': target_id = <'+csvTable.getData('target_id',i)+'>, dist = ',float(csvTable.getData('target_separation (deg)',i))*3600.)
@@ -590,6 +615,7 @@ def readGaiaEDR3VOTable(fNameVOT):
             thisTargetIdx = [i]
         else:
             thisTargetIdx.append(i)
+    csvFree.writeCSVFile(csvTable,fNameVOT+'_all.csv',',')
     print('len(removeRows) = ',len(removeRows))
     for i in np.arange(len(removeRows)-1,-1,-1):
         print('i = ',i)
@@ -631,7 +657,305 @@ def readBailerJonesTable(fNameIn):
 def plotEDR3Distances(csvFileNameIn):
     csvDists = csvFree.readCSVFile(csvFileNameIn)
     plt.hist([float(num) for num in csvDists.getData('r_med_geo')],bins=20)
+    plt.xlabel('Distance [pc]')
+    plt.ylabel('Number of CSPN')
+    plt.savefig('/Users/azuri/daten/uni/HKU/IPHAS-GTC/distance_histogram.pdf', bbox_inches='tight')
     plt.show()
+
+#def removeWrongCSids():
+
+def searchGavin(spectraDir,csvHashFitsFiles,gavinDataFileName):
+    (_, _, filenames) = next(os.walk(spectraDir))
+    idPNMains = []
+    for fName in filenames:
+        if fName[fName.rfind('.')+1:] == 'fits':
+            idPNMain = getIDPNMainFromFitsFileName(fName,csvHashFitsFiles)
+            if idPNMain != 'notFound':
+                idPNMains.append(idPNMain)
+    print('idPNMains = ',len(idPNMains),': ',idPNMains)
+    gavinData = csvFree.readCSVFile(gavinDataFileName)
+    print(gavinData.header)
+    nCS = 0
+    for idPNMain in idPNMains:
+        idx = gavinData.find('idPNMain',idPNMain)[0]
+        if idx >= 0:
+            nCS += 1
+    print('found ',nCS,' in Gavins data')
+
+def addIdPNMainToGaiaDistances(gaiaFileName,distFileName,csCoordsFileName):
+    gaiaData = csvFree.readCSVFile(gaiaFileName)
+    gaiaData.addColumn('idPNMain')
+    print('gaiaData.target_id = ',gaiaData.getData('target_id'))
+    distData = csvFree.readCSVFile(distFileName)
+    distData.addColumn('idPNMain')
+    tableData = csvFree.readCSVFile(csCoordsFileName)#,'&',False)
+    print('tableData = ',tableData.data)
+    for i in range(tableData.size()):
+        idPNMain = tableData.getData('idPNMain',i)
+        ra = tableData.getData('RA_CS',i)
+        dec = tableData.getData('DEC_CS',i)
+        target_id = ra+' '+dec
+        print('searching for target_id <'+target_id+'>')
+#        if '19:19:18.696' in target_id:
+#            STOP
+        idxG = gaiaData.find('target_id',target_id)[0]
+        if idxG >= 0:
+            gaia_id = gaiaData.getData('source_id',idxG)
+            idx = distData.find('source_id',gaia_id)[0]# STOP
+            if idx >= 0:
+                distData.setData('idPNMain',idx,idPNMain)
+            else:
+                print('ERROR: did not find source_id ',gaia_id,' in distData')
+                #STOP
+            gaiaData.setData('idPNMain',idxG,idPNMain)
+        else:
+            print('Did not find idPNMain ',idPNMain,' in gaiaData')
+            #STOP
+    print('distData = ',distData.header)
+    print(distData.data)
+    csvFree.writeCSVFile(gaiaData,gaiaFileName[0:gaiaFileName.rfind('.')]+'_with_idPNMain.csv')
+    csvFree.writeCSVFile(distData,distFileName[0:distFileName.rfind('.')]+'_with_idPNMain.csv')
+
+def createDistTable(gaiaFileName, distFileName, angDiamFileName, hash_PNMain_fileName, tableNewPNeFileName, tableOldPNeFileName, outFileName):
+    csvGaia = csvFree.readCSVFile(gaiaFileName)
+    csvDists = csvFree.readCSVFile(distFileName)
+    csvAngDiam = csvFree.readCSVFile(angDiamFileName)
+    csvHash = csvFree.readCSVFile(hash_PNMain_fileName)
+    tableNewPNe = csvFree.readCSVFile(tableNewPNeFileName,'&',False)
+    tableOldPNe = csvFree.readCSVFile(tableOldPNeFileName,'&',False)
+    hashIDsNew = tableNewPNe.getData(' HASH ID ')
+    hashIDsOld = tableOldPNe.getData(' HASH ID ')
+    idPNMains = csvDists.getData('idPNMain')
+    csvOutNewPNe = csvData.CSVData()
+    csvOutOldPNe = csvData.CSVData()
+    csvOutNewPNe.header = ['IAU PNG',
+                     'HASH ID',
+                     'GAIA ID',
+                     '$r_{geo}$ [pc]',
+                     '$r_{phot}$ [pc]',
+                     'physical diameter [pc]',
+                     '$v_{rad}$\\ [$\\mathrm{km~s^{-1}}$]\\\\',
+                    ]
+    csvOutOldPNe.header = csvOutNewPNe.header
+    for idx in range(len(idPNMains)):
+        png = csvHash.getData('PNG',csvHash.find('idPNMain',idPNMains[idx])[0])
+        diamIdx = csvAngDiam.find('idPNMain',idPNMains[idx])
+        if len(diamIdx) > 1:
+            for iDiam in np.arange(len(diamIdx)-1,-1,-1):
+                if csvAngDiam.getData('InUse',diamIdx[iDiam]) == '0':
+                    del(diamIdx[iDiam])
+        diamIdx = diamIdx[0]
+        if diamIdx < 0:
+            print('ERROR: could not find a diameter for idPNMaiin ',idPNMains[idx])
+            STOP
+
+        majDiam = float(csvAngDiam.getData('MajDiam',diamIdx))/3600.
+        minDiam = (float(csvAngDiam.getData('MinDiam',diamIdx)) if csvAngDiam.getData('MinDiam',diamIdx) != 'NULL' else float(csvAngDiam.getData('MajDiam',diamIdx)))/3600.
+        print('idPNMain = ',idPNMains[idx],': majDiam = ',majDiam,' deg, minDiam = ',minDiam,' deg')
+        gaiaIdx = csvGaia.find('idPNMain',idPNMains[idx])
+        if len(gaiaIdx) > 1:
+            print('ERROR found idPNMain ',idPNMains[idx],' more than once in GAIA data')
+            STOP
+        gaiaIdx = gaiaIdx[0]
+        if gaiaIdx < 0:
+            print('ERROR: idPNMain ',idPNMains[idx],' not found in GAIA data')
+            STOP
+        dist = (float(csvDists.getData('r_med_geo',idx)))# if csvDists.getData('r_med_photogeo',idx) != '' else csvDists.getData('r_med_geo',idx))
+        print('dist = ',dist)
+        distHi = (float(csvDists.getData('r_hi_geo',idx)))# if csvDists.getData('r_med_photogeo',idx) != '' else csvDists.getData('r_hi_geo',idx))
+        print('distHi = ',distHi)
+        distLo = (float(csvDists.getData('r_lo_geo',idx)))# if csvDists.getData('r_med_photogeo',idx) != '' else csvDists.getData('r_lo_geo',idx))
+        print('distLo = ',distLo)
+        physMajDiam = 2. * dist * np.sin(np.radians(majDiam)/2.)
+        print('physMajDiam = ',physMajDiam)
+        physMajDiamHi = 2. * distHi * np.sin(np.radians(majDiam/2.))
+        print('physMajDiamHi = ',physMajDiamHi)
+        physMajDiamLo = 2. * distLo * np.sin(np.radians(majDiam/2.))
+        print('physMajDiamLo = ',physMajDiamLo)
+        distStr = '$%.3f^{+%.3f}_{-%.3f}$' % (physMajDiam,physMajDiamHi-physMajDiam,physMajDiam-physMajDiamLo)
+        #if idPNMains[idx] == '8210':
+        #    STOP
+        if minDiam > 0.:
+            physMinDiam = dist * np.sin(np.radians(minDiam))
+            physMinDiamHi = distHi * np.sin(np.radians(minDiam))
+            physMinDiamLo = distLo * np.sin(np.radians(minDiam))
+            distStr += '\\ $\\mathrm{x}%.3f^{+%.3f}_{-%.3f}$' % (physMinDiam,physMinDiamHi-physMinDiam,physMinDiam-physMinDiamLo)
+        r_med_geo = int(csvDists.getData('r_med_geo',idx)[:csvDists.getData('r_med_geo',idx).rfind('.')])
+        r_lo_geo = int(csvDists.getData('r_lo_geo',idx)[:csvDists.getData('r_lo_geo',idx).rfind('.')])
+        r_hi_geo = int(csvDists.getData('r_hi_geo',idx)[:csvDists.getData('r_hi_geo',idx).rfind('.')])
+        r_med_photogeo = int(csvDists.getData('r_med_photogeo',idx)[:csvDists.getData('r_med_photogeo',idx).rfind('.')])
+        r_lo_photogeo = int(csvDists.getData('r_lo_photogeo',idx)[:csvDists.getData('r_lo_photogeo',idx).rfind('.')])
+        r_hi_photogeo = int(csvDists.getData('r_hi_photogeo',idx)[:csvDists.getData('r_hi_photogeo',idx).rfind('.')])
+        r_geo_str = '$%d^{+%d}_{-%d}$' % (r_med_geo,r_hi_geo-r_med_geo,r_med_geo-r_lo_geo)
+        r_phot_str = '$%d^{+%d}_{-%d}$' % (r_med_photogeo,r_hi_photogeo-r_med_photogeo,r_med_photogeo-r_lo_photogeo)
+        print('r_med_geo = ',csvDists.getData('r_med_geo',idx),' -> ',csvDists.getData('r_med_geo',idx)[:csvDists.getData('r_med_geo',idx).rfind('.')])
+        print('r_lo_geo = ',csvDists.getData('r_lo_geo',idx),' -> ',csvDists.getData('r_lo_geo',idx)[:csvDists.getData('r_lo_geo',idx).rfind('.')])
+        print('r_hi_geo = ',csvDists.getData('r_hi_geo',idx),' -> ',csvDists.getData('r_hi_geo',idx)[:csvDists.getData('r_hi_geo',idx).rfind('.')])
+        data = [png,
+                idPNMains[idx],
+                csvDists.getData('source_id',idx),
+                r_geo_str,#'$'+csvDists.getData('r_med_geo',idx)[:csvDists.getData('r_med_geo',idx).rfind('.')]+'^{+'+csvDists.getData('r_hi_geo',idx)[csvDists.getData('r_hi_geo',idx).rfind('.')]+'}_{'+csvDists.getData('r_lo_geo',idx)[csvDists.getData('r_lo_geo',idx).rfind('.')]+'}$',
+                r_phot_str,#'$'+csvDists.getData('r_med_photogeo',idx)[:csvDists.getData('r_med_photogeo',idx).rfind('.')]+'^{+'+csvDists.getData('r_hi_photogeo',idx)[:csvDists.getData('r_hi_photogeo',idx).rfind('.')]+'}_{'+csvDists.getData('r_lo_photogeo',idx)[:csvDists.getData('r_lo_photogeo',idx).rfind('.')]+'}$',
+                distStr,
+                (('$'+csvGaia.getData('radial_velocity',gaiaIdx)+' \pm '+csvGaia.getData('radial_velocity_error',gaiaIdx)+'$') if csvGaia.getData('radial_velocity',gaiaIdx) != '--' else '-')+'\\\\'
+                ]
+        print('data = ',data)
+#        if idPNMains[idx] == '10956':
+#            STOP
+        if idPNMains[idx] != '15569':
+            if idPNMains[idx] in hashIDsNew:
+                csvOutNewPNe.append(data)
+            elif idPNMains[idx] in hashIDsOld:
+                csvOutOldPNe.append(data)
+    pngs = csvOutNewPNe.getData('IAU PNG')
+    sortedPNGs = np.sort(pngs)
+    sortedIndices = [csvOutNewPNe.find('IAU PNG',png)[0] for png in sortedPNGs]
+    csvOutNewPNe.sort(sortedIndices)
+    csvFree.writeCSVFile(csvOutNewPNe,outFileName[:outFileName.rfind('.')]+'_newPNe','&')
+
+    pngs = csvOutOldPNe.getData('IAU PNG')
+    sortedPNGs = np.sort(pngs)
+    sortedIndices = [csvOutOldPNe.find('IAU PNG',png)[0] for png in sortedPNGs]
+    csvOutOldPNe.sort(sortedIndices)
+    csvFree.writeCSVFile(csvOutOldPNe,outFileName[:outFileName.rfind('.')]+'_oldPNe','&')
+
+    sizes = csvOutNewPNe.getData('physical diameter [pc]')
+    sizes = [float(size[1:size.find('.')+3]) for size in sizes]
+    sizesOld = [float(size[1:size.find('.')+3]) for size in csvOutOldPNe.getData('physical diameter [pc]')]
+    for sizeOld in sizesOld:
+        sizes.append(sizeOld)
+    plt.hist(sizes,bins=60)
+    plt.xlabel('Physical size [pc]')
+    plt.ylabel('Number of PNe')
+    plt.xlim([0,2.])#6.3])
+    plt.savefig('/Users/azuri/daten/uni/HKU/IPHAS-GTC/sizes_histogram.pdf', bbox_inches='tight')
+    plt.show()
+
+def makeAngDiamHist(table1newPNeFileName):
+    csvTable = csvFree.readCSVFile(table1newPNeFileName,'&',False)
+    angSizes = []
+    for i in range(csvTable.size()):
+        ang = csvTable.getData(' Ang. Diam. [\\arcsec] ', i)
+        angSizes.append(float(ang) if 'x' not in ang else float(ang[:ang.find('x')]))
+    plt.hist(angSizes,bins=9)
+    plt.xlabel('PN major diameter [arcsec]')
+    plt.ylabel('Number of PNe')
+    plt.xlim([0,450])
+    plt.savefig('/Users/azuri/daten/uni/HKU/IPHAS-GTC/angularSizes_histogram.pdf', bbox_inches='tight')
+    plt.show()
+    print('angSizes = ',len(angSizes),': ',angSizes)
+    gtFifty = np.where(np.array(angSizes) > 50.)
+    print('gtFifty = ',len(gtFifty[0]),': ',gtFifty)
+    ltTen = np.where(np.array(angSizes) < 10.)
+    print('ltTen = ',len(ltTen[0]),': ',ltTen)
+    mean = np.mean(np.array(angSizes))
+    print('mean = ',mean)
+    sdev = np.std(np.array(angSizes))
+    print('sdev = ',sdev)
+    STOP
+
+def checkGonzales(gonzales1FileName, CSPN_newPNeFileName, CSPN_oldPNeFileName, hashCSPNinGAIAFileName, table1NewFileName, table1OldFileName):
+    csvGonzales1 = csvFree.readCSVFile(gonzales1FileName)
+    CSPN_newPNe = csvFree.readCSVFile(CSPN_newPNeFileName,'&',False)
+    CSPN_oldPNe = csvFree.readCSVFile(CSPN_oldPNeFileName,'&',False)
+    hashCSPNinGAIA = csvFree.readCSVFile(hashCSPNinGAIAFileName)
+    table1New = csvFree.readCSVFile(table1NewFileName,'&',False)
+    table1Old = csvFree.readCSVFile(table1OldFileName,'&',False)
+    nNewinGS1 = 0
+    nDifferentNew1 = 0
+    nOldinGS1 = 0
+    nDifferentOld1 = 0
+    nNotFound = 0
+    for i in range(CSPN_newPNe.size()):
+        sourceID = CSPN_newPNe.getData('GAIA ID',i)
+        png = CSPN_newPNe.getData('IAU PNG',i)
+        foundPNGInGonzales1 = csvGonzales1.find('PNG',png)
+        if len(foundPNGInGonzales1) > 1:
+            print('ERROR: more than 1 instances of PNG ',png,' found in Gonzales1')
+            STOP
+        if foundPNGInGonzales1[0] >= 0:
+            if csvGonzales1.getData('GaiaEDR3',foundPNGInGonzales1[0]) == CSPN_newPNe.getData('GAIA ID',i):
+                nNewinGS1 += 1
+                print('Hash ID ',CSPN_newPNe.getData('HASH ID',i),': CSPN in Gonzales1 is same')
+            else:
+                nDifferentNew1 += 1
+                print('Hash ID ',CSPN_newPNe.getData('HASH ID',i),': CSPN in Gonzales1 is different, Group = ',csvGonzales1.getData('Group',foundPNGInGonzales1[0]),': HASH source_id = ',sourceID,', GS ',csvGonzales1.getData('GaiaEDR3',foundPNGInGonzales1[0]))
+    for i in range(CSPN_oldPNe.size()):
+        sourceID = CSPN_oldPNe.getData('GAIA ID',i)
+        png = CSPN_oldPNe.getData('IAU PNG',i)
+        foundPNGInGonzales1 = csvGonzales1.find('PNG',png)
+        if len(foundPNGInGonzales1) > 1:
+            print('ERROR: more than 1 instances of PNG ',png,' found in Gonzales1')
+        if foundPNGInGonzales1[0] >= 0:
+            if csvGonzales1.getData('GaiaEDR3',foundPNGInGonzales1[0]) == CSPN_oldPNe.getData('GAIA ID',i):
+                nOldinGS1 += 1
+                print('Hash ID (old) ',CSPN_oldPNe.getData('HASH ID',i),': CSPN in Gonzales1 is same')
+            else:
+                nDifferentOld1 += 1
+                print('Hash ID (old) ',CSPN_oldPNe.getData('HASH ID',i),': CSPN in Gonzales1 is different, Group = ',csvGonzales1.getData('Group',foundPNGInGonzales1[0]),': HASH source_id = ',sourceID,', GS ',csvGonzales1.getData('GaiaEDR3',foundPNGInGonzales1[0]))
+    print('nCSPN in HASH = ',CSPN_newPNe.size()+CSPN_oldPNe.size())
+    print('nNewinGS1 = ',nNewinGS1)
+    print('nOldinGS1 = ',nOldinGS1)
+    print('nDifferentNew1 = ',nDifferentNew1)
+    print('nDifferentOld1 = ',nDifferentOld1)
+    print('nNotFound = ',nNotFound)
+
+    nInGS1 = 0
+    nNotFound = 0
+    nDifferent1 = 0
+    idPNMains = []
+    for i in range(hashCSPNinGAIA.size()):
+        sourceID = hashCSPNinGAIA.getData('source_id',i)
+        idPNMain = hashCSPNinGAIA.getData('idPNMain',i)
+        idPNMains.append(idPNMain)
+        png = ''
+        foundInNew = table1New.find(' HASH ID ',idPNMain)
+        if foundInNew[0] >= 0:
+            png = table1New.getData(' IAU PNG ',foundInNew[0])
+        foundInOld = table1Old.find(' HASH ID ',idPNMain)
+        if foundInOld[0] >= 0:
+            png = table1Old.getData(' IAU PNG ',foundInOld[0])
+        if png == '':
+            print('sourceID ',sourceID,' not found in ')
+            STOP
+        foundPNGInGonzales1 = csvGonzales1.find('PNG',png)
+        if len(foundPNGInGonzales1) > 1:
+            print('ERROR: more than 1 instances of PNG ',png,' found in Gonzales1')
+        if foundPNGInGonzales1[0] >= 0:
+            if csvGonzales1.getData('GaiaEDR3',foundPNGInGonzales1[0]) == sourceID:
+                nInGS1 += 1
+                print('Hash ID ',hashCSPNinGAIA.getData('idPNMain',i),': CSPN in Gonzales1 is same')
+            else:
+                nDifferent1 += 1
+                print('Hash ID ',hashCSPNinGAIA.getData('idPNMain',i),': CSPN in Gonzales1 is different: Group = ',csvGonzales1.getData('Group',foundPNGInGonzales1[0]),'HASH source_id = ',sourceID,', GS ',csvGonzales1.getData('GaiaEDR3',foundPNGInGonzales1[0]))
+    print('hashCSPNinGAIA = ',hashCSPNinGAIA.size())
+    print('nInGS1 = ',nInGS1)
+    print('nNotFound = ',nNotFound)
+    print('nDifferent1 = ',nDifferent1)
+
+    hashCSPNNotInGaia = []
+    pngHashCSPNNotInGaia = []
+    for i in range(table1New.size()):
+        if table1New.getData(' CS ',i) == 'y':
+            if table1New.getData(' HASH ID ',i) not in idPNMains:
+                hashCSPNNotInGaia.append(table1New.getData(' HASH ID ',i))
+                pngHashCSPNNotInGaia.append(table1New.getData(' IAU PNG ',i))
+        else:
+            print('CSPN = <'+table1New.getData(' CS ',i)+'>')
+    for i in range(table1Old.size()):
+        if table1Old.getData(' CS ',i) == 'y':
+            if table1Old.getData(' HASH ID ',i) not in idPNMains:
+                hashCSPNNotInGaia.append(table1Old.getData(' HASH ID ',i))
+                pngHashCSPNNotInGaia.append(table1Old.getData(' IAU PNG ',i))
+        else:
+            print('CSPN = <'+table1Old.getData(' CS ',i)+'>')
+    print('hashCSPNNotInGaia = ',hashCSPNNotInGaia)
+    print('pngHashCSPNNotInGaia = ',pngHashCSPNNotInGaia)
+    for png in pngHashCSPNNotInGaia:
+        if csvGonzales1.find('PNG',png)[0] >= 0:
+            print(csvGonzales1.getData(csvGonzales1.find('PNG',png)[0]))
+
+#    STOP
 
 if __name__ == '__main__':
     spectraDir = '/Users/azuri/spectra/GTC'
@@ -679,7 +1003,7 @@ if __name__ == '__main__':
                          '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted.tex',
                          '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex',)
 
-    if True:
+    if False:
         CSdata1aFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea1.dat'
         CSdata1cFileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea1c.dat'
         CSdata2FileName = '/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea2.dat'
@@ -697,15 +1021,44 @@ if __name__ == '__main__':
         csvGTCdata.header = headerNew
         csvCSCoordsHash = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_CSCoords_250522.csv')
         print('csvGTCdata.header = ',csvGTCdata.header)
+
         if os.path.exists('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords.dat'):
             os.remove('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords.dat')
         findGTCpngInCSdata(csvCSdata1,csvGTCdata,csvCSCoordsHash,'/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords.dat')
-        #STOP
-        print('csvGTCdata.header = ',csvGTCdata.header)
-        findGTCpngInCSdata(csvCSdata2,csvGTCdata,csvCSCoordsHash)
+
+        #print('csvGTCdata.header = ',csvGTCdata.header)
+        #findGTCpngInCSdata(csvCSdata2,csvGTCdata,csvCSCoordsHash)
         #getIntegrators(csvGTCdata,'/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_getIntegrators')
     if False:
-        readGaiaEDR3VOTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaEDR3')
+        readGaiaEDR3VOTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaDR3', )
 #        readBailerJonesTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/bailer-jones2021_distsGaiaEDR3/gedr3dis.sam')
-    if True:
+    #STOP
+    if False:
         plotEDR3Distances('/Users/azuri/daten/uni/HKU/IPHAS-GTC/bailer-jones2021_distsGaiaEDR3/IPHAS_GTC_CS_dists.csv')
+    #searchGavin(spectraDir,hash_fitsFiles,'/Users/azuri/daten/uni/HKU/interns_projects/gavin/All-PNe-data.csv')
+        addIdPNMainToGaiaDistances('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaDR3.csv',
+                                   '/Users/azuri/daten/uni/HKU/IPHAS-GTC/bailer-jones2021_distsGaiaEDR3/IPHAS_GTC_CS_dists.csv',
+                                   '/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords.csv')
+    if True:
+        createDistTable('/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaDR3_with_idPNMain.csv',
+                        '/Users/azuri/daten/uni/HKU/IPHAS-GTC/bailer-jones2021_distsGaiaEDR3/IPHAS_GTC_CS_dists_with_idPNMain.csv',
+                        '/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_tbAngDiam_260822.csv',
+                        '/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_PNMain.csv',
+                        '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex',
+                        '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_oldPNe_sorted_withPAandExpTime.tex',
+                        '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_dist_vrad.csv',
+                        )
+        makeAngDiamHist('/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex',)
+#                        '/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_tbAngDiam_260822.csv',)
+    checkGonzales('/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A51/tablea1.csv',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_dist_vrad_newPNe',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_dist_vrad_oldPNe',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaDR3_with_idPNMain.csv',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_oldPNe_sorted_withPAandExpTime.tex')
+    checkGonzales('/Users/azuri/daten/uni/HKU/IPHAS-GTC/CS_in_GAIA_DR3/J_A+A_656_A110_Chorney2021/J_A+A_656_A110/tablea1.csv',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_dist_vrad_newPNe',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table_dist_vrad_oldPNe',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/IPHAS_GTC_CSCoords_resultsGaiaDR3_with_idPNMain.csv',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_PNe_sorted_withPAandExpTime.tex',
+                  '/Users/azuri/daten/uni/HKU/IPHAS-GTC/table1_oldPNe_sorted_withPAandExpTime.tex')
