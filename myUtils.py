@@ -1228,3 +1228,12 @@ def readmeToCSV(readmeFileNameIn, dataFileNameIn, csvFileNameOut):
         csvOut.append(lineData)
     print('csvOut.size() = ',csvOut.size())
     csvFree.writeCSVFile(csvOut,csvFileNameOut,',')
+
+def findClosestObjectTo(raDeg,decDeg,csvData,raDegName,decDegName):
+    ras = [float(ra) for ra in csvData.getData(raDegName)]
+    decs = [float(dec) for dec in csvData.getData(decDegName)]
+    dists = angularDistance(raDeg, decDeg, ras, decs)
+    #print('dists = ',dists)
+    minDist = np.min(dists)
+    #print('minDist = ',minDist)
+    return [np.where(dists == minDist)[0],minDist]

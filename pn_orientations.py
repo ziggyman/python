@@ -1,6 +1,8 @@
 import numpy as np
 from PyAstronomy import pyasl
-from myUtils import lonLatToRaDec
+from myUtils import lonLatToRaDec,getHeader
+import csvFree
+import csvData
 
 def fixReesTable(fNameIn, fNameOut=None):
     newLines = []
@@ -131,7 +133,56 @@ def crossMatchWeidmann(fNameInW, fNameInHASH, fNameOutMatch=None, fNameOutNoMatc
 #                print('nameW = <'+nameW+'> NOT found in HASH')
     print('found ',nFound,' names in both catalogues out of ',len(linesW),' PN in Weidmann table')
 
-fixReesTable('/Users/azuri/daten/uni/HKU/PN alignment/Rees_Zijlstra_table.txt','/Users/azuri/daten/uni/HKU/PN alignment/Rees_Zijlstra_table.csv')
-fixWeidmannTable('/Users/azuri/daten/uni/HKU/PN alignment/Weidmann+Diaz_table.txt','/Users/azuri/daten/uni/HKU/PN alignment/Weidmann+Diaz_table.csv')
-crossMatchRees('/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe.csv','/Users/azuri/daten/uni/HKU/PN alignment/Rees_Zijlstra_table.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe+Rees_Zijlstra.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe-Rees_Zijlstra.csv')
-crossMatchWeidmann('/Users/azuri/daten/uni/HKU/PN alignment/Weidmann+Diaz_table.csv', '/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe+Weidmann.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe-Weidmann.csv')
+def crossmatch_hash_old_and_new():
+    hash_old_filename = '/Users/azuri/daten/uni/HKU/PN_orientation_angles/HASH_bipolar+elliptical_true+likely_PNe+004.2-05.9+005.9-02.6+001.4+05.3+357.5+03.2+357.6-03.3.csv'
+    hash_new_filename = '/Users/azuri/daten/uni/HKU/PN_orientation_angles/HASH_bipolar+elliptical_true+likely_PNe+004.2-05.9+005.9-02.6+001.4+05.3+357.5+03.2+357.6-03.3_new.csv'
+    hash_old = csvFree.readCSVFile(hash_old_filename)
+    hash_new = csvFree.readCSVFile(hash_new_filename)
+
+    hash_diff = csvData.CSVData()
+    hash_diff.header = hash_new.header
+    for i in range(hash_new.size()):
+        idPNMain = hash_new.getData('idPNMain',i)
+        if hash_old.find('idPNMain',idPNMain)[0] < 0:
+            hash_diff.append(hash_new.getData(i))
+    print('hash_diff.size() = ',hash_diff.size())
+    csvFree.writeCSVFile(hash_diff,'/Users/azuri/daten/uni/HKU/PN_orientation_angles/HASH_bipolar+elliptical_true+likely_PNe+004.2-05.9+005.9-02.6+001.4+05.3+357.5+03.2+357.6-03.3_diff.csv')
+
+    hash_remove = csvData.CSVData()
+    hash_remove.header = hash_old.header
+    for i in range(hash_old.size()):
+        idPNMain = hash_old.getData('idPNMain',i)
+        if hash_new.find('idPNMain',idPNMain)[0] < 0:
+            hash_remove.append(hash_old.getData(i))
+    print('hash_remove.size() = ',hash_remove.size())
+    csvFree.writeCSVFile(hash_remove,'/Users/azuri/daten/uni/HKU/PN_orientation_angles/HASH_bipolar+elliptical_true+likely_PNe+004.2-05.9+005.9-02.6+001.4+05.3+357.5+03.2+357.6-03.3_remove.csv')
+
+def identifyNTTobjects():
+    fitslistFileName = '/Users/azuri/daten/uni/HKU/PN_orientation_angles/NTT/fits.list'
+    with open(fitslistFileName,'r') as f:
+        lines = f.readlines()
+    hashFull = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/PN_orientation_angles/hash_PNMain_full_260922.csv')
+    with open(fitslistFileName[:fitslistFileName.rfind('.')]+'_idPN.text','w') as f:
+        for line in lines:
+            header = getHeader(line.strip(),0)
+            object = header['OBJECT']
+            if object == 'PN003.3-1.6':
+                object = 'PN003.3-01.6'
+            if 'PN' in object:
+                idx = hashFull.find('PNG',object.replace('PN','').lower())
+                if (len(idx) > 1) or (idx[0] == -1):
+                    idx = hashFull.find('PNG',object.replace('PN','').replace('A',''))
+                    if (len(idx) > 1) or (idx[0] == -1):
+                        print(line.strip()+': header[OBJECT] = ',object)
+                        print('idx = ',idx)
+                idPNMain = hashFull.getData('idPNMain',idx[0])
+                f.write(line.strip()+' '+object+' '+idPNMain+'\n')
+
+#identifyNTTobjects()
+#STOP
+crossmatch_hash_old_and_new()
+
+#fixReesTable('/Users/azuri/daten/uni/HKU/PN alignment/Rees_Zijlstra_table.txt','/Users/azuri/daten/uni/HKU/PN alignment/Rees_Zijlstra_table.csv')
+#fixWeidmannTable('/Users/azuri/daten/uni/HKU/PN alignment/Weidmann+Diaz_table.txt','/Users/azuri/daten/uni/HKU/PN alignment/Weidmann+Diaz_table.csv')
+#crossMatchRees('/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe.csv','/Users/azuri/daten/uni/HKU/PN alignment/Rees_Zijlstra_table.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe+Rees_Zijlstra.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe-Rees_Zijlstra.csv')
+#crossMatchWeidmann('/Users/azuri/daten/uni/HKU/PN alignment/Weidmann+Diaz_table.csv', '/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe+Weidmann.csv','/Users/azuri/daten/uni/HKU/PN alignment/HASH_bipolar+elliptical_true_PNe-Weidmann.csv')

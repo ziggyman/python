@@ -32,7 +32,7 @@ pk['color'] = "red"
 
 lineid_plot.plot_line_ids(
     wLen,spec,lineWave,lineLabel,ax=ax,arrow_tip=2.4e-15,box_loc=2.7e-15, annotate_kwargs=ak, plot_kwargs=pk)
-lineid_plot.plot_line_ids(wLen,spec,lineWave,lineLabel,ax=ax,arrow_tip=2.4e-15,box_loc=2.7e-15)
+#lineid_plot.plot_line_ids(wLen,spec,lineWave,lineLabel,ax=ax,arrow_tip=2.4e-15,box_loc=2.7e-15)
 plt.savefig(fitsFileName[:fitsFileName.rfind('.')]+'.pdf', bbox_inches='tight')
 plt.show()
 

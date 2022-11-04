@@ -10,7 +10,61 @@ from astropy.stats import circstats
 import pycircstat
 import subprocess
 
+from PIL import Image, ImageDraw
+
+from myUtils import plotLBMarks
+
 show = True
+
+
+def plotHammerProjection(x,y,GPA,oneFlags,eFlags,bFlags,xRange,yRange,fNameOut=None):
+    xRangeMax = [-2.83,2.83]
+    yRangeMax = [-1.4143,1.4143]
+    fig = plt.figure(figsize=(25,10))
+    plt.axis('off')
+    plt.scatter(x[oneFlags][eFlags],y[oneFlags][eFlags],c=GPA[oneFlags][eFlags],marker='o',s=20,cmap='viridis')
+    plt.scatter(x[oneFlags][bFlags],y[oneFlags][bFlags],c=GPA[oneFlags][bFlags],marker='d',s=20,cmap='viridis')
+    plotLBMarks(10)
+    cbarTicks = np.arange(0.,1.0001,20./180.)
+    cbar = plt.colorbar(ticks=cbarTicks)
+    cbar.set_label('Galactic Position Angle')
+    cbarTicks = cbarTicks*180.
+    cbarTicks = np.round(cbarTicks)
+    cbarTicks = [int(x) for x in cbarTicks]
+    cbar.ax.set_yticklabels(cbarTicks)
+    cbar.ax.tick_params(labelsize=26)
+    ax = cbar.ax
+    text = ax.yaxis.label
+    font = matplotlib.font_manager.FontProperties(size=26)#family='times new roman', style='italic',
+    text.set_font_properties(font)
+    plt.tick_params(axis='x',          # changes apply to the x-axis
+                    which='both',      # both major and minor ticks are affected
+                    bottom=False,      # ticks along the bottom edge are off
+                    top=False,         # ticks along the top edge are off
+                    labelbottom=False) # labels along the bottom edge are off
+    plt.tick_params(axis='y',          # changes apply to the y-axis
+                    which='both',      # both major and minor ticks are affected
+                    left=False,      # ticks along the bottom edge are off
+                    right=False,         # ticks along the top edge are off
+                    labelleft=False) # labels along the bottom edge are off
+    if (xRange[0] != xRangeMax[0]) or (xRange[1] != xRangeMax[1]) or (yRange[0] != yRangeMax[0]) or (yRange[1] != yRangeMax[1]):
+        plt.plot([xRange[0], xRange[0]], [yRange[0], yRange[1]], 'b-')
+        plt.plot([xRange[1], xRange[1]], [yRange[0], yRange[1]], 'b-')
+        plt.plot([xRange[0], xRange[1]], [yRange[0], yRange[0]], 'b-')
+        plt.plot([xRange[0], xRange[1]], [yRange[1], yRange[1]], 'b-')
+    fig.tight_layout()
+    if fNameOut is not None:
+        print('plotHammerProjection: fNameOut = <'+fNameOut+'>')
+        fNameOutTemp = fNameOut[:-3]+'.tmp.pdf'
+        fig.savefig(fNameOutTemp, bbox_inches='tight')
+        subprocess.run(["gs","-sDEVICE=pdfwrite","-dCompatibilityLevel=1.4","-dPDFSETTINGS=/ebook","-dNOPAUSE", "-dQUIET", "-dBATCH", "-sOutputFile="+fNameOut, fNameOutTemp])
+        subprocess.run(["rm",fNameOutTemp])
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+    print('after all_pne: ',plt.get_fignums(),' figures open')
+
 
 # @brief Calculate first 4 circular moments of angles
 # @param angles: np.array of angles in degrees
@@ -223,3 +277,31 @@ def linearOrderDiagram(angles, fNameOut=None):
         plt.show()
     else:
         plt.close(fig)
+
+def plotEPA(imageName,imageNameEPA,epa):
+    if os.path.isfile(imageName):
+        print('imageName = ',imageName)
+        im = Image.open(imageName)
+        width, height = im.size
+        d = ImageDraw.Draw(im)
+
+        if width < height:
+            r = width / 2.
+        else:
+            r = height / 2.
+        print('r = ',r)
+        center = [width/2,height/2]
+
+        epaRad = math.radians(epa)
+
+        topLeft = (center[0] - r*math.sin(epaRad), center[1] - r*math.cos(epaRad))
+        bottomRight = (center[0] + r*math.sin(epaRad), center[1] + r*math.cos(epaRad))
+        print('width = ',width,', height = ',height,': center = ',center,'; topLeft = ',topLeft,', bottomRight = ',bottomRight)
+
+        line_color = (255, 255, 0)
+
+    #    d.line([(center[0]-(width/10.),center[1]),(center[0]+(width/10.),center[1])],fill=line_color, width=2)
+    #    d.line([(center[0],center[1]-(width/10.)),(center[0],center[1]+(width/10.))],fill=line_color, width=2)
+        d.line([topLeft,bottomRight], fill=line_color, width=2)
+
+        im.save(imageNameEPA)

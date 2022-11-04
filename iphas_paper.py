@@ -336,7 +336,14 @@ def combineImages(idPNMain):
             for f in foreground:
                 f = Image.open(f)
                 backgroundIm.paste(f, (0, 0), f)
-            backgroundIm.save(os.path.join(publicationImagesPath,background[background.rfind('/')+1:background.rfind('.')]+'_combined.png'))
+            bbox = backgroundIm.getbbox()
+            print('bbox = ',bbox)
+            height = 150
+            left = 30
+            upper = 10
+            backgroundIm = backgroundIm.crop((left,upper,left+height,upper+height))
+            print('bbox = ',backgroundIm.getbbox())
+            backgroundIm.save(os.path.join(publicationImagesPath,background[background.rfind('/')+1:background.rfind('.')]+'_combined_crop.png'))
     #if idPNMain == '8214':
     #    STOP
 
@@ -1406,7 +1413,7 @@ if __name__ == '__main__':
     #    coneSearch(csvPaper)
 
     #fixInUseInIquote()
-    if False:
+    if True:
         ids = findHASHid(csvPaper, csvTargets)
 #        ids.append(['Ou 1','8458'])
 #        ids.append(['IPHASX J055242.8+262116','9824'])
@@ -1414,19 +1421,19 @@ if __name__ == '__main__':
 #        ids.append(['BMP J1917+0200','2502'])
         print(ids)
         #STOP
-        getImages(ids)
-        csvPaper = csvFree.readCSVFile(os.path.join(latexPath,'table_true_names_sorted.tex'),'&',False)
+#        getImages(ids)
+#        csvPaper = csvFree.readCSVFile(os.path.join(latexPath,'table_true_names_sorted.tex'),'&',False)
 #        filterIphasImagesInBashFile()
 #        filterSSSImagesInBashFile()
 #        filterWISE432ImagesInBashFile()
 #        filterNVSSImagesInBashFile()
 #        filterGalexImagesInBashFile()
-        csvLines = makeSpectraTable(ids, hashPNMainFileName='/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_PNMain.csv', calculateLineIntensities = True)
+#        csvLines = makeSpectraTable(ids, hashPNMainFileName='/Users/azuri/daten/uni/HKU/IPHAS-GTC/hash_PNMain.csv', calculateLineIntensities = True)
 #        for id in ids:
 #            print('id = ',id)
 #        STOP
-#        for id in ids:
-#            combineImages(id[1])
+        for id in ids:
+            combineImages(id[1])
 #        createImageTable(ids)
 #        splitObservationFile(os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))
 #        addLinesToTable(csvPaper,obsFileName = os.path.join(imPath[:imPath.rfind('/')],'observation.dat'))#,csvLines)
@@ -1434,4 +1441,4 @@ if __name__ == '__main__':
 #    plots()
 
 #    writeFinalTable()
-    getExptimes()
+#    getExptimes()
