@@ -41,6 +41,7 @@ from specreduce import fluxcal,calibration_data
 from apextract import trace, extract
 from fluxcal import standard_sensfunc, apply_sensfunc, onedstd, obs_extinction, airmass_cor
 from myUtils import hmsToDeg,dmsToDeg,subtractSky#,sigmaRej
+from myUtils import getDate,getDateTime
 
 # TODO: Make it possible to pass in CCDData instead of fits file names
 
@@ -98,6 +99,13 @@ def getHeaderValue(fname, keyword, hduNum=0):
     header = hdulist[hduNum].header
     hdulist.close()
     return header[keyword]
+
+def setHeaderValue(fitsFileName,keyword,value,hduNum=0):
+    hdulist = pyfits.open(fitsFileName)
+    header = hdulist[hduNum].header
+    header[keyword] = value
+    hdulist.writeto(fitsFileName,overwrite=True)
+    hdulist.close()
 
 def getWavelengthArr(fname, hduNum=0):
     hdulist = pyfits.open(fname)
@@ -223,7 +231,7 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                 if suffix == '':
                     copyfile(line, fOutName)
                 line = fOutName
-            if expType == exptype:
+            if expType.lower() == exptype.lower():
                 if object == '*':
                     print('createLists: exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isNames')
                     isNames.append(line)
@@ -234,13 +242,13 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                     else:
                         print('createLists: exptype = <'+exptype+'>, object = <'+object+'>: expType = <'+expType+'>, objectName = <'+objectName+'>: adding <'+line+'> to isntNames')
                         isntNames.append(line)
-            elif exptype == 'FLUXSTDS':
+            elif exptype.lower() == 'FLUXSTDS'.lower():
                 if fluxStandardNames is None:
                     print('createLists: ERROR: no fluxStandardNames given')
                     STOP
                 print('createLists: objectName = ',objectName)
                 if objectName.lower() in fluxStandardNames:
-                    if expType == 'SCIENCE':
+                    if expType.lower():
                         isNames.append(line)
 #                        print('createLists: isNames = ',isNames)
 #                        STOP
@@ -289,7 +297,7 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
 
                 expType = hdulist[0].header['EXPTYPE']
                 print('separateFileList: line = ',line,': expType = ',expType)
-                if expType not in [x['expType'] for x in expTypes]:
+                if expType.lower() not in [x['expType'].lower() for x in expTypes]:
                     listOutName = os.path.join(path,expType.lower()+'.list')
                     listOutName = addSuffixToFileName(listOutName,suffix)
                     print('separateFileList: writing to listOutName = <'+listOutName+'>')
@@ -297,7 +305,7 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                     silentRemove(listOutName)
                 else:
                     for x in expTypes:
-                        if x['expType'] == expType:
+                        if x['expType'].lower() == expType.lower():
                             listOutName = x['listOutName']
                 print('separateFileList: listOutName = <'+listOutName+'>')
 
@@ -325,15 +333,15 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                 with open(listOutName,'a') as f:
                     f.write(fOutName+'\n')
 
-                if expType == 'SCIENCE':
+                if expType.lower() == 'SCIENCE'.lower():
                     with open(listOutNameObs,'a') as f:
                         f.write(fOutName+'\n')
 
-                if objectName != 'Bias':
+                if objectName.lower() != 'Bias'.lower():
                     with open(nonZerosOutName,'a') as f:
                         f.write(fOutName+'\n')
 
-                if expType not in ['FLAT','BIAS']:
+                if expType.lower() not in ['FLAT'.lower(),'BIAS'.lower()]:
                     with open(nonFlatsOutName,'a') as f:
                         f.write(fOutName+'\n')
         else:
@@ -342,29 +350,32 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                 print('separateFileList: ERROR: lengths of <exptypes> and <objects> are not the same')
                 STOP
             for iExptype in np.arange(0,len(exptypes),1):
-                exptype = exptypes[iExptype]
+                exptype = exptypes[iExptype].lower()
+                print('exptype = ',exptype)
                 for object in objects[iExptype]:
-                    if  object == 'individual':
+                    if  object.lower() == 'individual':
                         for line in lines:
                             hdulist = pyfits.open(line)
                             try:
-                                expType = hdulist[0].header['EXPTYPE']
+                                expType = hdulist[0].header['EXPTYPE'].lower()
                             except:
-                                expType = hdulist[0].header['OBJECT']
+                                expType = hdulist[0].header['OBJECT'].lower()
                             if ' ' in expType:
-                                expType = expType[:expType.find(' ')]
-                            if expType == exptype:
+                                expType = expType[:expType.find(' ')].lower()
+                            if expType.lower() == exptype.lower():
                                 objectName = hdulist[0].header['OBJECT']
                                 if ' ' in objectName:
                                     objectName = objectName[:objectName.find(' ')]
                                 if objectName not in individualLists:
                                     individualLists.append(objectName)
                     else:
+                        print('creating lists for exptype=',exptype,', object=',object,', lines=',lines,', suffix = ',suffix)
                         createLists(exptype,object,lines,suffix)
+                        #STOP
 
                 if len(individualLists) > 0:
                     for object in individualLists:
-                        if exptype != 'FLUXSTDS':
+                        if exptype.lower() != 'FLUXSTDS'.lower():
                             createLists(exptype,object,lines,suffix)
 # combine images in <ccdImages>, write output to <fitsOutName> if not None
 #
@@ -1090,7 +1101,23 @@ def max_rectangle_size(histogram):
 
 def area(size): return size[0]*size[1]
 
-# NOTE that the horizontal trace needs to come from an image that was rotated by
+def transpose(inFileName, outFileName):
+    image = np.array(CCDData.read(inFileName, unit="adu"))
+    print('transpose: image.shape = ',image.shape)
+    imageTransposed = image.transpose()
+    print('transpose: imageTransposed.shape = ',imageTransposed.shape)
+    writeFits(imageTransposed,
+              inFileName,
+              outFileName,
+              metaKeys=['NAXIS1','NAXIS2',],
+              metaData=[getHeaderValue(inFileName,'NAXIS2'),getHeaderValue(inFileName,'NAXIS1')],
+              overwrite=True)
+    image = np.array(CCDData.read(outFileName, unit="adu"))
+    print('image.shape')
+    plt.imshow(image, cmap='gray')
+    plt.show()
+
+# NOTE that the horizontal trace needs to come from an image that was rotated (IRAF rotate) by
 # 90 degrees and flipped along the long axis
 # WHICH IS equivalent to imtranspose
 def interpolateTraceIm(imFiles, dbFileVerticalTrace, dbFileHorizontalTrace, markCenters=False):
@@ -1758,12 +1785,12 @@ def chisqfunc(fac, object, sky, sigma):
     chisq = np.sum(((object - model) / sigma)**2)
     return chisq
 
-def sigmaRej(values, 
-             sigLow, 
-             sigHigh, 
-             replace=False, 
-             adjustSigLevels=False, 
-             useMean=False, 
+def sigmaRej(values,
+             sigLow,
+             sigHigh,
+             replace=False,
+             adjustSigLevels=False,
+             useMean=False,
              keepFirstAndLastX=False):
     print('sigmaRej: sigLow = ',sigLow,', sigHigh = ',sigHigh,', adjustSigLevels = ',adjustSigLevels,', replace = ',replace,', useMean = ',useMean,', keepFirstAndLastX = ',keepFirstAndLastX)
     ySkyMedian = None
@@ -1804,13 +1831,13 @@ def sigmaRej(values,
         print('sigmaRej: rejected ',nRej,' out of ',len(values),' pixels')
     return [np.array(outArr),np.array(outIndices)]
 
-def sigmaReject(y, 
+def sigmaReject(y,
                 nIter,
-                lowReject, 
-                highReject, 
-                replace=False, 
-                adjustSigLevels=False, 
-                useMean=False, 
+                lowReject,
+                highReject,
+                replace=False,
+                adjustSigLevels=False,
+                useMean=False,
                 keepFirstAndLastX=True):
     indices = np.arange(0,len(y),1)
     yGood, goodIndices = sigmaRej(y, lowReject, highReject, replace=replace, adjustSigLevels=adjustSigLevels, useMean=useMean, keepFirstAndLastX=keepFirstAndLastX)
@@ -1825,16 +1852,16 @@ def sigmaReject(y,
 
 # NOTE: requires x to be normalized
 def sfit(x,
-         y, 
-         fittingFunction, 
-         solveFunction, 
-         order, 
-         nIterReject, 
-         nIterFit, 
-         lowReject, 
-         highReject, 
-         adjustSigLevels=False, 
-         useMean=False, 
+         y,
+         fittingFunction,
+         solveFunction,
+         order,
+         nIterReject,
+         nIterFit,
+         lowReject,
+         highReject,
+         adjustSigLevels=False,
+         useMean=False,
          display=False):
     coeffs = fittingFunction(x,y,order)
     fittedValues = solveFunction(x,coeffs)
@@ -3233,3 +3260,46 @@ def plotSpec(fitsFileName):
     spec = getImageData(fitsFileName,0)
     plt.plot(wLen,spec)
     plt.show()
+
+def separateByObsDate(fitslist):
+    for fitsfile in fitslist:
+        header = getHeader(fitsfile,0)
+        obsDate = getDate(header['DATE-OBS'])
+        print('fitsfile = ',fitsfile,': obsDate = ',obsDate)
+
+def fixDBSHeaders(filelist):
+    if type(filelist) == type('str'):
+        with open(filelist,'r') as f:
+            filelist = f.readlines()
+        filelist = [f.strip() for f in filelist]
+    print('filelist = ',filelist)
+    fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList()
+    for fitsFile in filelist:
+        if getHeaderValue(fitsFile,'IMAGETYP').lower() == 'object':
+            if getHeaderValue(fitsFile,'OBJECT').lower() == 'arc':
+                print('IMAGETYP = ',getHeaderValue(fitsFile,'IMAGETYP'))
+                setHeaderValue(fitsFile,'IMAGETYP','ARC')
+                print('new IMAGETYP = ',getHeaderValue(fitsFile,'IMAGETYP'))
+        if getHeaderValue(fitsFile,'IMAGETYP').lower() == 'flat':
+            if getHeaderValue(fitsFile,'OBJECT').lower() == 'sky':
+                print('IMAGETYP = ',getHeaderValue(fitsFile,'IMAGETYP'))
+                setHeaderValue(fitsFile,'IMAGETYP','SKYFLAT')
+                print('new IMAGETYP = ',getHeaderValue(fitsFile,'IMAGETYP'))
+        if getHeaderValue(fitsFile,'IMAGETYP').lower() == 'flat':
+            if getHeaderValue(fitsFile,'OBJECT').lower() == 'internal_flat':
+                print('OBJECT = ',getHeaderValue(fitsFile,'OBJECT'))
+                setHeaderValue(fitsFile,'OBJECT','DOMEFLAT')
+                print('new OBJECT = ',getHeaderValue(fitsFile,'OBJECT'))
+        if getHeaderValue(fitsFile,'IMAGETYP').lower() == 'object':
+            if getHeaderValue(fitsFile,'OBJECT').lower() in fluxStandardNames:
+                print('IMAGETYP = ',getHeaderValue(fitsFile,'IMAGETYP'))
+                setHeaderValue(fitsFile,'IMAGETYP','FLUXSTDS')
+                print('new IMAGETYP = ',getHeaderValue(fitsFile,'IMAGETYP'))
+        if getHeaderValue(fitsFile,'IMAGETYP').lower() == 'domeflat':
+            if getHeaderValue(fitsFile,'OBJECT').lower() == 'internal_flat':
+                setHeaderValue(fitsFile,'IMAGETYP','FLAT')
+                setHeaderValue(fitsFile,'OBJECT','DOMEFLAT')
+        if getHeaderValue(fitsFile,'IMAGETYP').lower() == 'skyflat':
+            if getHeaderValue(fitsFile,'OBJECT').lower() == 'sky':
+                setHeaderValue(fitsFile,'IMAGETYP','FLAT')
+                setHeaderValue(fitsFile,'OBJECT','SKYFLAT')

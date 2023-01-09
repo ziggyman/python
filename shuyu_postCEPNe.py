@@ -35,5 +35,5 @@ fig.savefig('/Users/azuri/daten/uni/HKU/publications/shuyu/post-CEbinaryPNe_rose
 plt.show()
 print('rosePlotMean = ',rosePlotMean,', rosePlotSigma = ',rosePlotSigma)
 
-vectorDiagram(np.array(GPAs)*2., fNameOut='/Users/azuri/daten/uni/HKU/publications/shuyu/post-CEbinaryPNe_vectorDiagram.png')
-linearOrderDiagram(GPAs, fNameOut='/Users/azuri/daten/uni/HKU/publications/shuyu/post-CEbinaryPNe_linearOrderDiagram.png')
+vectorDiagram(2.*np.array(GPAs), fNameOut='/Users/azuri/daten/uni/HKU/publications/shuyu/post-CEbinaryPNe_vectorDiagram.png')
+linearOrderDiagram(2.*np.array(GPAs), fNameOut='/Users/azuri/daten/uni/HKU/publications/shuyu/post-CEbinaryPNe_linearOrderDiagram.png')
