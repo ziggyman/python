@@ -907,7 +907,7 @@ def chebyshev(xNorm, coeffs):
         return y
 
     yCheck = chebval(xNorm, coeffs)
-#    print('chebyshev: yCheck = ',yCheck)
+    print('chebyshev: yCheck = ',yCheck)
     return yCheck
 
 # calculate Legendre polynomial for normalized x values [-1.0,...,1.0] and give coefficients
@@ -992,18 +992,27 @@ def cubicSpline(xRange, order, coeffs):
 # xRange: [1,size]
 #
 # return: x=[0...size-1], y=[0...size-1]
-def calcTrace(dbFile, apNum=0, xRange = None):
+def calcTrace(dbFile, apNum=0, xRange = None, apOffsetX = 0.):
     imFileName = dbFile[:dbFile.find('database/')]+dbFile[dbFile.rfind('/ap')+3:]+'.fits'
     print('calcTrace: imFileName = <'+imFileName+'>')
     imageData = CCDData.read(imFileName, unit="adu")
     print('calcTrace: imageData.shape=',imageData.shape)
     records = iu.get_records(dbFile)
+#    print('records[',apNum,'] = ',records[apNum])
+#    print(dir(records[apNum]))
+#    print('records[',apNum,'].fields = ',records[apNum].fields)
+#    apdata = records[apNum].get_fields()['begin']
+#    print('apdata = ',apdata)
+#    STOP
     xCenter, yCenter = [float(c) for c in records[apNum].get_fields()['center'].split(' ')]
+    xCenter += apOffsetX
     curve = records[apNum].get_fields()['curve']
     print('calcTrace: curve = ',curve)
     funcs = ['none','chebyshev','legendre','cubicSpline','linearSpline']
     function = funcs[int(curve[0])]
+    function = records[apNum].get_fields()['function']
     print('calcTrace: function = ',function)
+    #STOP
     order = curve[1][0]
     print('calcTrace: order = ',order)
     if xRange is None:
@@ -1020,8 +1029,10 @@ def calcTrace(dbFile, apNum=0, xRange = None):
 
     y = None
     if function == funcs[1]:
+        print('function "chebyshev" detected')
         y = chebyshev(xNorm, coeffs) + xCenter
     elif function == funcs[2]:
+        print('function "legendre" detected')
         y = legendre(xNorm, coeffs) + xCenter
     elif function == funcs[3]:
         y = cubicSpline(xRange, order, coeffs) + xCenter
@@ -1029,6 +1040,8 @@ def calcTrace(dbFile, apNum=0, xRange = None):
         y = linearSpline(xRange, order, coeffs) + xCenter
     else:
         print('calcTrace: could not identify function <'+function+'>')
+    #print('y-1 = ',y-1)
+    #STOP
 
     if len(xArr) != imageData.shape[0]:
         print('calcTrace: len(xArr)(=',len(xArr),') != imageData.shape[0](=',imageData.shape[0],': interpolating trace to get full image size')
@@ -1279,7 +1292,7 @@ def lambdaCal(oneDImageFileIn, specOutName, func, coeffs):
 # @param halfWidth: int: half width of emission line
 # @param dxFit: float: dx for output fitted profile
 # @param plot: bool: plot debugging plots?
-def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False):
+def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False, apOffsetX = 0.):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('calcLineProfile: image.shape = ',image.shape)
 
@@ -1320,7 +1333,7 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     dbFile = os.path.join(tempFile[:tempFile.rfind('/')],'database')
     dbFile = os.path.join(dbFile,'ap'+tempFile[tempFile.rfind('/')+1:tempFile.rfind('.')])
     print('calcLineProfile: dbFile = <'+dbFile+'>')
-    row,center = calcTrace(dbFile, apNum=apNumber, xRange = None)
+    row,center = calcTrace(dbFile, apNum=apNumber, xRange = None, apOffsetX=apOffsetX)
     markCenter(tempFile, [row, center], tempFile)
     print('calcLineProfile: row = ',len(row),': ',row)
     print('calcLineProfile: center = ',len(center),': ',center)
@@ -1928,7 +1941,14 @@ def subtractMedianSky(twoDImageFilesIn):
 #                       skyAbove and skyBelow should be empty, should be default method if no PN spectrum is obvious
 #       if filename: scale sky image with exposure time and subtract from twoDImageFileIn
 #@param dispAxis='row': 'row' or 'column'
-def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None, skyBelow=None, extractionMethod='sum', dispAxis='row', display=False):
+def extractObjectAndSubtractSky(twoDImageFileIn,
+                                specOut,
+                                yRange,
+                                skyAbove=None,
+                                skyBelow=None,
+                                extractionMethod='sum',
+                                dispAxis='row',
+                                display=False):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('extractObjectAndSubtractSky: image.shape = ',image.shape)
     print('extractObjectAndSubtractSky: twoDImageFileIn = <'+twoDImageFileIn+'>')
@@ -1939,37 +1959,81 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
     hdulist = pyfits.open(twoDImageFileIn)
     head = hdulist[0].header
 
+    plt.rcParams["figure.figsize"] = [15., 7.0]
+    plt.rcParams["figure.autolayout"] = True
+
     newImageData = None
     skyData = None
     if dispAxis == 'row':
-        if (skyAbove is not None) and (skyBelow is not None):
-            imageTransposed = image.transpose()
-            print('extractObjectAndSubtractSky: imageTransposed.shape = ',image.shape)
-            if display:
-                plt.imshow(imageTransposed)
-                plt.show()
-            newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)
-            if display:
-                plt.imshow(newImageData)
-                plt.show()
-                plt.imshow(skyData)
-                plt.show()
+#        if (skyAbove is not None) and (skyBelow is not None):
+        imageTransposed = image.transpose()
+        print('extractObjectAndSubtractSky: imageTransposed.shape = ',image.shape)
+        if display:
+            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image))
+            print('image.shape = ',image.shape)
+            if skyAbove is not None:
+                plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
+                plt.plot([0.,image.shape[1]],[skyAbove[1],skyAbove[1]],'r-')
+            if skyBelow is not None:
+                plt.plot([0.,image.shape[1]],[skyBelow[0],skyBelow[0]],'b-')
+                plt.plot([0.,image.shape[1]],[skyBelow[1],skyBelow[1]],'b-')
+            plt.plot([0.,image.shape[1]],[yRange[0],yRange[0]],'y-')
+            plt.plot([0.,image.shape[1]],[yRange[1],yRange[1]],'y-')
+            mng = plt.get_current_fig_manager()
+            print('dir(mng) = ',dir(mng))
+            mng.full_screen_toggle()
+            plt.title('original image '+twoDImageFileIn)
+            plt.show()
+        newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)
+        if display:
+            plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.mean(newImageData))
+            if skyAbove is not None:
+                plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
+                plt.plot([0.,image.shape[1]],[skyAbove[1],skyAbove[1]],'r-')
+            if skyBelow is not None:
+                plt.plot([0.,image.shape[1]],[skyBelow[0],skyBelow[0]],'b-')
+                plt.plot([0.,image.shape[1]],[skyBelow[1],skyBelow[1]],'b-')
+            plt.plot([0.,image.shape[1]],[yRange[0],yRange[0]],'y-')
+            plt.plot([0.,image.shape[1]],[yRange[1],yRange[1]],'y-')
+            mng = plt.get_current_fig_manager()
+            mng.full_screen_toggle()
+            plt.title('sky subtracted image '+twoDImageFileIn)
+            plt.show()
+            plt.imshow(skyData.transpose())
+            if skyAbove is not None:
+                plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
+                plt.plot([0.,image.shape[1]],[skyAbove[1],skyAbove[1]],'r-')
+            if skyBelow is not None:
+                plt.plot([0.,image.shape[1]],[skyBelow[0],skyBelow[0]],'b-')
+                plt.plot([0.,image.shape[1]],[skyBelow[1],skyBelow[1]],'b-')
+            plt.plot([0.,image.shape[1]],[yRange[0],yRange[0]],'y-')
+            plt.plot([0.,image.shape[1]],[yRange[1],yRange[1]],'y-')
+            mng = plt.get_current_fig_manager()
+            mng.full_screen_toggle()
+            plt.title('sky image '+twoDImageFileIn)
+            plt.show()
     else:
         if (skyAbove is not None) and (skyBelow is not None):
             if display:
                 plt.imshow(image)
+                mng = plt.get_current_fig_manager()
+                mng.full_screen_toggle()
                 plt.show()
             newImageData,skyData = subtractSky(image,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)
             if display:
                 plt.imshow(newImageData)
                 plt.show()
                 plt.imshow(skyData)
+                mng = plt.get_current_fig_manager()
+                mng.full_screen_toggle()
                 plt.show()
 
     profile = extractSum(image,'column' if dispAxis == 'row' else 'row')
     if display:
         plt.plot(profile)
-        plt.show()
+        plt.title(twoDImageFileIn+' profile')
+        mng = plt.get_current_fig_manager()
+        mng.full_screen_toggle()
 
     # subtract sky
     if dispAxis == 'row':
@@ -1998,11 +2062,19 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
 
                 f = interp1d(rowsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
                 image[yRange[0]:yRange[1]+1,col] -= f(np.arange(yRange[0],yRange[1]+1))
+        if display:
+            plt.show()
+            plt.imshow(image)
+            plt.title(twoDImageFileIn+' sky subtracted')
+            mng = plt.get_current_fig_manager()
+            mng.full_screen_toggle()
+            plt.show()
+
         if extractionMethod == 'sum':
-            if (skyAbove is not None) and (skyBelow is not None):
-                objectSpec = extractSum(newImageData.transpose()[yRange[0]:yRange[1]+1,:],dispAxis)
-            else:
-                objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
+#            if (skyAbove is not None) and (skyBelow is not None):
+            objectSpec = extractSum(newImageData.transpose()[yRange[0]:yRange[1]+1,:],dispAxis)
+#            else:
+#                objectSpec = extractSum(image[yRange[0]:yRange[1]+1,:],dispAxis)
         elif extractionMethod == 'median':
             objectSpec = []
             for col in range(image.shape[1]):
@@ -2037,6 +2109,8 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
             if display:
                 plt.plot(result)
                 plt.plot(resultFit)
+                mng = plt.get_current_fig_manager()
+                mng.full_screen_toggle()
                 plt.show()
 
             for iCol in range(image.shape[1]):
@@ -2068,6 +2142,8 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
 
                 f = interp1d(colsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
                 image[row,yRange[0]:yRange[1]+1] -= f(np.arange(yRange[0],yRange[1]+1))
+        if display:
+            plt.show()
         if extractionMethod == 'sum':
             if (skyAbove is not None) and (skyBelow is not None):
                 objectSpec = extractSum(newImageData[:,yRange[0]:yRange[1]+1],dispAxis)
@@ -2104,13 +2180,17 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
             if display:
                 plt.plot(result)
                 plt.plot(resultFit)
+                mng = plt.get_current_fig_manager()
+                mng.full_screen_toggle()
                 plt.show()
 
             for iRow in range(image.shape[0]):
                 image[iRow,:] = image[iRow,:] - (skyImage[iRow,:] * resultFit[iRow])
             objectSpec = extractSum(image[:,yRange[0]:yRange[1]+1],dispAxis)
-    if display:
-        plt.show()
+#    if display:
+#        mng = plt.get_current_fig_manager()
+#        mng.full_screen_toggle()
+#        plt.show()
 
     if newImageData is not None:
         if dispAxis == 'row':
@@ -2125,7 +2205,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove=None,
         else:
             writeFits(image, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
 
-    if True:#display:
+    if display:
         plt.plot(objectSpec,'g-')
         plt.title(twoDImageFileIn[twoDImageFileIn.rfind('SCIENCE')+8:twoDImageFileIn.rfind('.')])
         plt.show()
@@ -2253,14 +2333,14 @@ def getNumberOfApertures(databaseFileNameIn):
     print('getNumberOfApertures: nAps = ',nAps)
     return nAps
 
-def getLineProfiles(arcFitsName2D,halfWidth=7,dxFit=0.1,display=False):
+def getLineProfiles(arcFitsName2D,halfWidth=7,dxFit=0.1,display=False, apOffsetX = 0.):
     lineProfiles = []
     print('getLineProfiles: arcFitsName2D = <'+arcFitsName2D+'>')
     tempFile = os.path.join(arcFitsName2D[0:arcFitsName2D.rfind('/')],'database','aptmp'+arcFitsName2D[arcFitsName2D.rfind('/')+1:-5])
     print('getLineProfiles: tempFile = <'+tempFile+'>')
 
     for apNumber in np.arange(0,getNumberOfApertures(tempFile),1):
-        lineProfiles.append(calcLineProfile(arcFitsName2D, apNumber, halfWidth,dxFit))
+        lineProfiles.append(calcLineProfile(arcFitsName2D, apNumber, halfWidth,dxFit, apOffsetX=apOffsetX))
 
         if display:
             plt.plot(lineProfiles[len(lineProfiles)-1][0],lineProfiles[len(lineProfiles)-1][1],label='ap '+str(apNumber))
@@ -2343,7 +2423,10 @@ def reidentify(arcFitsName2D,
                specOut=None,
                display=False,
                chiSquareLimit=0.25,
-               degree=5):
+               degree=5,
+               apOffsetX=0.):
+    print('lineListIn = <'+lineListIn+'>')
+#    STOP
     with open(referenceApertureDefinitionFile,'r') as f:
         lines = f.readlines()
     with open(referenceApertureDefinitionFile,'w') as f:
@@ -2353,7 +2436,7 @@ def reidentify(arcFitsName2D,
     print('reidentify: updated new database file ',referenceApertureDefinitionFile)
 #        STOP
 
-    lineProfiles = getLineProfiles(arcFitsName2DForLineProfile, display=display)
+    lineProfiles = getLineProfiles(arcFitsName2DForLineProfile, display=display, apOffsetX=apOffsetX)
     bestLineProfile = getBestLineProfile(lineProfiles,outFileName=None,display=display)
     specY = extractSum(arcFitsName2D,'row')
     writeFits1D(specY, arcFitsName2D[:arcFitsName2D.rfind('.')]+'Ec.fits', wavelength=None, header=arcFitsName2D, CRVAL1=1., CRPIX1=1., CDELT1=1.)
@@ -2382,6 +2465,7 @@ def reidentify(arcFitsName2D,
         print('reidentify: line = <'+line+'>')
         print('reidentify: line[:line.find(' ')] = <'+line[:line.find(' ')]+'>, line[line.find(' ')+1:] = <'+line[line.find(' ')+1:]+'>')
     refLineList = [[float(line[:line.find(' ')]),float(line[line.find(' ')+1:])] for line in lineList]
+    print('refLineList = ',refLineList)
     lineListIdentified = crossCheckLines(goodLines,refLineList)
     print('reidentify: ',arcFitsName2D,': lineListIdentified = ',len(lineListIdentified),': ',lineListIdentified)
     if not lineListOut is None:
@@ -2488,6 +2572,7 @@ def shiftLineList(lineListIn,lineListOut,shift):
             f.write('%.2f %.5f\n' % (line[0], line[1]))
 
 def shiftApertureDefs(apDefFileIn,apDefFileOut,shift):
+    print('apDefFileIn = ',apDefFileIn)
     with open(apDefFileIn,'r') as f:
         lines = f.readlines()
     with open(apDefFileOut,'w') as f:
@@ -2510,7 +2595,7 @@ def getListOfFiles(fname):
             fList = [os.path.join(workPath, fileName) for fileName in fList]
     return fList
 
-def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, display=False, chiSquareLimit=0.25,degree=5):
+def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, display=False, chiSquareLimit=0.25,degree=5, apOffsetX=0.):
     print('refApDef = <'+refApDef)
     wavelengthsOrigOut = []
     wavelengthsResampledOut = []
@@ -2573,7 +2658,8 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
                                                       specOut=arc[:-5]+'Ecd.fits',
                                                       display=display,
                                                       chiSquareLimit=chiSquareLimit,
-                                                      degree=degree)
+                                                      degree=degree,
+                                                      apOffsetX=apOffsetX)
         xSpec = np.arange(xRange[0],xRange[1]+1,1.)
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
@@ -2623,13 +2709,22 @@ def getClosestInTime(fitsFileName, fitsList):
         except:
             arcTimes.append(head['MJD-OBS'])
 
+    print('arcTimes = ',arcTimes)
     hdulist = pyfits.open(fitsFileName)
     headerSc = hdulist[0].header
-    print('getClosestInTime: headerSc = ',headerSc)
+    print('dir(headerSc) = ',dir(headerSc))
+    for key in headerSc.keys():
+        print('getClosestInTime: headerSc[',key,'] = ',headerSc[key])
     try:
         specTime = headerSc['HJD-OBS']
     except:
-        specTime = headerSc['MJD-OBS']
+        try:
+            specTime = headerSc['MJD-OBS']
+        except:
+            specTimeTemp = Time(headerSc['DATE-OBS'], format='isot', scale='utc')
+            specTime = specTimeTemp.mjd
+            print('specTime = ',specTime)
+#            STOP
     timeDiffs = np.absolute(np.array(arcTimes) - specTime)
     print('getClosestInTime: timeDiffs = ',timeDiffs)
     closestArc = np.where(timeDiffs == np.min(timeDiffs))[0][0]
@@ -2735,7 +2830,14 @@ def readFluxStandardFile(fName):
         print('readFluxStandardFile: lambda = ',wavelengths[i],', flux = ',fluxes[i])
     return [wavelengths, fluxes]
 
-def calcResponse(fNameList, arcList, wLenOrig, areas, fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt', airmassExtCor='apoextinct.dat', display=False):
+def calcResponse(fNameList,
+                 arcList,
+                wLenOrig,
+                areas,
+                stdStarNameEndsBefore = '_a',
+                fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt',
+                airmassExtCor='apoextinct.dat',
+                display=False):
     fluxStandardNames, fluxStandardDirs, fluxStandardFileNames = readFluxStandardsList(fluxStdandardList)
     print('calcResponse: fluxStandardNames = ',fluxStandardNames)
     print('calcResponse: fluxStandardDirs = ',fluxStandardDirs)
@@ -2758,7 +2860,7 @@ def calcResponse(fNameList, arcList, wLenOrig, areas, fluxStdandardList = '/User
             stdName = fName[fName.rfind('SCIENCE_')+8:]
         else:
             stdName = fName[fName.rfind('FLUXSTDS_')+9:]
-        stdName = stdName[:stdName.find('_a')].replace('_','').replace('-','')
+        stdName = stdName[:stdName.find(stdStarNameEndsBefore)].replace('_','').replace('-','')
         print('calcResponse: stdName = <'+stdName+'>')
 #        wLenStd = getWavelengthArr(fName[:fName.rfind('.')]+'Ecd.fits',0)
 #        wLenStd = getWavelengthArr(fName,0)
@@ -3262,10 +3364,19 @@ def plotSpec(fitsFileName):
     plt.show()
 
 def separateByObsDate(fitslist):
+    import shutil
     for fitsfile in fitslist:
-        header = getHeader(fitsfile,0)
-        obsDate = getDate(header['DATE-OBS'])
-        print('fitsfile = ',fitsfile,': obsDate = ',obsDate)
+        if os.path.isfile(fitsfile):
+            path = fitsfile[:fitsfile.rfind('/')]
+            #print('checking fitsfile <'+fitsfile+'>')
+            header = getHeader(fitsfile,0)
+            #print('header = ',header)
+            obsDate = getDate(header['DATE-OBS'])
+            print('fitsfile = ',fitsfile,': obsDate = ',obsDate,' str(obsDate) = <'+str(obsDate)+'>')
+            newPath = os.path.join(path,str(obsDate))
+            if not os.path.exists(newPath):
+                os.mkdir(newPath)
+            shutil.move(fitsfile,os.path.join(newPath,fitsfile[fitsfile.rfind('/')+1:]))
 
 def fixDBSHeaders(filelist):
     if type(filelist) == type('str'):

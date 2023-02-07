@@ -211,7 +211,7 @@ def sigmaRej(values, sigLow, sigHigh, adjustSigLevels, useMean=False):
 
 # --- in case of 1D image data replace the area [skyLeftArea[1]:skyRightArea[0]] with the interpolated 'sky'
 # --- otherwise subtract the 2D sky image from the 2D image data
-def subtractSky(imageData,skyLeftArea,skyRightArea,sigLow=3.0,sigHigh=3.0):
+def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=3.0):
     dtype = None
     axis = None
     oneD = False
@@ -225,7 +225,12 @@ def subtractSky(imageData,skyLeftArea,skyRightArea,sigLow=3.0,sigHigh=3.0):
 #    print 'oneD = ',oneD
     newImageData = np.ndarray(imageData.shape, dtype=dtype)
     skyData = np.ndarray(imageData.shape, dtype=dtype)
-    xSky = np.concatenate([np.arange(skyLeftArea[0],skyLeftArea[1],1.0),np.arange(skyRightArea[0],skyRightArea[1],1.0)])
+    if skyLeftArea is None:
+        xSky = np.arange(skyRightArea[0],skyRightArea[1],1.0)
+    elif skyRightArea is None:
+        xSky = np.arange(skyLeftArea[0],skyLeftArea[1],1.0)
+    else:
+        xSky = np.concatenate([np.arange(skyLeftArea[0],skyLeftArea[1],1.0),np.arange(skyRightArea[0],skyRightArea[1],1.0)])
 #    print 'subtractSky: xSky = ',xSky
     skyParams = None
     if (oneD):
@@ -237,11 +242,30 @@ def subtractSky(imageData,skyLeftArea,skyRightArea,sigLow=3.0,sigHigh=3.0):
         ySky = sigmaRej(ySky, sigLow, sigHigh, True)
         skyParams = linReg(xSky,ySky)
     else:
-        skyLeft = populateSkyArray(imageData, skyLeftArea)
-        skyLeftSmoothed = boxCarMedianSmooth(skyLeft, 0, 9)
-        skyRight = populateSkyArray(imageData, skyRightArea)
-        skyRightSmoothed = boxCarMedianSmooth(skyRight, 0, 9)
-        ySky = np.concatenate([skyLeftSmoothed, skyRightSmoothed],axis=1)
+        if skyLeftArea is None:
+            skyRight = populateSkyArray(imageData, skyRightArea)
+            ySky = boxCarMedianSmooth(skyRight, 0, 9)
+            print('ySky.shape = ',ySky.shape)
+            for i in range(ySky.shape[0]):
+                med = np.median(ySky[i])
+#                print('med = ',med)
+                ySky[i][:] = med
+        elif skyRightArea is None:
+            skyLeft = populateSkyArray(imageData, skyLeftArea)
+            ySky = boxCarMedianSmooth(skyLeft, 0, 9)
+            print('ySky.shape = ',ySky.shape)
+            for i in range(ySky.shape[0]):
+                med = np.median(ySky[i])
+#                print('med = ',med)
+                ySky[i][:] = med
+        else:
+            skyLeft = populateSkyArray(imageData, skyLeftArea)
+            skyLeftSmoothed = boxCarMedianSmooth(skyLeft, 0, 9)
+            skyRight = populateSkyArray(imageData, skyRightArea)
+            skyRightSmoothed = boxCarMedianSmooth(skyRight, 0, 9)
+            ySky = np.concatenate([skyLeftSmoothed, skyRightSmoothed],axis=1)
+        print('ySky = ',ySky)
+#        STOP
 #    print 'subtractSky ySky = ',len(ySky),': ',ySky
 #    print 'xSky.shape = ',xSky.shape
 #    print 'ySky.shape = ',ySky.shape
