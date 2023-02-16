@@ -2064,7 +2064,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
                 image[yRange[0]:yRange[1]+1,col] -= f(np.arange(yRange[0],yRange[1]+1))
         if display:
             plt.show()
-            plt.imshow(image)
+            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image))
             plt.title(twoDImageFileIn+' sky subtracted')
             mng = plt.get_current_fig_manager()
             mng.full_screen_toggle()
@@ -2297,11 +2297,12 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
             plt.scatter(line,0.)
 
     print('findGoodLines: chiSquareLimit = ',chiSquareLimit)
-    if display:
+    if plot:
         plt.legend()
         plt.show()
-
+#    if True:
         plt.scatter(linesX,chiSquares)
+        plt.plot([0,ySpec.shape[0]],[chiSquareLimit,chiSquareLimit])
         plt.title('findGoodLines chiSquares')
         plt.show()
     if not outFileNameAllLines is None:
@@ -2595,6 +2596,16 @@ def getListOfFiles(fname):
             fList = [os.path.join(workPath, fileName) for fileName in fList]
     return fList
 
+def resampleSpec(wLen, spec):
+    dLam = np.min([np.absolute(wLen[1]-wLen[0]),np.absolute(wLen[wLen.shape[0]-1]-wLen[wLen.shape[0]-2])])
+    resampled = np.arange(np.min([wLen[0], wLen[wLen.shape[0]-1]]), np.max([wLen[0], wLen[wLen.shape[0]-1]]), dLam)
+
+    print('extractAndReidentifyARCs: wLen = ',wLen.shape,': ',wLen)
+    print('extractAndReidentifyARCs: spec = ',spec.shape,': ',spec)
+    print('extractAndReidentifyARCs: resampled = ',resampled.shape,': ',resampled)
+    resampledSpec = rebin(wLen, spec, resampled, preserveFlux = False)
+    return [resampled,resampledSpec]
+
 def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, display=False, chiSquareLimit=0.25,degree=5, apOffsetX=0.):
     print('refApDef = <'+refApDef)
     wavelengthsOrigOut = []
@@ -2609,6 +2620,14 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
 
         arcInterp = arc[:-5]+'i.fits'
         oneDSpecInterp = extractSum(arcInterp,'row')
+
+        writeFits1D(oneDSpecInterp,
+                    arcInterp[:-5]+'Ec.fits',
+                    wavelength=None,
+                    header=arcInterp,
+                    CRVAL1=1,
+                    CRPIX1=1,
+                    CDELT1=1)
         oneDSpecInterpX = np.arange(0,len(oneDSpecInterp),1)
         if display:
             plt.plot(oneDSpecInterp)
@@ -2667,16 +2686,9 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
 
         print('extractAndReidentifyARCs: np.absolute(wLenSpec[1]-wLenSpec[0]) = ',np.absolute(wLenSpec[1]-wLenSpec[0]))
         print('extractAndReidentifyARCs: np.absolute(wLenSpec[wLenSpec.shape[0]-1]-wLenSpec[wLenSpec.shape[0]-2]) = ',np.absolute(wLenSpec[wLenSpec.shape[0]-1]-wLenSpec[wLenSpec.shape[0]-2]))
-        dLam = np.min([np.absolute(wLenSpec[1]-wLenSpec[0]),np.absolute(wLenSpec[wLenSpec.shape[0]-1]-wLenSpec[wLenSpec.shape[0]-2])])
-        resampled = np.arange(np.min([wLenSpec[0], wLenSpec[wLenSpec.shape[0]-1]]), np.max([wLenSpec[0], wLenSpec[wLenSpec.shape[0]-1]]), dLam)
+        resampled,resampledSpec = resampleSpec(wLenSpec,oneDSpecInterp)
         wavelengthsResampledOut.append(resampled)
 
-        print('extractAndReidentifyARCs: wLenSpec = ',wLenSpec.shape,': ',wLenSpec)
-        print('extractAndReidentifyARCs: oneDSpecInterp = ',oneDSpecInterp.shape,': ',oneDSpecInterp)
-        print('extractAndReidentifyARCs: resampled = ',resampled.shape,': ',resampled)
-        resampledSpec = rebin(wLenSpec, oneDSpecInterp, resampled, preserveFlux = False)
-        print('extractAndReidentifyARCs: wLenSpec = ',wLenSpec.shape,': ',wLenSpec)
-        print('extractAndReidentifyARCs: resampled wavelength = ',resampled.shape,': ',resampled)
         if display:
             plt.plot(wLenSpec,oneDSpecInterp,label='original')
             plt.plot(resampled,resampledSpec,label='resampled')
@@ -2685,99 +2697,195 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
             plt.show()
 
         writeFits1D(resampledSpec,
-                    arcInterp[:-5]+'Ec.fits',
+                    arcInterp[:-5]+'Ecd.fits',
                     wavelength=None,
                     header=arcInterp,
                     CRVAL1=resampled[0],
                     CRPIX1=1,
-                    CDELT1=dLam)
+                    CDELT1=resampled[1]-resampled[0])
 
-        pyfits.setval(arcInterp[:-5]+'Ec.fits', 'NLINES', value=len(lineListNew))
+        pyfits.setval(arcInterp[:-5]+'Ecd.fits', 'CRVAL1', value=resampled[0])
+        pyfits.setval(arcInterp[:-5]+'Ecd.fits', 'CRPIX1', value=1)
+        pyfits.setval(arcInterp[:-5]+'Ecd.fits', 'CDELT1', value=resampled[1]-resampled[0])
+        pyfits.setval(arcInterp[:-5]+'Ecd.fits', 'NLINES', value=len(lineListNew))
         for iLine in range(len(lineListNew)):
-            pyfits.setval(arcInterp[:-5]+'Ec.fits', 'LINE'+str(iLine), value='%.5f %.4f' % (lineListNew[iLine][0],lineListNew[iLine][1]))
-        pyfits.setval(arcInterp[:-5]+'Ec.fits', 'RMS', value=rms)
+            pyfits.setval(arcInterp[:-5]+'Ecd.fits', 'LINE'+str(iLine), value='%.5f %.4f' % (lineListNew[iLine][0],lineListNew[iLine][1]))
+        pyfits.setval(arcInterp[:-5]+'Ecd.fits', 'RMS', value=rms)
 
     return [wavelengthsOrigOut, wavelengthsResampledOut]
 
-def getClosestInTime(fitsFileName, fitsList):
+def getClosestInTime(objectTime, arcTimes):
+    if len(arcTimes) < 1:
+        return None
+    print('getClosestInTime: objectTime = ',type(objectTime),': ',objectTime)
+    print('getClosestInTime: arcTimec = ',type(arcTimes[0]),': ',arcTimes)
+    timeDiffs = np.absolute(np.array(arcTimes) - objectTime)
+    print('getClosestInTime: timeDiffs = ',timeDiffs)
+    minTimeDiff = np.min(timeDiffs)
+    return [np.where(timeDiffs == minTimeDiff)[0][0],minTimeDiff]
+
+def getClosestArcs(fitsFileName, fitsList):
     arcTimes = []
     for iArc in range(len(fitsList)):
         hdulist = pyfits.open(fitsList[iArc])
         head = hdulist[0].header
+        keyWord = 'HJD-OBS'
         try:
-            arcTimes.append(head['HJD-OBS'])
+            arcTimes.append(float(head[keyWord]))
         except:
-            arcTimes.append(head['MJD-OBS'])
+            try:
+                keyWord = 'MJD-OBS'
+                arcTimes.append(float(head[keyWord]))
+            except:
+                keyWord = 'DATE-OBS'
+                arcTimeTemp = Time(head[keyWord], format='isot', scale='utc')
+                arcTimes.append(arcTimeTemp.mjd)
+    arcTimes = np.array(arcTimes)
 
     print('arcTimes = ',arcTimes)
     hdulist = pyfits.open(fitsFileName)
     headerSc = hdulist[0].header
     print('dir(headerSc) = ',dir(headerSc))
-    for key in headerSc.keys():
-        print('getClosestInTime: headerSc[',key,'] = ',headerSc[key])
+#    for key in headerSc.keys():
+#        print('getClosestArc: headerSc[',key,'] = ',headerSc[key])
     try:
-        specTime = headerSc['HJD-OBS']
-    except:
-        try:
-            specTime = headerSc['MJD-OBS']
-        except:
-            specTimeTemp = Time(headerSc['DATE-OBS'], format='isot', scale='utc')
+        if keyWord == 'DATE-OBS':
+            specTimeTemp = Time(headerSc[keyWord], format='isot', scale='utc')
             specTime = specTimeTemp.mjd
-            print('specTime = ',specTime)
-#            STOP
-    timeDiffs = np.absolute(np.array(arcTimes) - specTime)
-    print('getClosestInTime: timeDiffs = ',timeDiffs)
-    closestArc = np.where(timeDiffs == np.min(timeDiffs))[0][0]
+        else:
+            specTime = float(headerSc[keyWord])
+    except:
+        print('getClosestArcs: ERROR: keyWord <'+keyWord+'> not found in '+fitsFileName)
+        if keyWord == 'MJD-OBS':
+            try:
+                specTimeTemp = Time(headerSc['DATE-OBS'], format='isot', scale='utc')
+                specTime = specTimeTemp.mjd
+            except:
+                print('getClosestArcs: ERROR: keyWord <DATE-OBS> not found in '+fitsFileName)
+                STOP
+        if keyWord == 'HJD-OBS':
+            try:
+                specTimeTemp = Time(headerSc['DATE-OBS'], format='isot', scale='utc')
+                specTime = specTimeTemp.hjd
+            except:
+                print('getClosestArcs: ERROR: keyWord <DATE-OBS> not found in '+fitsFileName)
+                STOP
     hdulist.close()
-    return closestArc
+    whereLT = np.where(arcTimes <= specTime)[0]
+    whereGT = np.where(arcTimes >= specTime)[0]
+    print('getClosestArcs: whereLT = ',whereLT)
+    print('getClosestArcs: whereGT = ',whereGT)
+    closestBefore = getClosestInTime(specTime, arcTimes[whereLT])
+    closestAfter = getClosestInTime(specTime, arcTimes[whereGT])
+    print('getClosestArcs: closestBefore = ',closestBefore)
+    print('getClosestArcs: closestAfter = ',closestAfter)
+    return [closestBefore,closestAfter]
 
 #@brief: apply wavelength to extracted science spectra and resample them to linear dispersion
-def dispCor(scienceListIn, arcListIn, wavelengthsOrigIn, scienceListOut, observatoryLocation, keywordRA, keywordDEC, keywordObsTime, doHelioCor=True):
+def dispCor(scienceListIn,
+            arcListIn,
+            wavelengthsOrigIn,
+            scienceListOut,
+            observatoryLocation,
+            keywordRA,
+            keywordDEC,
+            keywordObsTime,
+            doHelioCor=True):
     print('dispCor: scienceListIn = ',len(scienceListIn),': ',scienceListIn)
     print('dispCor: arcListIn = ',len(arcListIn),': ',arcListIn)
     print('dispCor: wavelengthsOrigIn = ',len(wavelengthsOrigIn))
-
     for iSpec in range(len(scienceListIn)):
         print('dispCor: running dispCor on '+scienceListIn[iSpec])
         hdulist = pyfits.open(scienceListIn[iSpec])
         headerSc = hdulist[0].header
         print('dispCor: headerSc = ',headerSc)
-        closestArc = getClosestInTime(scienceListIn[iSpec],arcListIn)
-        print('dispCor: closestArc = ',closestArc)
+        closestArcs = getClosestArcs(scienceListIn[iSpec],arcListIn)
+        print('dispCor: closestArcs = ',closestArcs)
+        if closestArcs[0] is None:
+            closestArcs[0] = closestArcs[1]
+        if closestArcs[1] is None:
+            closestArcs[1] = closestArcs[0]
+
+        if (closestArcs[0][1] + closestArcs[1][1]) == 0:
+            closestArcs[0][1] = 0.5
+            closestArcs[1][1] = 0.5
 
         spec = getImageData(scienceListIn[iSpec],0)
+        print('dispcor: scienceListIn[',iSpec,'] = ',scienceListIn[iSpec])
         print('dispCor: spec = ',spec.shape,': ',spec)
-        arc = arcListIn[closestArc]
-        print('dispCor: name of closest Arc = ',arc)
-        wLenSpec = wavelengthsOrigIn[closestArc]
+        arcBefore = arcListIn[closestArcs[0][0]]
+        print('dispCor: name of closest Arc before = ',arcBefore)
+        wLenSpecBefore = wavelengthsOrigIn[closestArcs[0][0]]
+        print('dispcor: wLenSpecBefore = ',wLenSpecBefore.shape,': ',wLenSpecBefore)
+        factorBefore = closestArcs[0][1] / (closestArcs[0][1]+closestArcs[1][1])
+        print('dispcor: factorBefore = ',factorBefore)
+        STOP
+        arcAfter = arcListIn[closestArcs[1][0]]
+        print('dispCor: name of closest Arc after = ',arcAfter)
+        wLenSpecAfter = wavelengthsOrigIn[closestArcs[1][0]]
+        print('dispcor: wLenSpecAfter = ',wLenSpecAfter)
+        factorAfter = closestArcs[1][1] / (closestArcs[0][1]+closestArcs[1][1])
+        print('dispcor: factorAfter = ',factorAfter)
+
+        wLenSpec = (wLenSpecBefore * factorBefore) + (wLenSpecAfter * factorAfter)
         print('dispCor: wLenSpec = ',wLenSpec)
 
         #read science header and append keywords
-        hdulist.close()
-        headerSc['REFSPEC1'] = arc[arc.rfind('/')+1:]
+        headerSc['REFSPEC1'] = arcBefore[arcBefore.rfind('/')+1:]+' %.5f' % (factorBefore)
+        headerSc['REFSPEC2'] = arcAfter[arcAfter.rfind('/')+1:]+' %.5f' % (factorAfter)
 
         #apply heliocentric radial velocity correction
         if doHelioCor:
             vrad = heliocor(observatoryLocation, headerSc, keywordRA, keywordDEC, keywordObsTime)
             headerSc['VHELIO'] = vrad
             wLenSpec = applyVRadCorrection(wLenSpec, vrad)
-
-        # read wavelength information from reference ARC
-        hdulist = pyfits.open(arc)
-        headerArc = hdulist[0].header
+            print('dispCor: after heliocentric correction for vrad = ',vrad,': wLenSpec = ',wLenSpec)
         hdulist.close()
 
-        resampled = ((np.arange(headerArc['NAXIS1']) + 1.0) - headerArc['CRPIX1']) * headerArc['CDELT1'] + headerArc['CRVAL1']
-        resampledSpec = rebin(wLenSpec, spec, resampled, preserveFlux = True)
+        # read wavelength information from reference ARCs
+        hdulist = pyfits.open(arcBefore)
+        headerArcBefore = hdulist[0].header
+        hdulist.close()
+        hdulist = pyfits.open(arcAfter)
+        headerArcAfter = hdulist[0].header
+        hdulist.close()
+
+#        resampledBefore = ((np.arange(headerArcBefore['NAXIS1']) + 1.0) - headerArcBefore['CRPIX1']) * headerArcBefore['CDELT1'] + headerArcBefore['CRVAL1']
+#        print('resampledBefore = ',resampledBefore)
+#        resampledAfter = ((np.arange(headerArcAfter['NAXIS1']) + 1.0) - headerArcAfter['CRPIX1']) * headerArcAfter['CDELT1'] + headerArcAfter['CRVAL1']
+#        print('resampledAfter = ',resampledAfter)
+#        resampled = (resampledBefore * factorBefore) + (resampledAfter * factorAfter)
+#        print('resampled = ',resampled)
+#        resampledSpec = rebin(wLenSpec, spec, resampled, preserveFlux = True)
+#        print("headerArcBefore['CRVAL1'] = ",headerArcBefore['CRVAL1'])
+#        print("headerArcBefore['CRVAL1'] * factorBefore = ",headerArcBefore['CRVAL1'] * factorBefore)
+#        print("headerArcAfter['CRVAL1'] = ",headerArcAfter['CRVAL1'])
+#        print("headerArcAfter['CRVAL1'] * factorAfter = ",headerArcAfter['CRVAL1'] * factorAfter)
+#        print("(headerArcBefore['CRVAL1'] * factorBefore) + (headerArcAfter['CRVAL1'] * factorAfter) = ",(headerArcBefore['CRVAL1'] * factorBefore) + (headerArcAfter['CRVAL1'] * factorAfter))
+#
+#        print("headerArcBefore['CRPIX1'] = ",headerArcBefore['CRPIX1'])
+#        print("headerArcBefore['CRPIX1'] * factorBefore = ",headerArcBefore['CRPIX1'] * factorBefore)
+#        print("headerArcAfter['CRPIX1'] = ",headerArcAfter['CRPIX1'])
+#        print("headerArcAfter['CRPIX1'] * factorAfter = ",headerArcAfter['CRPIX1'] * factorAfter)
+#        print("(headerArcBefore['CRPIX1'] * factorBefore) + (headerArcAfter['CRPIX1'] * factorAfter) = ",(headerArcBefore['CRPIX1'] * factorBefore) + (headerArcAfter['CRPIX1'] * factorAfter))
+#
+#        print("headerArcBefore['CDELT1'] = ",headerArcBefore['CDELT1'])
+#        print("headerArcBefore['CDELT1'] * factorBefore = ",headerArcBefore['CDELT1'] * factorBefore)
+#        print("headerArcAfter['CDELT1'] = ",headerArcAfter['CDELT1'])
+#        print("headerArcAfter['CDELT1'] * factorAfter = ",headerArcAfter['CDELT1'] * factorAfter)
+#        print("(headerArcBefore['CDELT1'] * factorBefore) + (headerArcAfter['CDELT1'] * factorAfter) = ",(headerArcBefore['CDELT1'] * factorBefore) + (headerArcAfter['CDELT1'] * factorAfter))
+        #STOP
+        resampled,resampledSpec = resampleSpec(wLenSpec,spec)
         writeFits1D(resampledSpec,
                     scienceListOut[iSpec],
                     wavelength=None,
                     header=headerSc,
-                    CRVAL1=headerArc['CRVAL1'],
-                    CRPIX1=headerArc['CRPIX1'],
-                    CDELT1=headerArc['CDELT1'],
+                    CRVAL1=resampled[0],#(headerArcBefore['CRVAL1'] * factorBefore) + (headerArcAfter['CRVAL1'] * factorAfter),
+                    CRPIX1=1,#(headerArcBefore['CRPIX1'] * factorBefore) + (headerArcAfter['CRPIX1'] * factorAfter),
+                    CDELT1=resampled[1]-resampled[0],#(headerArcBefore['CDELT1'] * factorBefore) + (headerArcAfter['CDELT1'] * factorAfter),
                    )
-
+        wLenSpecTest = getWavelengthArr(scienceListOut[iSpec])
+        print('dispCor: wLenSpecTest = ',wLenSpecTest)
 
 def heliocor(observatoryLocation, header, keywordRA, keywordDEC, keywordObsTime):
     #print('heliocor: EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
@@ -2915,18 +3023,20 @@ def calcResponse(fNameList,
                 for i in range(areas.size()):
                     print('')
                     if areas.getData('fName',i) == fName:
-                        extractedFileName = areas.getData('fName',i)[:-5]+'Ec.fits'
+                        extractedFileName = areas.getData('fName',i)[:-5]+'Ecd.fits'
                         print('calcResponse: reading extractedFileName = <'+extractedFileName+'>')
+                        wapprox = getWavelengthArr(extractedFileName)
                         foundEx = True
                 if not foundEx:
                     print('calcResponse: did not find fName = <'+fName+'> in areas')
+                    STOP
                 obj_flux = CCDData.read(extractedFileName, unit=u.adu)
                 obj_flux = obj_flux.data / float(img.header['EXPTIME'])
                 obj_flux = obj_flux * u.adu / u.s
 
                 # this data comes from the APO DIS red channel, which has wavelength axis backwards
                 # (despite not mentioning in the header)
-                wapprox = wLenOrig[getClosestInTime(fName,arcList)]#(np.arange(img.shape[1]) - img.shape[1]/2)[::-1] * img.header['DISPDW'] + img.header['DISPWC']
+                # wapprox = wLenOrig[getClosestArcs(fName,arcList)]#(np.arange(img.shape[1]) - img.shape[1]/2)[::-1] * img.header['DISPDW'] + img.header['DISPWC']
 
                 wapprox = wapprox * u.angstrom
 
