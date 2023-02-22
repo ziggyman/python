@@ -59,16 +59,19 @@ fluxstdsListsStartWith = 'fluxstds'#DBS
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
 refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_vertical_otzxf')#aprefVerticalTrace_spupnic_2007')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_-6725_vertical_otzf')#aprefVerticalTrace_spupnic_2007')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_3600-5600_vertical_otzf')#aprefVerticalTrace_spupnic_2007')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
 refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_-6725_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_3600-5600_horizontal_otzf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_85')#16_3')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_%d_%d_aug2013')
 refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_otzfif')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_-6725_otzfif')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_BLUE_otzfif')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_aug07_Blue_3600-5600_otzfif')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
@@ -80,6 +83,7 @@ refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_otzfif')
 #lineList = os.path.join(refPath,'saao_refspec_may2007.new')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_blue.txt')
 lineList = os.path.join(refPath,'dbs_refspec_aug2007_red.txt')
+lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_red_-6725_lines.txt')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_blue_3600-5600_lines.txt')
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
@@ -313,16 +317,21 @@ if __name__ == '__main__':
     if True:
         # extract and reidentify ARCs
         # arc_otzxfif.list or arc_otzxf.list???
-        wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(getListOfFiles(os.path.join(workPath,'arc_otzxf.list')),
+        arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
+        wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(arc_otzxf_list,
                                                                         refProfApDef,
                                                                         lineList,
                                                                         referenceSpectrum,
-                                                                        display=False,
+                                                                        display=True,
                                                                         chiSquareLimit=0.2,
-                                                                        degree=5,
+                                                                        degree=2,#5,
                                                                         #apOffsetX=-155.5,
                                                                         )
-
+        for i in range(len(arc_otzxf_list)):
+            with open(arc_otzxf_list[i][:arc_otzxf_list[i].rfind('.')]+'i_wavelengthsOrig.dat','w') as f:
+                wLenOrig = wavelengthsOrig[i]
+                for wLen in wLenOrig:
+                    f.write('%.5f\n' % (wLen))
         # extract arcs and science data
         #extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis)
         inputList = getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfif.list'))
@@ -362,14 +371,27 @@ if __name__ == '__main__':
         doHelioCor = True# if inputList == objectListsStartWith else False
         print('doHelioCor = ',doHelioCor)
         ecFiles = []
+        skyFiles = []
         ecdFiles = []
         ecdfFiles = []
+        skydFiles = []
         areasList = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
         for fileName in areasList.getData('fName'):
             if fileName[0] != '#':
                 ecFiles.append(fileName[:fileName.rfind('.')]+'Ec.fits')
+                skyFiles.append(fileName[:fileName.rfind('.')]+'MedianSky.fits')
                 ecdFiles.append(fileName[:fileName.rfind('.')]+'Ecd.fits')
+                skydFiles.append(fileName[:fileName.rfind('.')]+'MedianSky_d.fits')
                 ecdfFiles.append(fileName[:fileName.rfind('.')]+'EcdF.fits')
+        dispCor(skyFiles,
+                getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
+                wavelengthsOrig,
+                skydFiles,
+                observatoryLocation,
+                'RA',#TELRA',
+                'DEC',#TELDEC',
+                'DATE-OBS',
+                doHelioCor = False)
         dispCor(ecFiles,
                 getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                 wavelengthsOrig,
