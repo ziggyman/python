@@ -511,7 +511,7 @@ def removeContentInDirAFromDirB(dirA,dirB):
         os.system(command)
 
 if __name__ == '__main__':
-    #makeFindingCharts()
+    makeFindingCharts()
     #inputList = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.list'
     #findTargetsVisibleAt(inputList,inputList[:inputList.rfind('.')])
     #removeNotUsed()

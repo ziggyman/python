@@ -1984,7 +1984,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             mng.full_screen_toggle()
             plt.title('original image '+twoDImageFileIn)
             plt.show()
-        newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)
+        newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0) if ((skyAbove is not None) and (skyBelow is not None)) else [imageTransposed,None]
         if display:
             plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.mean(newImageData))
             if skyAbove is not None:
@@ -1999,7 +1999,8 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             mng.full_screen_toggle()
             plt.title('sky subtracted image '+twoDImageFileIn)
             plt.show()
-            plt.imshow(skyData.transpose())
+            if skyData is not None:
+                plt.imshow(skyData.transpose())
             if skyAbove is not None:
                 plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
                 plt.plot([0.,image.shape[1]],[skyAbove[1],skyAbove[1]],'r-')
@@ -2195,10 +2196,12 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
     if newImageData is not None:
         if dispAxis == 'row':
             writeFits(newImageData.transpose(), twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
-            writeFits(skyData.transpose(), twoDImageFileIn, twoDImageFileIn[:-5]+'Sky.fits', metaKeys=None, metaData=None, overwrite=True)
+            if skyData is not None:
+                writeFits(skyData.transpose(), twoDImageFileIn, twoDImageFileIn[:-5]+'Sky.fits', metaKeys=None, metaData=None, overwrite=True)
         else:
             writeFits(newImageData, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
-            writeFits(skyData, twoDImageFileIn, twoDImageFileIn[:-5]+'Sky.fits', metaKeys=None, metaData=None, overwrite=True)
+            if skyData is not None:
+                writeFits(skyData, twoDImageFileIn, twoDImageFileIn[:-5]+'Sky.fits', metaKeys=None, metaData=None, overwrite=True)
     else:
         if extractionMethod == 'skyMedian':
             writeFits(image-skyImage, twoDImageFileIn, twoDImageFileIn[:-5]+'-sky.fits', metaKeys=None, metaData=None, overwrite=True)
@@ -2502,7 +2505,7 @@ def rebin(wavelength, spectrum, newWavelength, preserveFlux = True, outFileName 
         wLenNew = newWavelength
     input_spectrum = Spectrum1D( flux=np.array(spec) * u.erg / (u.cm * u.cm) / u.s / u.AA,
                                 spectral_axis = np.array(wLen) * u.AA)
-    print('rebin: spec = ',spec)
+    print('rebin: spec = ',spec.shape,': ',spec)
     print('rebin: input_spectrum = ',input_spectrum)
     resample_grid = np.array(wLenNew) *u.AA
 #        print('rebin: resample_grid = ',resample_grid)
@@ -2600,9 +2603,9 @@ def resampleSpec(wLen, spec):
     dLam = np.min([np.absolute(wLen[1]-wLen[0]),np.absolute(wLen[wLen.shape[0]-1]-wLen[wLen.shape[0]-2])])
     resampled = np.arange(np.min([wLen[0], wLen[wLen.shape[0]-1]]), np.max([wLen[0], wLen[wLen.shape[0]-1]]), dLam)
 
-    print('extractAndReidentifyARCs: wLen = ',wLen.shape,': ',wLen)
-    print('extractAndReidentifyARCs: spec = ',spec.shape,': ',spec)
-    print('extractAndReidentifyARCs: resampled = ',resampled.shape,': ',resampled)
+    print('resampleSpec: wLen = ',wLen.shape,': ',wLen)
+    print('resampleSpec: spec = ',spec.shape,': ',spec)
+    print('resampleSpec: resampled = ',resampled.shape,': ',resampled)
     resampledSpec = rebin(wLen, spec, resampled, preserveFlux = False)
     return [resampled,resampledSpec]
 
@@ -2819,7 +2822,7 @@ def dispCor(scienceListIn,
         print('dispcor: wLenSpecBefore = ',wLenSpecBefore.shape,': ',wLenSpecBefore)
         factorBefore = closestArcs[0][1] / (closestArcs[0][1]+closestArcs[1][1])
         print('dispcor: factorBefore = ',factorBefore)
-        STOP
+
         arcAfter = arcListIn[closestArcs[1][0]]
         print('dispCor: name of closest Arc after = ',arcAfter)
         wLenSpecAfter = wavelengthsOrigIn[closestArcs[1][0]]

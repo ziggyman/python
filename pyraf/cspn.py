@@ -1,10 +1,16 @@
+from astropy.io import ascii
 import csv
 import numpy as np
 from matplotlib import pyplot as plt
+import os
 import csvFree,csvData
 from myUtils import angularDistancePyAsl,hmsToDeg,dmsToDeg,raDecToLonLat
 
-inputSGFile = '/Users/azuri/daten/uni/HKU/publications/CSPN/gonzalez-santamaria2021_tablea1.dat'
+inputSGFilea1 = '/Users/azuri/daten/uni/HKU/publications/PNorientations/Gonzalez-Santamaria/tablea1.dat'
+inputSGFilea2 = '/Users/azuri/daten/uni/HKU/publications/PNorientations/Gonzalez-Santamaria/tablea2.dat'
+inputSGFilea1c = '/Users/azuri/daten/uni/HKU/publications/PNorientations/Gonzalez-Santamaria/tablea1c.dat'
+inputGaiaBinariesFile = '/Users/azuri/daten/uni/HKU/publications/PNorientations/Kruckow2021/datafile3a.txt'
+inputPostCEPNeFile = '/Users/azuri/daten/uni/HKU/publications/PNorientations/post-CEbinaryPNe.list'
 inputHashFile = '/Users/azuri/daten/uni/HKU/publications/CSPN/hash_tbCSCoords_240122.csv'
 inputHashDiamFile = '/Users/azuri/daten/uni/HKU/publications/CSPN/hash_tbAngDiam_240122.csv'
 inputHashPNMainFile = '/Users/azuri/daten/uni/HKU/publications/CSPN/hash_PNMain_240122.csv'
@@ -12,6 +18,43 @@ inputHashPNMainFile = '/Users/azuri/daten/uni/HKU/publications/CSPN/hash_PNMain_
 csvDiam = csvFree.readCSVFile(inputHashDiamFile)
 
 outputSQLFile = '/Users/azuri/daten/uni/HKU/publications/CSPN/hash_tbCSCoords_240122.sql'
+
+def convertToCSV(table):
+    csvOut = csvData.CSVData()
+    for colname in table.colnames:
+        if csvOut.size() == 0:
+            csvOut.header = [colname]
+            for i in range(len(table[table.colnames[0]])):
+                csvOut.append([table[colname][i]])
+        else:
+            csvOut.addColumn(colname,table[colname])
+    return csvOut
+
+def readPostCEPNeFile():
+    csvOut = csvFree.readCSVFile(inputPostCEPNeFile,'\t',True)
+    print('csvOut.header = ',csvOut.header)
+    print('csvOut.data = ',csvOut.data)
+    return csvOut
+
+def readGSFile():
+    r = ascii.get_reader(ascii.Cds, readme=os.path.join(inputSGFilea1[:inputSGFilea1.rfind('/')],'Gonzalez-Santamaria2021_ReadMe.txt'))
+    tablea1 = r.read(inputSGFilea1)
+    tablea2 = r.read(inputSGFilea2)
+    tablea1c = r.read(inputSGFilea1c)
+    print('tablea1.colnames = ',tablea1.colnames,', length = ',len(tablea1[tablea1.colnames[0]]))
+    print('tablea2.colnames = ',tablea2.colnames,', length = ',len(tablea2[tablea2.colnames[0]]))
+    print('tablea1c.colnames = ',tablea1c.colnames,', length = ',len(tablea1c[tablea1c.colnames[0]]))
+    return [convertToCSV(tablea1),convertToCSV(tablea2),convertToCSV(tablea1c)]
+
+def readGaiaBinariesFile():
+    r = ascii.get_reader(ascii.Cds)
+    table = r.read(inputGaiaBinariesFile)
+    print('dir(table) = ',dir(table))
+    print('table = ',table)
+    print('table.columns = ',table.columns)
+    print('table.colnames = ',table.colnames)
+    print('table[',table.colnames[0],'] = ',len(table[table.colnames[0]]),': ',table[table.colnames[0]])
+    return convertToCSV(table)
 
 def fixHashFile():
     with open(outputSQLFile,'w') as w:
@@ -115,7 +158,7 @@ def plotHistogram():
     print('distances = ',len(distances),': ',distances)
 #    print('[d[0] for d in distances] = ',[d[0] for d in distances])
 #    print('np.array( [float(d[0]) for d in distances])>5. = ',np.array( [float(d[0]) for d in distances])>5.)
-    
+
     largeDistances = distances[np.array([float(d[0]) for d in distances]) > 5.]
     print('largeDistances = ',len(largeDistances),': ',largeDistances)
     histVals = plt.hist(np.sort(np.array([float(distance[0]) for distance in distances])),bins=40,range=[0.,40.])
@@ -204,10 +247,24 @@ def fixPNG(csvData):
                 csvData.setData('PNG',i,png)
     return csvData
 
+def checkForBinaries(gaiaBinaries, csvSG):
+    nFound = 0
+    for i in range(csvSG.size()):
+        if gaiaBinaries.find('Gaia',csvSG.getData('GaiaEDR3',i))[0] >= 0:
+            nFound += 1
+    print('found ',nFound,' CSPN in Binaries')
 
 if __name__ == '__main__':
     #fixHashFile()
-    csvHash, csvSG = plotHistogram()
-    csvHash = csvFree.readCSVFile(inputHashPNMainFile)
-    csvHash = fixPNG(csvHash)
-    checkForStellarPNe(csvHash, csvSG)
+#    csvHash, csvSG = plotHistogram()
+#    print('csvSG.header = ',csvSG.header)
+#    STOP
+    #csvHash = csvFree.readCSVFile(inputHashPNMainFile)
+    #csvHash = fixPNG(csvHash)
+    #checkForStellarPNe(csvHash, csvSG)
+    gaiaBinaries = readGaiaBinariesFile()
+    csvGSa1,csvGSa2,csvGSa1c = readGSFile()
+    checkForBinaries(gaiaBinaries, csvGSa1)
+#    checkForBinaries(gaiaBinaries, csvGSa2)
+    checkForBinaries(gaiaBinaries, csvGSa1c)
+    readPostCEPNeFile()

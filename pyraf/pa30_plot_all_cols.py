@@ -81,7 +81,7 @@ for area in tab[0]['ObjectAreas']:
     #        hdulist[0].header[''] = header['']
         obsdate = getDateTime(header['DATE-OBS'])
         datestr = obsdate.strftime('%d%m%y')
-        print 'datestr = <'+datestr+'>'
+        print('datestr = <'+datestr+'>')
 
         hdulist.writeto(specOutName, clobber=True)
 

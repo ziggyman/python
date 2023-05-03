@@ -65,12 +65,21 @@ from localTimeToLST import ltToLST
 #utcoffset = -4*u.hour
 #date = '2019-09-05'
 
-def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, plotAirmass=False, outFileName=None):
+def plot_target(target,
+                observatoryLocation,
+                observatoryName,
+                utcoffset,
+                date,
+                plotAirmass=False,
+                outFileName=None):
     midnight = Time(date+' 00:00:00') - utcoffset
     observatory = observatoryLocation
-    obs = Observer.at_site(observatoryName)#, timezone='Eastern Standard Time')
-    observationStartTime = obs.twilight_evening_astronomical(midnight)#Time('2019-9-5 19:10:00') - utcoffset
-    observationEndTime = obs.twilight_morning_astronomical(midnight)#Time('2019-9-6 4:55:00') - utcoffset
+    observer = Observer(location=observatoryLocation, name='Calar Alto')#, timezone='')
+    #obs = Observer.at_site(observatoryName)#, timezone='Eastern Standard Time')
+    print('observatory = ',observatory)
+    #print('obs = ',obs)
+    observationStartTime = observer.twilight_evening_astronomical(midnight)#Time('2019-9-5 19:10:00') - utcoffset
+    observationEndTime = observer.twilight_morning_astronomical(midnight)#Time('2019-9-6 4:55:00') - utcoffset
     observationStartTime.format = 'iso'
     observationEndTime.format = 'iso'
     ##############################################################################
@@ -252,6 +261,9 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
     siderealTimes = []
     fullHourLSTIndices = []
     fullHourLST = []
+    print('lonVal = ',lonVal)
+    print('utcoffset = ',utcoffset)
+    print('times = ',times)
     for iTime in np.arange(0,len(times),1):
 #        print('iTime = ',iTime,': times[',iTime,'] = ',times[iTime])
         siderealTime = ltToLST(lonVal, utcoffset, times[iTime])
@@ -259,21 +271,25 @@ def plot_target(target, observatoryLocation, observatoryName, utcoffset, date, p
             fullHourLSTIndices.append(iTime)
             fullHourLST.append(siderealTime.strftime("%H:%M"))
         siderealTimes.append(siderealTime)
-#    print('siderealTimes = ',siderealTimes)
-#    print('fullHourLSTIndices = ',fullHourLSTIndices)
+    print('siderealTimes = ',siderealTimes)
+    print('fullHourLSTIndices = ',fullHourLSTIndices)
 
     xTicks = 0
     xTickInd = []
     while xTicks < len(fullHourLSTIndices):
         xTickInd.append(xTicks)
         xTicks += 2
-#    print('xTickInd = ',xTickInd)
+    print('xTickInd = ',xTickInd)
 
     xTickLabels = []
     xTickTimes = []
     for tempInd in np.arange(0,len(fullHourIndices),2):
         xTickLabels.append(plotTimes[fullHourIndices[tempInd]].strftime("%H:%M"))
         xTickTimes.append(plotTimes[fullHourIndices[tempInd]])
+
+    print('xTickLabels = ',xTickLabels)
+    print('xTickTimes = ',xTickTimes)
+    #STOP
 
     ax1.set_xticks(xTickTimes)
     ax1.set_xticklabels(xTickLabels)
