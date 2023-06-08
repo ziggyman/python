@@ -12,7 +12,7 @@ import csvFree,csvData
 conf.auto_max_age = None
 #download_IERS_A()
 
-midnightTime = Time('2020-5-15 0:00:00')
+midnightTime = Time('2023-06-17 0:00:00')
 doCalc = True
 
 # string = xx:yy:zz.zzz
@@ -238,11 +238,13 @@ def writeCopyImagesComands(csvInFName, outFileName):
                 f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iphas3colour_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iphas3colour_centroid.png\n')
                 f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int.png\n')
                 f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int_centroid.png\n')
+                f.write('cp /data/fermenter/PNImages/'+idPNMain+'/IPHAS/'+csvIphas.getData('filename',csvIphas.find('idPNMain',idPNMain)[2])+' '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_Ha.fits\n')
             if posSHS >= 0:
                 f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb.png\n')
                 f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb_centroid.png\n')
                 f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int.png\n')
                 f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int_centroid.png\n')
+                f.write('cp /data/fermenter/PNImages/'+idPNMain+'/SHS/shs*wha.fits '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_shs_wha.fits\n')
 
 
 def main():
@@ -254,7 +256,7 @@ def main():
                 if priority:
                     allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_truePN_MPA.csv'
                 else:
-                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_PLc.csv'#'/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/pnMain_need_spectrum.csv'#all_targets_PLc_03052023.csv'#'/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
 
                 ssoObs = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
                 sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
@@ -407,7 +409,7 @@ def main():
                     print('removed ',goodLength - len(goodTargets),' targets already observed')
                     writeCSV(goodTargets,outFileName,'DRAJ2000')
                     print('wrote goodTargets to file <'+outFileName+'>')
-                    STOP
+                    #STOP
                     moveTargetsStartingWithToNewList(outFileName,
                                                      'DeGaPe',
                                                      goodFileName,
@@ -446,7 +448,7 @@ def main():
                         localTime = time + utcoffset
                         visFileName = fName[:fName.rfind('.')]+'_visible_at_'+localTime.strftime("%H-%M")+'.csv'
                         writeCSV(visibleAt, visFileName, 'DRAJ2000')
-                        #writeCopyImagesComands(visFileName, visFileName[:-4]+'_commands')
+                        writeCopyImagesComands(visFileName, visFileName[:-4]+'_commands')
 
 if __name__ == "__main__":
     main()

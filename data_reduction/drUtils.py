@@ -98,7 +98,10 @@ def getHeaderValue(fname, keyword, hduNum=0):
     hdulist = pyfits.open(fname)
     header = hdulist[hduNum].header
     hdulist.close()
-    return header[keyword]
+    try:
+        return header[keyword]
+    except:
+        return None
 
 def setHeaderValue(fitsFileName,keyword,value,hduNum=0):
     hdulist = pyfits.open(fitsFileName)
@@ -371,7 +374,8 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                     else:
                         print('creating lists for exptype=',exptype,', object=',object,', lines=',lines,', suffix = ',suffix)
                         createLists(exptype,object,lines,suffix)
-                        #STOP
+                        #if exptype == 'science':
+                        #    STOP
 
                 if len(individualLists) > 0:
                     for object in individualLists:
@@ -875,8 +879,8 @@ def flatCorrect(fitsFilesIn,
         dataOut.append(ccdDataFlattened)
         if fitsFilesOut is not None:
             print('iFile = ',iFile,', len(fitsFilesIn) = ',len(fitsFilesIn),', len(fitsFilesOut) = ',len(fitsFilesOut))
-            print('fitsFilesIn = ',fitsFilesIn)
-            print('fitsFilesOut = ',fitsFilesOut)
+            #print('fitsFilesIn = ',fitsFilesIn)
+            #print('fitsFilesOut = ',fitsFilesOut)
             writeFits(ccdDataFlattened, fitsFilesIn[iFile], fitsFilesOut[iFile], ['FLATCORR'], [flat], overwrite=overwrite)
     return dataOut
 
@@ -1062,9 +1066,9 @@ def calcTrace(dbFile, apNum=0, xRange = None, apOffsetX = 0.):
 # image with centers of aperture set to zero
 def markCenter(imFileIn, trace, imFileOut=None):
     image = CCDData.read(imFileIn, unit="adu")
-    print('markCenter: image.shape = ',image.shape)
-    print('markCenter: trace = ',len(trace),': ',trace)
-    print('markCenter: trace[0].shape = ',trace[0].shape)
+#    print('markCenter: image.shape = ',image.shape)
+#    print('markCenter: trace = ',len(trace),': ',trace)
+#    print('markCenter: trace[0].shape = ',trace[0].shape)
     for i in np.arange(0,trace[0].shape[0],1):
         image.data[int(trace[0][i]), int(trace[1][i])] = 0.
     if imFileOut is not None:
@@ -1292,7 +1296,13 @@ def lambdaCal(oneDImageFileIn, specOutName, func, coeffs):
 # @param halfWidth: int: half width of emission line
 # @param dxFit: float: dx for output fitted profile
 # @param plot: bool: plot debugging plots?
-def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False, apOffsetX = 0.):
+def calcLineProfile(twoDImageFileIn,
+                    apNumber,
+                    halfWidth,
+                    dxFit=0.01,
+                    plot=False,
+                    apOffsetX = 0.,
+                    markCenter=False):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('calcLineProfile: image.shape = ',image.shape)
 
@@ -1334,18 +1344,23 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     dbFile = os.path.join(dbFile,'ap'+tempFile[tempFile.rfind('/')+1:tempFile.rfind('.')])
     print('calcLineProfile: dbFile = <'+dbFile+'>')
     row,center = calcTrace(dbFile, apNum=apNumber, xRange = None, apOffsetX=apOffsetX)
-    markCenter(tempFile, [row, center], tempFile)
-    print('calcLineProfile: row = ',len(row),': ',row)
-    print('calcLineProfile: center = ',len(center),': ',center)
+    if markCenter:
+        markCenter(tempFile, [row, center], tempFile)
+    #print('calcLineProfile: row = ',len(row),': ',row)
+    #print('calcLineProfile: center = ',len(center),': ',center)
 
     colNumber = int(center[int(len(row)/2)])
 
     centerRow = image[centerRowIdx,:]
+    print('calcLineProfile: twoDImageFileIn = ',twoDImageFileIn,': colNumber = ',colNumber,', halfWidth = ',halfWidth)
+    print('calcLineProfile: centerRow[colNumber-halfWidth:colNumber+halfWidth+1] = ',centerRow[colNumber-halfWidth:colNumber+halfWidth+1])
+    print('calcLineProfile: np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]) = ',np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]))
+    print('calcLineProfile: centerRow = ',centerRow)
     maxPos = np.where(centerRow == np.amax(centerRow[colNumber-halfWidth:colNumber+halfWidth+1]))[0][0]
-    print('calcLineProfile: maxPos = ',maxPos)
+    print('calcLineProfile: twoDImageFileIn = ',twoDImageFileIn,': maxPos = ',maxPos)
 
     center += maxPos - center[centerRowIdx]
-    print('calcLineProfile: center = ',center)
+    #print('calcLineProfile: center = ',center)
 
     if False:#'PNG'in twoDImageFileIn:
         plot = True
@@ -1354,7 +1369,8 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     if plot:
         plt.plot(row,center)
         plt.show()
-    markCenter(tempFile, [row,center], imFileOut=tempFile[:-5]+'_centerMarked'+str(apNumber)+'.fits')
+    if markCenter:
+        markCenter(tempFile, [row,center], imFileOut=tempFile[:-5]+'_centerMarked'+str(apNumber)+'.fits')
 
     if plot:
         plt.plot(centerRow)
@@ -1382,7 +1398,7 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
             intensities.append(image[row,x+int(center[row])])
 #        print('calcLineProfile: np.sum(image[row,xProfInt+int(center[row])]) = ',np.sum(image[row,xProfInt+int(center[row])]))
     sortedIndices = np.argsort(profileDataX)
-    print('calcLineProfile: sortedIndices = ',sortedIndices)
+    #print('calcLineProfile: sortedIndices = ',sortedIndices)
     profileDataX = np.array(profileDataX)[sortedIndices]
     profileDataY = np.array(profileDataY)[sortedIndices]
     if plot:
@@ -1408,15 +1424,19 @@ def calcLineProfile(twoDImageFileIn, apNumber, halfWidth, dxFit=0.01, plot=False
     #interpolate lsq spline
     t = xProfInt#[-1,-0.5,0,0.5,1]
     k = 3
-    print('calcLineProfile: (profileDataX[0],)*(k+1) = ',(profileDataX[0],)*(k+1))
-    print('calcLineProfile: t=',t)
-    print('calcLineProfile: (profileDataX[-1],)*(k+1) = ',(profileDataX[-1],)*(k+1))
+    #print('calcLineProfile: (profileDataX[0],)*(k+1) = ',(profileDataX[0],)*(k+1))
+    #print('calcLineProfile: t=',t)
+    #print('calcLineProfile: (profileDataX[-1],)*(k+1) = ',(profileDataX[-1],)*(k+1))
     t = np.r_[(profileDataX[0],)*(k+1),
               t,
               (profileDataX[-1],)*(k+1)]
-#    print('calcLineProfile: t=',t)
-#    print('calcLineProfile: profileDataX = ',profileDataX.shape,': ',profileDataX)
-#    print('calcLineProfile: profileDataY = ',profileDataY.shape,': ',profileDataY)
+    #print('calcLineProfile: t=',t)
+    #print('calcLineProfile: profileDataX = ',profileDataX.shape,': ',profileDataX)
+    #for ind in range(profileDataX.shape[0]):
+    #    print('profileDataX[',ind,'] = ',profileDataX[ind])
+    #print('calcLineProfile: profileDataY = ',profileDataY.shape,': ',profileDataY)
+    #print(profileDataX.ndim)
+    #print(np.any(profileDataX[1:] <= profileDataX[:-1]))
     spl = make_lsq_spline(profileDataX, profileDataY, t, k)
     yFit = spl(x)
     if plot:
@@ -2337,14 +2357,39 @@ def getNumberOfApertures(databaseFileNameIn):
     print('getNumberOfApertures: nAps = ',nAps)
     return nAps
 
-def getLineProfiles(arcFitsName2D,halfWidth=7,dxFit=0.1,display=False, apOffsetX = 0.):
+def getApWidth(databaseFileNameIn):
+    with open(databaseFileNameIn,'r') as f:
+        lines = f.readlines()
+    low = 0.
+    high = 0.
+    for line in lines:
+        elems = line.strip('\n').strip(' ').strip('\t').split('\t')
+        print('getApWidth: elems = ',elems)
+        if elems[0].strip(' ').strip('\t') == 'low':
+            low = float(elems[1].split(' ')[0])
+        if elems[0].strip(' ').strip('\t') == 'high':
+            high = float(elems[1].split(' ')[0])
+    width = high-low
+    print('getApWidth: width = ',width)
+    return width
+
+def getLineProfiles(arcFitsName2D,
+                    dxFit=0.1,
+                    display=False,
+                    apOffsetX = 0.):
     lineProfiles = []
     print('getLineProfiles: arcFitsName2D = <'+arcFitsName2D+'>')
     tempFile = os.path.join(arcFitsName2D[0:arcFitsName2D.rfind('/')],'database','aptmp'+arcFitsName2D[arcFitsName2D.rfind('/')+1:-5])
     print('getLineProfiles: tempFile = <'+tempFile+'>')
 
+    halfWidth = int(getApWidth(tempFile)/2.)
+
     for apNumber in np.arange(0,getNumberOfApertures(tempFile),1):
-        lineProfiles.append(calcLineProfile(arcFitsName2D, apNumber, halfWidth,dxFit, apOffsetX=apOffsetX))
+        lineProfiles.append(calcLineProfile(arcFitsName2D,
+                                            apNumber,
+                                            halfWidth,
+                                            dxFit,
+                                            apOffsetX=apOffsetX))
 
         if display:
             plt.plot(lineProfiles[len(lineProfiles)-1][0],lineProfiles[len(lineProfiles)-1][1],label='ap '+str(apNumber))
@@ -2661,10 +2706,10 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
         shiftLineList(lineListTmp,
                       lineListTmp+'tmp',
                       shift)
+        print('extractAndReidentifyARCs: shifted line list = <'+lineListTmp+'tmp>')
         print('extractAndReidentifyARCs: referenceApertureDefinitionFile = <'+refApDef+'>')
         tempFile = arc[:arc.rfind('/')+1]+'database/aptmp'+arc[arc.rfind('/')+1:arc.rfind('.')]
         print('extractAndReidentifyARCs: tempFile = <'+tempFile+'>')
-
         if '%' in refApDef:
             refApDefTmp = refApDef % (int(gratingAngle[:gratingAngle.find('.')]),
                              int(gratingAngle[gratingAngle.find('.')+1:]))
@@ -2779,7 +2824,8 @@ def getClosestArcs(fitsFileName, fitsList):
     print('getClosestArcs: whereLT = ',whereLT)
     print('getClosestArcs: whereGT = ',whereGT)
     closestBefore = getClosestInTime(specTime, arcTimes[whereLT])
-    closestAfter = getClosestInTime(specTime, arcTimes[whereGT])
+    closestTemp = getClosestInTime(specTime, arcTimes[whereGT])
+    closestAfter = [whereGT[closestTemp[0]],closestTemp[1]]
     print('getClosestArcs: closestBefore = ',closestBefore)
     print('getClosestArcs: closestAfter = ',closestAfter)
     return [closestBefore,closestAfter]
@@ -2889,6 +2935,8 @@ def dispCor(scienceListIn,
                    )
         wLenSpecTest = getWavelengthArr(scienceListOut[iSpec])
         print('dispCor: wLenSpecTest = ',wLenSpecTest)
+#        if 'dbs01541' in scienceListIn[iSpec]:
+#            STOP
 
 def heliocor(observatoryLocation, header, keywordRA, keywordDEC, keywordObsTime):
     #print('heliocor: EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
@@ -3140,7 +3188,7 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='
         Xfile = obs_extinction(airmassExtCor)
 
         try:
-            AIRVAL = float(img.header['AIRMASS'])
+            AIRVAL = float(getHeaderValue(objectSpectraIn[iSpec],'AIRMASS'))#img.header['AIRMASS'])
         except:
             AIRVAL = float(img.header['SECZ'])
 #        print('applySensFuncs: AIRMASS = ',AIRVAL)
@@ -3527,3 +3575,160 @@ def fixDBSHeaders(filelist):
             if getHeaderValue(fitsFile,'OBJECT').lower() == 'sky':
                 setHeaderValue(fitsFile,'IMAGETYP','FLAT')
                 setHeaderValue(fitsFile,'OBJECT','SKYFLAT')
+
+
+def open_image(imagename):
+    from astropy.io import fits
+    from astropy.wcs import WCS
+    import montage_wrapper as montage
+    hdu = fits.open(imagename)
+    hdu = montage.reproject_hdu(hdu[0], north_aligned=True)
+    image = hdu.data
+    nans = np.isnan(image)
+    image[nans] = 0
+    header = hdu.header
+    wcs = WCS(header)
+    return image, header, wcs
+
+def createFindingChartFromFits(fitsFileName,
+                               widthInArcSeconds,
+                               pnMajDiamInArcSeconds,
+                               objectName,
+                               ra,
+                               dec,
+                               outDirName,
+                               display=False):
+    from myUtils import angularDistanceFromXY#getArcsecDistance
+    from astropy.nddata import Cutout2D
+    from astropy import units as u
+    import astropy.visualization as vis
+    from astropy.wcs import WCS
+    import montage_wrapper as montage
+#    from myUtils import getRaDecFromXY
+
+#    image, header, wcs = open_image(fitsFileName)
+#    print('image.shape = ',image.shape)
+
+#    fig,ax = plt.subplots(1,1, subplot_kw=dict(projection=wcs))
+#    ra = ax.coords[0]
+#    dec = ax.coords[1]
+#    ra.set_major_formatter('hh:mm:ss.s')
+#    dec.set_major_formatter('dd:mm:ss')
+
+    #setting image scale
+#    interval = vis.PercentileInterval(99.9)
+#    vmin,vmax = interval.get_limits(image)
+#    norm = vis.ImageNormalize(vmin=vmin, vmax=vmax, stretch=vis.LogStretch(1000))
+#    ax.imshow(image, cmap =plt.cm.Reds, norm = norm, origin = 'lower')
+#    ax.set_ylabel('Dec.')
+#    ax.set_xlabel('RA')
+#    plt.show()
+
+    print('fitsFileName = ',fitsFileName[fitsFileName.rfind('/')+1:])
+    fitsData = getImageData(fitsFileName,0)
+#    plt.imshow(fitsData)
+#    plt.show()
+    fitsDataShape = fitsData.shape
+    print('fitsDataShape = ',fitsDataShape)
+#    x0 = 0
+#    y0 = 0
+#    x1 = fitsDataShape[0]-1
+#    y1 = fitsDataShape[1]-1
+#    dist = angularDistanceFromXY(fitsFileName, 0, 0, x1, y1)
+#    print('x0 = ',x0,', y0 = ',y0,', x1 = ',x1,', y1 = ',y1,': dist = ',dist)
+
+    x0 = 0
+    y0 = 0
+    x1 = 0
+    y1 = fitsDataShape[1]-1
+    dist = angularDistanceFromXY(fitsFileName, 0, 0, x1, y1)
+    print('x0 = ',x0,', y0 = ',y0,', x1 = ',x1,', y1 = ',y1,': dist = ',dist)
+
+    x0 = 0
+    y0 = 0
+    x1 = fitsDataShape[0]-1
+    y1 = 0
+    dist = angularDistanceFromXY(fitsFileName, 0, 0, x1, y1)
+    print('x0 = ',x0,', y0 = ',y0,', x1 = ',x1,', y1 = ',y1,': dist = ',dist)
+
+    center = [fitsDataShape[0]/2.,fitsDataShape[1]/2.]
+    newWidthInPixels = int(fitsDataShape[0] * widthInArcSeconds / dist)
+    print('new width in pixels = ',newWidthInPixels)
+    pixPerArcSec = newWidthInPixels / widthInArcSeconds
+    print('pixPerArcSec = ',pixPerArcSec)
+    circleRadius = pnMajDiamInArcSeconds * pixPerArcSec / 2.
+    print('circleRadius = ',circleRadius,' pixels')
+    if np.min([fitsDataShape[0],fitsDataShape[1]]) < newWidthInPixels:
+        cutout = np.full((newWidthInPixels,newWidthInPixels),np.min(fitsData))
+        x0 = np.max([int(newWidthInPixels/2 - fitsDataShape[0]/2),0])
+        x1 = np.min([int(newWidthInPixels/2 + fitsDataShape[0]/2),newWidthInPixels])
+        y0 = np.max([int(newWidthInPixels/2 - fitsDataShape[1]/2),0])
+        y1 = np.min([int(newWidthInPixels/2 + fitsDataShape[1]/2),newWidthInPixels])
+        print('x0 = ',x0,', x1 = ',x1,', y0 = ',y0,', y1 = ',y1)
+        print('x1-x0 = ',x1-x0)
+        print('y1-y0 = ',y1-y0)
+        dx0 = np.max([0,int(fitsData.shape[0]/2-newWidthInPixels/2)])
+        dx1 = np.min([newWidthInPixels,fitsData.shape[0]])
+        dy0 = np.max([0,int(fitsData.shape[1]/2-newWidthInPixels/2)])
+        dy1 = np.min([newWidthInPixels,fitsData.shape[1]])
+        print('dx0 = ',dx0,', dx1 = ',dx1,', dy0 = ',dy0,', dy1 = ',dy1)
+        print('dx1-dx0 = ',dx1-dx0)
+        print('dy1-dy0 = ',dy1-dy0)
+        cutout[x0:x1,y0:y1] = fitsData[dx0:dx1,dy0:dy1]
+    else:
+        position = (center[0], center[1])
+        size = newWidthInPixels * u.pixel
+        print('position = ',position,', size = ',size)
+        cutout = Cutout2D(fitsData,position,size)
+    plt.gray()
+    if fitsFileName.rfind('_shs') < 0:
+        tmp = fitsFileName[:fitsFileName.rfind('_Ha')]
+        outFileName = os.path.join(outDirName,fitsFileName[fitsFileName.rfind('/')+1:fitsFileName.rfind('_Ha')]+'_findingChart.png')
+    else:
+        tmp = fitsFileName[:fitsFileName.rfind('_shs')]
+        outFileName = os.path.join(outDirName,fitsFileName[fitsFileName.rfind('/')+1:fitsFileName.rfind('_shs')]+'_findingChart.png')
+    idPNMain = tmp[tmp.rfind('_')+1:]
+    #ra, dec = getRaDecFromXY(fitsFileName,fitsDataShape[0]/2,fitsDataShape[1]/2)
+    print('idPNMain = ',idPNMain)
+    minVal = np.min(cutout.data)
+    maxVal = np.max(cutout.data)
+    vmax = minVal+(maxVal-minVal)/7.
+    print('minVal = ',minVal,', maxVal = ',maxVal,', vmax = ',vmax)
+    interval = vis.PercentileInterval(99.95)
+    vmin,vmax = interval.get_limits(cutout.data)
+    norm = vis.ImageNormalize(vmin=vmin, vmax=vmax, stretch=vis.LogStretch(1000))
+
+    plt.imshow(cutout.data, cmap=plt.cm.binary, origin='lower', norm=norm)#, vmin = minVal, vmax = vmax)#, cmap='gray', vmin=0, vmax=255)norm=norm)#
+    #plt.plot([newWidthInPixels/2,newWidthInPixels/2+newWidthInPixels/20],[newWidthInPixels/2,newWidthInPixels/2-newWidthInPixels/20],'r-')
+    #plt.plot([newWidthInPixels/2,newWidthInPixels/2],[newWidthInPixels/2,newWidthInPixels/2-newWidthInPixels/20],'r-')
+    #plt.plot([newWidthInPixels/2,newWidthInPixels/2+newWidthInPixels/20],[newWidthInPixels/2,newWidthInPixels/2],'r-')
+    circle1 = plt.Circle((int(newWidthInPixels/2), int(newWidthInPixels/2)), circleRadius, color='r', fill=False)
+    plt.gca().add_patch(circle1)
+    plt.title('HASH ID '+idPNMain+' '+objectName)
+#    cutout.plot_on_original(color='white')
+    plt.xticks([])
+    plt.yticks([])
+    plt.xlabel('RA %s +/- %d arcsec' % (ra, widthInArcSeconds/2))
+    plt.ylabel('DEC %s +/- %d arcsec' % (dec, widthInArcSeconds/2))
+    if display:
+        plt.show()
+    else:
+        plt.savefig(outFileName)
+        plt.close()
+#    STOP
+    return outFileName
+
+
+def createFindingChartsFromFits(dirName,widthInArcSeconds,pnMainWithMajDiamFileName):
+    import csvFree,csvData
+    pnMain = csvFree.readCSVFile(pnMainWithMajDiamFileName)
+    fileList = os.listdir(dirName)
+    for item in fileList:
+        if item.endswith('.fits'):
+            tmp = item[:item.rfind('_shs')]
+            idPNMain = tmp[tmp.rfind('_')+1:]
+            found = pnMain.find('idPNMain',idPNMain)[0]
+            majDiam = float(pnMain.getData('MajDiam',found))
+            name = pnMain.getData('Name',found)
+            print('name = <'+name+'>: MajDiam = ',majDiam)
+            createFindingChartFromFits(os.path.join(dirName,item),widthInArcSeconds,majDiam,name)

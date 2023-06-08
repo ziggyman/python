@@ -542,12 +542,16 @@ def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
 #    print('ra2 = ',ra2,', dec2 = ',dec2)
     return angularDistance(ra1, dec1, ra2, dec2)
 
+def getRaDecFromXY(fitsName, x, y):
+    result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x), str(y)])
+    raHMS, decHMS, x1, y1 = getRaDecXY(result1)
+    return [raHMS, decHMS]
 
 def getArcsecDistance(fitsName, x1, y1, x2, y2):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
     result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
-    #print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
-    #print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
+    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
+    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
     raHMS1, decHMS1, x1, y1 = getRaDecXY(result1)
     raHMS2, decHMS2, x2, y2 = getRaDecXY(result2)
     #print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)

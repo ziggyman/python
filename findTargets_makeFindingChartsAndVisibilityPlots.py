@@ -7,32 +7,59 @@ from distutils.dir_util import copy_tree
 import numpy as np
 from PIL import Image
 import shutil
+import subprocess
+
 
 from plot_obs_planning import plot_target
 import csvFree,csvData
 from myUtils import angularDistancePyAsl,hmsToDeg,dmsToDeg
+from drUtils import createFindingChartFromFits
 
 #from astroplan import download_IERS_A
 #download_IERS_A()
 
-goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good'
-outDir = os.path.join(goodTargetsDir,'findingCharts')
-fileList = os.path.join(goodTargetsDir,'allFiles.list')
+#goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good'
+goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17'
+outDir = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_good/findingCharts')
+fileList = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_good/allFiles.list')
 
-allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_PLc.csv'
+idPNMain_hash_no_spectrum = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_TLPc_no_spectrum_020623.csv')).getData('idPNMain')
+idPNMain_literature_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'literature_spectrum_available.csv')).getData('idPNMain')
+idPNMain_elcat_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'elcat_available.csv')).getData('idPNMain')
+
+pnMain = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_PNMain_010623.csv'))#'hash_TLPc_no_spectrum_010623.csv'))
+
+fitsFiles = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_FitsFiles_010623.csv'))
+
+usrCommentsFile = os.path.join(goodTargetsDir,'hash_UsrComm_010623.csv')
+
+angDiams = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_AngDiam_050623.csv'))
+
+names = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_Names_050623.csv'))
+
+allPossibleTargets = os.path.join(goodTargetsDir,'pnMain_need_spectrum.csv')
 allPNe = csvFree.readCSVFile(allPossibleTargets)
+#usrComments = csvFree.readCSVFile(usrCommentsFile)
+#elcats = ['elcat_dopita.csv','elcat_ercolano.csv','elcat_frew.csv','elcat_hsia.csv','elcat_kerber.csv','elcat_kraan.csv','elcat_kwitter.csv']
 
 observatoryName = "SAAO"
 observatoryLocation = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
 utcoffset = 2*u.hour
-date = '2020-05-15'
+date = '2023-06-17'
 midnight = Time(date+' 00:00:00') - utcoffset
 minAltitude = 30.0
 
 def getIdPNMainFromFileName(fName):
-    idPNTemp = fName[fName.find('_')+1:]
+#    print('fName = '+fName)
+    idPNTemp = fName[fName.rfind('/')+1:]
+#    print('idPNTemp = <'+idPNTemp+'>')
     idPNTemp = idPNTemp[idPNTemp.find('_')+1:]
+#    print('idPNTemp = <'+idPNTemp+'>')
+    idPNTemp = idPNTemp[idPNTemp.find('_')+1:]
+#    print('idPNTemp = <'+idPNTemp+'>')
     idPNTemp = idPNTemp[:idPNTemp.find('_')]
+#    print('idPN = <'+idPNTemp+'>')
+#    STOP
     return idPNTemp
 
 def getAllIdPNMains(fNamesList):
@@ -106,59 +133,103 @@ def makeFindingCharts():
         print('idPNMain = ',idPNMain)
         images = getImagesForIdPNMain(fNamesList,idPNMain)
         print('images = ',images)
-        outDirName = os.path.join(outDir,idPNMain)
-        if not os.path.exists(outDirName):
-            os.mkdir(outDirName)
-
-        for im in images:
-            background = Image.open(os.path.join(goodTargetsDir,im))
-            overlay = Image.open(os.path.join(goodTargetsDir,im[:-4]+'_centroid.png'))
-
-            background = background.convert("RGBA")
-            overlay = overlay.convert("RGBA")
-
-            new_img = Image.new("RGBA", background.size)
-            new_img = Image.alpha_composite(new_img, background)
-            new_img = Image.alpha_composite(new_img, overlay)
-            newImName = os.path.join(os.path.join(outDir,idPNMain),im[:-4]+'_findingChart.png').replace('.0','')
-            new_img.save(newImName,"PNG")
+        #STOP
 
         pos = csvAllTargets.find('idPNMain',idPNMain,0)[0]
         print('pos = ',pos)
-#        print(csvAllTargets.getData(pos))
+        majDiam = float(csvAllTargets.getData('MajDiam',pos))
+        name = csvAllTargets.getData('Name',pos)
+        if (majDiam < 200) and ('Ritter' not in name) and ('Objet' not in name):
+            outDirName = os.path.join(outDir,idPNMain)
+            print('creating outDirName = <'+outDirName+'>')
+            if not os.path.exists(outDirName):
+                os.mkdir(outDirName)
+            if not os.path.exists(outDirName):
+                STOP
+            for im in images:
+                try:
+                    if os.path.exists(outDirName):
+                        if im.endswith('.png'):
+                            background = Image.open(os.path.join(outDir[:outDir.rfind('/')],im))
+                            overlay = Image.open(os.path.join(outDir[:outDir.rfind('/')],im[:-4])+'_centroid.png')
 
-        visName = im[:im.rfind('_')]
-        visName = visName[:visName.rfind('_')]
-        visName = os.path.join(os.path.join(outDir,idPNMain),visName+'_visibility.png').replace('.0','')
-        targetCoord = SkyCoord(ra=float(csvAllTargets.getData('DRAJ2000',pos))*u.deg,
-                               dec=float(csvAllTargets.getData('DDECJ2000',pos))*u.deg,
-                               frame='icrs')
-        try:
-            maxAltitudeTime = plot_target(targetCoord,
-                                          observatoryLocation,
-                                          observatoryName,
-                                          utcoffset,
-                                          date,
-                                          False,
-                                          outFileName=visName)
-            maxAltitudeHour = maxAltitudeTime.hour
-            print('maxAltitudeHour = ',maxAltitudeHour)
-            if maxAltitudeHour < 12:
-                if maxAltitudeHour > obsEndTimeHour:
-                    maxAltitudeHour = obsEndTimeHour
-            else:
-                if maxAltitudeHour < obsStartTimeHour:
-                    maxAltitudeHour = obsStartTimeHour
-            finalDir = os.path.join(outDir,
-                                    (str(maxAltitudeHour) if maxAltitudeHour > 9 else ('0'+str(maxAltitudeHour)))
-                                    +':00-'
-                                    +(str(maxAltitudeHour+1) if (maxAltitudeHour+1) > 9 else ('0'+str(maxAltitudeHour+1)))
-                                    +':00')
-            print('finalDir = <'+finalDir+'>')
-            shutil.move(outDirName,os.path.join(finalDir,idPNMain))
-        except:
-            nFailed += 1
-            pass
+                            background = background.convert("RGBA")
+                            overlay = overlay.convert("RGBA")
+
+                            new_img = Image.new("RGBA", background.size)
+                            new_img = Image.alpha_composite(new_img, background)
+                            new_img = Image.alpha_composite(new_img, overlay)
+                            newImName = os.path.join(outDirName,im[:-4]+'_findingChart.png')#.replace('.0','')
+                            new_img.save(newImName,"PNG")
+                        elif im.endswith('.fits'):
+                            if im.rfind('_shs') > 0:
+                                tmp = im[:im.rfind('_shs')]
+                                idPNMain = tmp[tmp.rfind('_')+1:]
+
+                                name = csvAllTargets.getData('Name',pos)
+                                print('name = <'+name+'>: MajDiam = ',majDiam)
+                                ra = csvAllTargets.getData('RAJ2000',pos)
+                                dec = csvAllTargets.getData('DECJ2000',pos)
+                                try:
+                                    createFindingChartFromFits(os.path.join(outDir[:outDir.rfind('/')],im),
+                                                               240,
+                                                               majDiam,
+                                                               name,
+                                                               ra,
+                                                               dec,
+                                                               outDirName,
+                                                               display=False)
+                                except Exception as e:
+                                    print(e)
+                                    STOP
+
+                                visName = im[:im.rfind('_')]
+                                visName = visName[:visName.rfind('_')]
+                                visName = os.path.join(os.path.join(outDir,idPNMain),visName+'_visibility.png')#.replace('.0','')
+                                targetCoord = SkyCoord(ra=float(csvAllTargets.getData('DRAJ2000',pos))*u.deg,
+                                                    dec=float(csvAllTargets.getData('DDECJ2000',pos))*u.deg,
+                                                    frame='icrs')
+                                maxAltitudeTime = plot_target(targetCoord,
+                                                            observatoryLocation,
+                                                            observatoryName,
+                                                            utcoffset,
+                                                            date,
+                                                            False,
+                                                            outFileName=visName)
+                                maxAltitudeHour = maxAltitudeTime.hour
+                                print('maxAltitudeHour = ',maxAltitudeHour)
+                                if maxAltitudeHour < 12:
+                                    if maxAltitudeHour > obsEndTimeHour:
+                                        maxAltitudeHour = obsEndTimeHour
+                                else:
+                                    if maxAltitudeHour < obsStartTimeHour:
+                                        maxAltitudeHour = obsStartTimeHour
+                                finalDir = os.path.join(outDir,
+                                                        (str(maxAltitudeHour) if maxAltitudeHour > 9 else ('0'+str(maxAltitudeHour)))
+                                                        +':00-'
+                                                        +(str(maxAltitudeHour+1) if (maxAltitudeHour+1) > 9 else ('0'+str(maxAltitudeHour+1)))
+                                                        +':00')
+                                print('finalDir = <'+finalDir+'>')
+                                shutil.move(outDirName,os.path.join(finalDir,idPNMain))
+                            #   shutil.move(outDirName,os.path.join(finalDir,idPNMain))
+                            elif im.rfind('_Ha') > 0:
+                                tmp = im[:im.rfind('_Ha')]
+                                os.rmdir(outDirName)
+                                print('deleted outDirName = <'+outDirName+'>')
+                                #raise ValueError('IPHAS image set')
+                            else:
+                                print('could not identify image type')
+                                STOP
+                        else:
+                            raise ValueError('could not identify file type of <'+im+'>')
+
+                #        print(csvAllTargets.getData(pos))
+
+                except Exception as e:
+                    print(e)
+                    nFailed += 1
+                    STOP
+                    pass
 #        STOP
     print(nFailed,' objects failed to plot visibility plot')
 
@@ -197,6 +268,7 @@ def createVisibilityDirs(path,darkTimesLocal):
     return [times,outDirs]
 
 def getIDsFromDirList(inputList):
+    print('getIDsFromDirList: inputList = <'+inputList+'>')
     with open(inputList,'r') as f:
         lines = f.readlines()
     lines = [line.rstrip('\n') for line in lines]
@@ -232,10 +304,11 @@ def findTargetsVisibleAt(inputList,outputPath):
     darkTimesLocal = getDarkTimesUT()+utcoffset
     visTimes,outDirs = createVisibilityDirs(outputPath,darkTimesLocal)
     for iDir in range(len(dirs)):
+        print('idPNs[',iDir,'] = ',idPNs[iDir])
         for id in idPNs[iDir]:
             pos = allPNe.find('idPNMain',id,0)[0]
             if pos < 0:
-                print('ERROR: idPNMain '+id+' not found in allPNe')
+                print('ERROR: idPNMain <'+id+'> not found in allPNe')
                 STOP
             targetCoord = SkyCoord(ra=float(allPNe.getData('DRAJ2000',pos))*u.deg,
                                    dec=float(allPNe.getData('DDECJ2000',pos))*u.deg,
@@ -257,7 +330,7 @@ def findTargetsVisibleAt(inputList,outputPath):
             #STOP
 
 def removeNotUsed():
-    path = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.bak'
+    path = os.path.join(goodTargetsDir,'findingCharts.bak')
     fNameIDs = os.path.join(path,'hashIDs')
     with open(fNameIDs,'r') as f:
         lines = f.readlines()
@@ -265,7 +338,7 @@ def removeNotUsed():
     usedIDs = [l[l.rfind('_')+1:] for l in lines]
 #    print('lines = ',lines)
 
-    inputList = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.list'
+    inputList = os.path.join(goodTargetsDir,'findingCharts.list')
     dirs, idPNs = getIDsFromDirList(inputList)
     print('dirs = ',dirs)
     print('idPNs = ',idPNs)
@@ -289,7 +362,7 @@ def checkListObjectsRaDec():
         lines = f.readlines()
     lines = [line.rstrip('\n') for line in lines]
 
-    path = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.bak'
+    path = os.path.join(goodTargetsDir,'findingCharts.bak')
     fNameIDs = os.path.join(path,'hashIDs')
     print('fNameIDs = ',fNameIDs)
     with open(fNameIDs,'r') as f:
@@ -340,17 +413,17 @@ def removeListAFromB(listA,listB):
 
 def separateTopMediumLowPriority():
 
-    imageSources = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.list'
+    imageSources = os.path.join(goodTargetsDir,'findingCharts.list')
     srcDirs, srcidPNs = getIDsFromDirList(imageSources)
     print('srcDirs = ',srcDirs)
     print('srcidPNs = ',srcidPNs)
 
-    visibleAtList = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/visible_at_dirs.list'
+    visibleAtList = os.path.join(goodTargetsDir,'visible_at_dirs.list')
     visDirs, visidPNs = getIDsFromDirList(visibleAtList)
     print('visDirs = ',visDirs)
     print('visidPNs = ',visidPNs)
 
-    dir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/charts'
+    dir = os.path.join(goodTargetsDir,'charts')
     for priority in ['top','middle','low']:
         pdir = os.path.join(dir,priority)
 
@@ -510,31 +583,164 @@ def removeContentInDirAFromDirB(dirA,dirB):
         print('command = <'+command+'>')
         os.system(command)
 
+def fix_UsrComments():
+    with open(usrCommentsFile,'r') as f:
+        lines = f.readlines()
+    newLines = []
+    try:
+        plus = 0
+        for i in range(len(lines)):
+            if (i+plus) < len(lines):
+                if (lines[i+plus].count('"') % 2) == 0:
+                    newLines.append(lines[i+plus])
+                else:
+                    newLine = lines[i+plus].strip('\n')
+                    print('i = ',i,', plus = ',plus,': newLine = <'+newLine+'>: newLine.count(") = ',newLine.count('"'))
+                    while newLine.count('"') % 2 != 0:
+                        plus += 1
+                        newLine += ' '+lines[i+plus]
+                        print('newLine = ',newLine)
+                    newLine = newLine.replace('\n','')
+                    newLine = newLine+'\n'
+                    newLines.append(newLine)
+    except:
+        print('newLines = ',len(newLines),': ',newLines)
+        print('i = ',i,', plus = ',plus,', len(lines) = ',len(lines))
+        print('newLine = <'+newLine+'>')
+        STOP
+    print('len(lines) = ',len(lines))
+    print('newLines = ',len(newLines),': ',newLines)
+    with open(usrCommentsFile,'w') as f:
+        for line in newLines:
+            f.write(line)
+
+def remove_HLA_from_fitsFiles():
+    nRemoved = 0
+    for i in np.arange(fitsFiles.size()-1,-1,-1):
+        if fitsFiles.getData('setname',i) == 'HLAData':
+            fitsFiles.removeRow(i)
+            nRemoved += 1
+    print('remove_HLA_from_fitsFiles: removed ',nRemoved,' entries')
+
+def remove_not_TLPc_from_PNMain():
+    nRemoved = 0
+    for i in np.arange(pnMain.size()-1,-1,-1):
+        if (pnMain.getData('PNstat',i) not in ['T','L','P','c']) or (pnMain.getData('domain',i) != 'Galaxy'):
+            pnMain.removeRow(i)
+            nRemoved += 1
+    print('remove_not_TLPc_from_PNMain: removed',nRemoved,' entries. pnMain.size() = ',pnMain.size())
+
+def get_IDs_of_objects_with_spectrum_in_literature():
+    ids = []
+    for i in range(usrComments.size()):
+        comment = usrComments.getData('comment',i)
+        if comment.find('iterature') >= 0:
+            #print('i = ',i,': comment = <'+comment+'>')
+            ids.append(usrComments.getData('idPNMain',i))
+    return ids
+
+def get_IDs_of_objects_which_need_better_spectra():
+    ids = []
+    for i in range(usrComments.size()):
+        comment = usrComments.getData('comment',i)
+        if comment.find('eeds') >= 0:
+#            print('i = ',i,': comment = <'+comment+'>')
+            ids.append(usrComments.getData('idPNMain',i))
+    return ids
+
+def remove_objects_with_spectra_from_PNMain(keepIDs,removeIDs):
+    nRemoved = 0
+    for i in range(fitsFiles.size()):
+        idPNMain = fitsFiles.getData('idPNMain',i)
+        if idPNMain not in keepIDs:
+#            print('idPNMain = ',idPNMain,' has a spectrum, removing')
+            foundAt = pnMain.find('idPNMain',idPNMain)
+            if foundAt[0] >= 0:
+                pnMain.removeRow(foundAt[0])
+                nRemoved += 1
+    for i in range(len(removeIDs)):
+        if removeIDs[i] not in keepIDs:
+            foundAt = pnMain.find('idPNMain',removeIDs[i])[0]
+            if foundAt >= 0:
+                pnMain.removeRow(foundAt)
+                nRemoved += 1
+    print('remove_objects_with_spectra_from_PNMain: removed ',nRemoved,'elements. pnMain.size() = ',pnMain.size())
+
+def addAngDiams():
+    pnMain.addColumn('MajDiam')
+    for i in range(angDiams.size()):
+        if angDiams.getData('InUse',i) == '1':
+            found = pnMain.find('idPNMain',angDiams.getData('idPNMain',i))[0]
+            if found >= 0:
+                pnMain.setData('MajDiam',found,angDiams.getData('MajDiam',i))
+                print('set MajDiam for idPNMain = ',angDiams.getData('idPNMain',i),' to ',pnMain.getData('MajDiam',found))
+                if 'r' in pnMain.getData('MajDiam',found):
+                    STOP
+
+def addNames():
+    pnMain.addColumn('Name')
+    for i in range(names.size()):
+        if names.getData('InUse',i) == '1':
+            found = pnMain.find('idPNMain',names.getData('idPNMain',i))[0]
+            if found >= 0:
+                pnMain.setData('Name',found,names.getData('Name',i))
+                print('set Name for idPNMain = ',names.getData('idPNMain',i),' to ',pnMain.getData('Name',found))
+
 if __name__ == '__main__':
-    makeFindingCharts()
-    #inputList = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.list'
-    #findTargetsVisibleAt(inputList,inputList[:inputList.rfind('.')])
-    #removeNotUsed()
-    #checkListObjectsRaDec()
-    #removeListAFromB('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.bak/priorityQ.list','/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts/allCandidates.list')
-    #removeListAFromB('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts.bak/rejectedQ.list','/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts/allCandidates.list')
-    #separateTopMediumLowPriority()
-    #createRaDecDir('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/charts',prior=True)
     if False:
-        for priority in ['top',
-                         'middle',
-                         'low']:
-            for time in ['00:00-01:00',
-                         '01:00-02:00',
-                         '02:00-03:00',
-                         '03:00-04:00',
-                         '04:00-05:00',
-                         '05:00-06:00',
-                         '19:00-20:00',
-                         '20:00-21:00',
-                         '21:00-22:00',
-                         '22:00-23:00',
-                         '23:00-24:00',]:
-                removeContentInDirAFromDirB('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/charts/'+priority+'/maximumAltitudeAt_'+time,
-                                            '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts/'+time)
-    createRaDecDir('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good/findingCharts')
+    #    fix_UsrComments()
+        usrComments = csvFree.readCSVFile(usrCommentsFile)
+    #    remove_HLA_from_fitsFiles()
+        remove_not_TLPc_from_PNMain()
+        keepIDs = get_IDs_of_objects_which_need_better_spectra()
+        if '3103' in keepIDs:
+            STOP
+    #    for i in idPNMain_hash_no_spectrum:
+    #        keepIDs.append(i)
+        removeIDs = get_IDs_of_objects_with_spectrum_in_literature()
+        for i in idPNMain_elcat_available:
+            removeIDs.append(i)
+        for i in idPNMain_literature_available:
+            removeIDs.append(i)
+        remove_objects_with_spectra_from_PNMain(keepIDs,removeIDs)
+        #remove_elcats(needBetterIDs)
+        truesWithoutSpectra = pnMain.find('PNstat','T')
+        print('truesWithoutSpectra = ',len(truesWithoutSpectra))
+        addAngDiams()
+        addNames()
+        csvFree.writeCSVFile(pnMain,allPossibleTargets)
+        print('truesWithoutSpectra = ',len(truesWithoutSpectra),': ',pnMain.getData('idPNMain',truesWithoutSpectra))
+        i = 0
+        for idPNMain in keepIDs:
+            i += 1
+            print('INSERT INTO `needBetterSpectrum`(`idNBS`,`idPNMain`) VALUES ('+str(i)+','+idPNMain+');')
+    if True:
+        makeFindingCharts()
+    if False:
+        #subprocess.check_output(['ls', outDir+'/??\:*', '>', os.path.join(goodTargetsDir,'findingCharts.list')])
+        inputList = os.path.join(goodTargetsDir,'findingCharts.list')
+        findTargetsVisibleAt(inputList,inputList[:inputList.rfind('.')])
+        #removeNotUsed()
+        #checkListObjectsRaDec()
+#        removeListAFromB(os.path.join(goodTargetsDir,'findingCharts.bak/priorityQ.list'),os.path.join(goodTargetsDir,'findingCharts/allCandidates.list'))
+#        removeListAFromB(os.path.join(goodTargetsDir,'findingCharts.bak/rejectedQ.list'),os.path.join(goodTargetsDir,'findingCharts/allCandidates.list'))
+#        separateTopMediumLowPriority()
+        if False:
+            createRaDecDir(os.path.join(goodTargetsDir,'charts'),prior=True)
+            for priority in ['top',
+                            'middle',
+                            'low']:
+                for time in ['00:00-01:00',
+                            '01:00-02:00',
+                            '02:00-03:00',
+                            '03:00-04:00',
+                            '04:00-05:00',
+                            '05:00-06:00',
+                            '19:00-20:00',
+                            '20:00-21:00',
+                            '21:00-22:00',
+                            '22:00-23:00',
+                            '23:00-24:00',]:
+                    removeContentInDirAFromDirB(os.path.join(goodTargetsDir,'charts/'+priority+'/maximumAltitudeAt_'+time),
+                                                os.path.join(goodTargetsDir,'findingCharts/'+time))
+        createRaDecDir(os.path.join(goodTargetsDir,'findingCharts'))
