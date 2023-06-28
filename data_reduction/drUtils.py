@@ -487,7 +487,17 @@ def subtractOverscan(fitsFilesIn, overscanSection, trimSection=None, fitsFilesOu
         else:
             trimmed = ccdproc.trim_image(ccdDataNoOverscan, fits_section=trimSection)
             if fitsFilesOut is not None:
-                writeFits(trimmed, fitsFilesIn[iFile], fitsFilesOut[iFile], ['OVERSCAN'], ['subtracted'], overwrite=overwrite)
+                keys = ['OVERSCAN']
+                vals = [overscanSection]
+                if trimSection is not None:
+                    keys.append('TRIMSEC')
+                    vals.append(trimSection)
+                writeFits(trimmed,
+                          fitsFilesIn[iFile],
+                          fitsFilesOut[iFile],
+                          keys,
+                          vals,
+                          overwrite=overwrite)
             dataOut.append(trimmed)
     return dataOut
 
@@ -1599,7 +1609,14 @@ def xCorFindMinimum(xCorX, xCorY):
 # @param sigma: sigma of Gaussians to fit
 # @param peakHeight: float: minimum peak height in spec for find_peaks
 # @param peakWidth: float: minimum peak width in spec for find_peaks
-def findLines(spec,xCorX,xCorY,sigma,peakHeight=None, peakWidth=None, threshold=None, plot=False):
+def findLines(spec,
+              xCorX,
+              xCorY,
+              sigma,
+              peakHeight=None,
+              peakWidth=None,
+              threshold=None,
+              plot=False):
     maxPosDiff = 0.67
     maxSigDiff = sigma * 0.6
     print('findLines: peakHeight = ',peakHeight,', peakWidth = ',peakWidth,', threshold = ',threshold)
@@ -2238,7 +2255,13 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
 #@param xSpec: np.array1d
 #@param ySpec: np.array1d
 #@param lineProfile: [x:np.array1d,y:np.array1d]
-def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGoodLines=None,display=False,chiSquareLimit=0.25):
+def findGoodLines(xSpec,
+                  ySpec,
+                  lineProfile,
+                  outFileNameAllLines=None,
+                  outFileNameGoodLines=None,
+                  display=False,
+                  chiSquareLimit=0.25):
     xXCor, xCorChiSquares = xCor([xSpec,ySpec],lineProfile)
     linesX = findLines(ySpec,
                        xXCor,
@@ -2247,7 +2270,7 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
                        peakHeight=np.amax(ySpec) * 0.0025,#/ (300000. / 14000.),
                        peakWidth=2.5,#3.,
                        threshold=300.,
-                       plot=display,
+                       plot=False,
                       )
     print('findGoodLines: linesX = ',linesX)
     print('lineProfile = ',lineProfile)
@@ -2320,7 +2343,7 @@ def findGoodLines(xSpec,ySpec,lineProfile,outFileNameAllLines=None,outFileNameGo
             plt.scatter(line,0.)
 
     print('findGoodLines: chiSquareLimit = ',chiSquareLimit)
-    if plot:
+    if display:
         plt.legend()
         plt.show()
 #    if True:
@@ -2402,8 +2425,12 @@ def getLineProfiles(arcFitsName2D,
 def getBestLineProfile(lineProfiles,outFileName=None,display=False):
     bestLineProfileIdx = 0
     maxValue = np.amax(lineProfiles[0][1])
+    print('getBestLineProfile: i = 0: maxValue = ',maxValue)
     for lineProfileIdx in np.arange(1,len(lineProfiles),1):
-        if np.amax(lineProfiles[lineProfileIdx][1]) > maxValue:
+        amax = np.amax(lineProfiles[lineProfileIdx][1])
+        print('getBestLineProfile: i = ',lineProfileIdx,': maxValue = ',amax)
+        if amax > maxValue:
+            maxValue = amax
             bestLineProfileIdx = lineProfileIdx
     print('getBestLineProfile: best line profile found at index ',bestLineProfileIdx)
 #    print('getBestLineProfile: lineProfiles = ',lineProfiles)
@@ -2495,7 +2522,12 @@ def reidentify(arcFitsName2D,
     print('reidentify: specIn = ',specY.shape,': ',specY)
     print('reidentify: profileIn = ',bestLineProfile)
 
-    goodLines = findGoodLines(np.arange(0,specY.shape[0],1),specY,bestLineProfile,outFileNameGoodLines=lineListOut,display=display,chiSquareLimit=chiSquareLimit)
+    goodLines = findGoodLines(np.arange(0,specY.shape[0],1),
+                              specY,
+                              bestLineProfile,
+                              outFileNameGoodLines=lineListOut,
+                              display=display,
+                              chiSquareLimit=chiSquareLimit)
     print('reidentify: found ',len(goodLines),' goodLines at ',goodLines)
     if not lineListOut is None:
         with open(lineListOut[:lineListOut.rfind('.')]+'_temp.dat','w') as f:
@@ -2823,9 +2855,15 @@ def getClosestArcs(fitsFileName, fitsList):
     whereGT = np.where(arcTimes >= specTime)[0]
     print('getClosestArcs: whereLT = ',whereLT)
     print('getClosestArcs: whereGT = ',whereGT)
-    closestBefore = getClosestInTime(specTime, arcTimes[whereLT])
+    if len(whereLT) == 0:
+        closestBefore = None
+    else:
+        closestBefore = getClosestInTime(specTime, arcTimes[whereLT])
     closestTemp = getClosestInTime(specTime, arcTimes[whereGT])
-    closestAfter = [whereGT[closestTemp[0]],closestTemp[1]]
+    if len(whereGT) == 0:
+        closestAfter = None
+    else:
+        closestAfter = [whereGT[closestTemp[0]],closestTemp[1]]
     print('getClosestArcs: closestBefore = ',closestBefore)
     print('getClosestArcs: closestAfter = ',closestAfter)
     return [closestBefore,closestAfter]
@@ -2871,6 +2909,7 @@ def dispCor(scienceListIn,
 
         arcAfter = arcListIn[closestArcs[1][0]]
         print('dispCor: name of closest Arc after = ',arcAfter)
+        print('len(wavelengthsOrigIn) = ',len(wavelengthsOrigIn))
         wLenSpecAfter = wavelengthsOrigIn[closestArcs[1][0]]
         print('dispcor: wLenSpecAfter = ',wLenSpecAfter)
         factorAfter = closestArcs[1][1] / (closestArcs[0][1]+closestArcs[1][1])
@@ -2935,8 +2974,8 @@ def dispCor(scienceListIn,
                    )
         wLenSpecTest = getWavelengthArr(scienceListOut[iSpec])
         print('dispCor: wLenSpecTest = ',wLenSpecTest)
-#        if 'dbs01541' in scienceListIn[iSpec]:
-#            STOP
+        #if 'dbs00343' in scienceListIn[iSpec]:
+        #    STOP
 
 def heliocor(observatoryLocation, header, keywordRA, keywordDEC, keywordObsTime):
     #print('heliocor: EarthLocation.get_site_names() = ',EarthLocation.get_site_names())
@@ -3100,6 +3139,7 @@ def calcResponse(fNameList,
 
                 if display:
                     plt.plot(wapprox, obj_flux.data)
+                    plt.title(fName[fName.rfind('/')+1:])
 #                    plt.errorbar(wapprox.value, obj_flux.data, alpha=0.25)#, yerr=ex_tbl['fluxerr'].data
                     plt.show()
 
@@ -3121,6 +3161,7 @@ def calcResponse(fNameList,
                 # the flat fielding (response) - though the reference spectrum is very coarse.
                 if display:
                     plt.plot(sensfunc_lin['wave'], sensfunc_lin['S'])
+                    plt.title(fName[fName.rfind('/')+1:])
                     plt.show()
 
                 # now apply the sensfunc back to the std star to demonstrate
@@ -3130,6 +3171,7 @@ def calcResponse(fNameList,
                     plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
                     plt.xlim(5500,7500)
                     plt.ylim(0, 0.3e-12)
+                    plt.title(fName[fName.rfind('/')+1:])
                     plt.show()
 
                 # now let's demo the Airmass correction
@@ -3145,6 +3187,7 @@ def calcResponse(fNameList,
                 if display:
                     plt.plot(obj_spectrum.wavelength, obj_spectrum.flux)
                     plt.plot(Atest.wavelength, Atest.flux)
+                    plt.title(fName[fName.rfind('/')+1:])
                     plt.show()
 
                 sensFuncs.append(sensfunc_lin)
@@ -3590,6 +3633,16 @@ def open_image(imagename):
     wcs = WCS(header)
     return image, header, wcs
 
+def getWCS(fitsFileName,hdu=0):
+    import astropy.wcs as wcs
+    hdulist = pyfits.open(fitsFileName)
+    header = hdulist[hdu].header
+    if 'RADECSYS' in header:
+        header.rename_keyword('RADECSYS','RADESYSa')
+    w = wcs.WCS(header, hdulist)
+    hdulist.close()
+    return w
+
 def createFindingChartFromFits(fitsFileName,
                                widthInArcSeconds,
                                pnMajDiamInArcSeconds,
@@ -3598,7 +3651,7 @@ def createFindingChartFromFits(fitsFileName,
                                dec,
                                outDirName,
                                display=False):
-    from myUtils import angularDistanceFromXY#getArcsecDistance
+    from myUtils import angularDistanceFromXY,getXYFromRaDec,angularDistance#getArcsecDistance
     from astropy.nddata import Cutout2D
     from astropy import units as u
     import astropy.visualization as vis
@@ -3623,13 +3676,48 @@ def createFindingChartFromFits(fitsFileName,
 #    ax.set_ylabel('Dec.')
 #    ax.set_xlabel('RA')
 #    plt.show()
+    if fitsFileName.rfind('_shs') < 0:
+        tmp = fitsFileName[:fitsFileName.rfind('_Ha')]
+        outFileName = os.path.join(outDirName,fitsFileName[fitsFileName.rfind('/')+1:fitsFileName.rfind('_Ha')]+'_findingChart.png')
+    else:
+        tmp = fitsFileName[:fitsFileName.rfind('_shs')]
+        outFileName = os.path.join(outDirName,fitsFileName[fitsFileName.rfind('/')+1:fitsFileName.rfind('_shs')]+'_findingChart.png')
+    idPNMain = tmp[tmp.rfind('_')+1:]
+    #ra, dec = getRaDecFromXY(fitsFileName,fitsDataShape[0]/2,fitsDataShape[1]/2)
+    print('idPNMain = ',idPNMain)
+
+    print('ra = ',ra,', dec = ',dec)
+    x,y = getXYFromRaDec(fitsFileName,ra,dec)
+    print('x = ',x,', y = ',y)
 
     print('fitsFileName = ',fitsFileName[fitsFileName.rfind('/')+1:])
     fitsData = getImageData(fitsFileName,0)
+    #wcs = getWCS(fitsFileName)
 #    plt.imshow(fitsData)
 #    plt.show()
     fitsDataShape = fitsData.shape
     print('fitsDataShape = ',fitsDataShape)
+
+    if (int(x) != int(fitsDataShape[0]/2)) or (int(y) != int(fitsDataShape[1]/2)):
+        maxSize = np.min([int(x)+1,int(fitsDataShape[0]-x)+1,int(y)+1,int(fitsDataShape[1]-y)+1])
+        print('maxSize = ',maxSize)
+
+        cutout = Cutout2D(fitsData, (x,y),(2*maxSize+1,2*maxSize+1))#, wcs=wcs, mode='strict')
+        fitsData = cutout.data
+        fitsDataShape = fitsData.shape
+    print('new fitsDataShape = ',fitsDataShape)
+
+#    raCenter, decCenter = cutout.wcs.all_pix2world([int(fitsDataShape[0]/2.)], [int(fitsDataShape[1]/2.)], 1)
+#    print('raCenter = ',raCenter,', decCenter = ',decCenter)
+
+#    angDist = angularDistance(ra, dec, raCenter, decCenter)
+#    print('angDist = ',angDist)
+
+
+#    if idPNMain == '185':
+#        STOP
+
+
 #    x0 = 0
 #    y0 = 0
 #    x1 = fitsDataShape[0]-1
@@ -3681,15 +3769,6 @@ def createFindingChartFromFits(fitsFileName,
         print('position = ',position,', size = ',size)
         cutout = Cutout2D(fitsData,position,size)
     plt.gray()
-    if fitsFileName.rfind('_shs') < 0:
-        tmp = fitsFileName[:fitsFileName.rfind('_Ha')]
-        outFileName = os.path.join(outDirName,fitsFileName[fitsFileName.rfind('/')+1:fitsFileName.rfind('_Ha')]+'_findingChart.png')
-    else:
-        tmp = fitsFileName[:fitsFileName.rfind('_shs')]
-        outFileName = os.path.join(outDirName,fitsFileName[fitsFileName.rfind('/')+1:fitsFileName.rfind('_shs')]+'_findingChart.png')
-    idPNMain = tmp[tmp.rfind('_')+1:]
-    #ra, dec = getRaDecFromXY(fitsFileName,fitsDataShape[0]/2,fitsDataShape[1]/2)
-    print('idPNMain = ',idPNMain)
     minVal = np.min(cutout.data)
     maxVal = np.max(cutout.data)
     vmax = minVal+(maxVal-minVal)/7.
@@ -3732,3 +3811,79 @@ def createFindingChartsFromFits(dirName,widthInArcSeconds,pnMainWithMajDiamFileN
             name = pnMain.getData('Name',found)
             print('name = <'+name+'>: MajDiam = ',majDiam)
             createFindingChartFromFits(os.path.join(dirName,item),widthInArcSeconds,majDiam,name)
+
+def invert(inputFileName,
+           hduNum=0,
+           axis=0,
+           outputFileName = None,
+           overwrite=True):
+    hdulist = pyfits.open(inputFileName)
+    hdulist[hduNum].data = np.flip(hdulist[hduNum].data,axis)
+    if outputFileName is None:
+        outputFileName = inputFileName
+    hdulist.writeto(outputFileName, overwrite=overwrite)
+    hdulist.close()
+    setHeaderValue(outputFileName,'flipY' if axis==0 else 'flipX','yes',hduNum)
+
+def invertX(inputFileName,
+            hduNum=0,
+            outputFileName = None,
+            overwrite=True):
+    if isinstance(inputFileName,list):
+        if outputFileName is None:
+            for fName in inputFileName:
+                if getHeaderValue(fName,'flipX') is None:
+                    invert(fName,
+                           hduNum=hduNum,
+                           axis=1,
+                           outputFileName = fName,
+                           overwrite=overwrite)
+        else:
+            if len(inputFileName) != len(outputFileName):
+                print('ERROR: len(inputFileName) != len(outputFileName)')
+            for i in range(len(inputFileName)):
+                if getHeaderValue(inputFileName[i],'flipX') is None:
+                    invert(inputFileName[i],
+                           hduNum=hduNum,
+                           axis=1,
+                           outputFileName = outputFileName[i],
+                           overwrite=overwrite)
+    else:
+        if getHeaderValue(inputFileName,'flipX') is None:
+            invert(inputFileName,
+                   hduNum=hduNum,
+                   axis=1,
+                   outputFileName = outputFileName,
+                   overwrite=overwrite)
+
+def invertY(inputFileName,
+            hduNum=0,
+            outputFileName = None,
+            overwrite=True):
+    if isinstance(inputFileName,list):
+        if outputFileName is None:
+            for fName in inputFileName:
+                if getHeaderValue(fName,'flipY') is None:
+                    invert(fName,
+                           hduNum=hduNum,
+                           axis=0,
+                           outputFileName = fName,
+                           overwrite=overwrite)
+                    print('flipped input file <'+fName+'>')
+        else:
+            if len(inputFileName) != len(outputFileName):
+                print('ERROR: len(inputFileName) != len(outputFileName)')
+            for i in range(len(inputFileName)):
+                if getHeaderValue(inputFileName[i],'flipY') is None:
+                    invert(inputFileName[i],
+                           hduNum=hduNum,
+                           axis=0,
+                           outputFileName = outputFileName[i],
+                           overwrite=overwrite)
+    else:
+        if getHeaderValue(inputFileName,'flipY') is None:
+            invert(inputFileName,
+            hduNum=hduNum,
+            axis=0,
+            outputFileName = outputFileName,
+            overwrite=overwrite)

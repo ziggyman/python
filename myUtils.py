@@ -542,6 +542,16 @@ def angularDistanceFromXY(fitsName, x1, y1, x2, y2):
 #    print('ra2 = ',ra2,', dec2 = ',dec2)
     return angularDistance(ra1, dec1, ra2, dec2)
 
+def getXYFromRaDec(fitsName, raHMS, decDMS):
+    print('getXYFromRaDec: fitsName = ',fitsName,', raHMS = ',raHMS,', decDMS = ',decDMS)
+    result = subprocess.check_output(['sky2xy', '-j', fitsName, raHMS, decDMS])
+    print('getXYFromRaDec: result = <',result,'>')
+    strs = re.sub( '\s+', ' ', result.decode('utf-8') ).strip()
+    print('getXYFromRaDec: strs = ',strs)
+    strs = strs.rstrip().split(' ')
+    print('getXYFromRaDec: strs = ',strs)
+    return [float(strs[4]), float(strs[5])]
+
 def getRaDecFromXY(fitsName, x, y):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x), str(y)])
     raHMS, decHMS, x1, y1 = getRaDecXY(result1)

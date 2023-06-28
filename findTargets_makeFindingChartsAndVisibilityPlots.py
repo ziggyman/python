@@ -20,8 +20,8 @@ from drUtils import createFindingChartFromFits
 
 #goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good'
 goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17'
-outDir = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_good/findingCharts')
-fileList = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_good/allFiles.list')
+outDir = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_DeGaPe/findingCharts')
+fileList = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_DeGaPe/allFiles.list')
 
 idPNMain_hash_no_spectrum = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_TLPc_no_spectrum_020623.csv')).getData('idPNMain')
 idPNMain_literature_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'literature_spectrum_available.csv')).getData('idPNMain')
@@ -148,6 +148,7 @@ def makeFindingCharts():
                 STOP
             for im in images:
                 try:
+                    isGood = False
                     if os.path.exists(outDirName):
                         if im.endswith('.png'):
                             background = Image.open(os.path.join(outDir[:outDir.rfind('/')],im))
@@ -163,6 +164,7 @@ def makeFindingCharts():
                             new_img.save(newImName,"PNG")
                         elif im.endswith('.fits'):
                             if im.rfind('_shs') > 0:
+                                isGood = True
                                 tmp = im[:im.rfind('_shs')]
                                 idPNMain = tmp[tmp.rfind('_')+1:]
 
@@ -170,18 +172,19 @@ def makeFindingCharts():
                                 print('name = <'+name+'>: MajDiam = ',majDiam)
                                 ra = csvAllTargets.getData('RAJ2000',pos)
                                 dec = csvAllTargets.getData('DECJ2000',pos)
-                                try:
-                                    createFindingChartFromFits(os.path.join(outDir[:outDir.rfind('/')],im),
-                                                               240,
-                                                               majDiam,
-                                                               name,
-                                                               ra,
-                                                               dec,
-                                                               outDirName,
-                                                               display=False)
-                                except Exception as e:
-                                    print(e)
-                                    STOP
+#                                try:
+                                createFindingChartFromFits(os.path.join(outDir[:outDir.rfind('/')],im),
+                                                            240,
+                                                            majDiam,
+                                                            name,
+                                                            ra,
+                                                            dec,
+                                                            outDirName,
+                                                            display=False)
+#                                    STOP
+#                                except Exception as e:
+#                                    print(e)
+#                                    STOP
 
                                 visName = im[:im.rfind('_')]
                                 visName = visName[:visName.rfind('_')]
@@ -210,12 +213,13 @@ def makeFindingCharts():
                                                         +(str(maxAltitudeHour+1) if (maxAltitudeHour+1) > 9 else ('0'+str(maxAltitudeHour+1)))
                                                         +':00')
                                 print('finalDir = <'+finalDir+'>')
-                                shutil.move(outDirName,os.path.join(finalDir,idPNMain))
+                                shutil.move(outDirName,finalDir)
                             #   shutil.move(outDirName,os.path.join(finalDir,idPNMain))
                             elif im.rfind('_Ha') > 0:
                                 tmp = im[:im.rfind('_Ha')]
-                                os.rmdir(outDirName)
-                                print('deleted outDirName = <'+outDirName+'>')
+                                if not isGood:
+                                    shutil.rmtree(outDirName)
+                                    print('deleted outDirName = <'+outDirName+'>')
                                 #raise ValueError('IPHAS image set')
                             else:
                                 print('could not identify image type')
@@ -227,8 +231,9 @@ def makeFindingCharts():
 
                 except Exception as e:
                     print(e)
+                    shutil.rmtree(outDirName)
                     nFailed += 1
-                    STOP
+                    #STOP
                     pass
 #        STOP
     print(nFailed,' objects failed to plot visibility plot')
@@ -557,8 +562,8 @@ def createRaDecDir(directory,prior=False):
                         tmpB = tmpB[tmpB.find('_')+1:]
                         linkName = os.path.join(directory,'RAJ2000='+ra+'_DECJ2000='+dec+'_'+priority+'_HASH-ID='+tmpB)
                         print('fName = '+fName+': linkName = '+linkName)
-#                        if not os.path.lexists(linkName):
-#                            os.symlink(target,linkName)
+                        if not os.path.lexists(linkName):
+                            os.symlink(target,linkName)
                         print('dir = <'+dirs[iDir]+'>')
                         print('target = ',target)
                         command = 'cp '+os.path.join(directory,target)+' '+linkName
@@ -714,12 +719,83 @@ if __name__ == '__main__':
         for idPNMain in keepIDs:
             i += 1
             print('INSERT INTO `needBetterSpectrum`(`idNBS`,`idPNMain`) VALUES ('+str(i)+','+idPNMain+');')
-    if True:
+    if False:
         makeFindingCharts()
     if False:
         #subprocess.check_output(['ls', outDir+'/??\:*', '>', os.path.join(goodTargetsDir,'findingCharts.list')])
-        inputList = os.path.join(goodTargetsDir,'findingCharts.list')
+        inputList = os.path.join(outDir[:outDir.rfind('/')],'findingCharts.list')
         findTargetsVisibleAt(inputList,inputList[:inputList.rfind('.')])
+    if False:
+        dirs = os.listdir(outDir)
+        print('dirs = ',dirs)
+        for line in dirs:
+            if 'png' not in line:
+                subDirs = os.listdir(os.path.join(outDir,line.strip()))
+                print('line = ',line,': subDirs = ',subDirs)
+                for subDir in subDirs:
+                    if 'png' not in subDir:
+                        plots = os.listdir(os.path.join(os.path.join(outDir,line),subDir))
+                        print('subDir = ',subDir,': plots = ',plots)
+                        if len(plots) > 6:
+                            STOP
+                        for plot in plots:
+                            if ('findingChart' in plot) and ('quot' not in plot) and ('rgb' not in plot) and ('iphas3colour' not in plot):
+                                inputFile = os.path.join(os.path.join(os.path.join(outDir,line),subDir),plot)
+                                outputFile = os.path.join(os.path.join(outDir,line),plot)
+                                if os.path.exists(outputFile):
+                                    os.remove(outputFile)
+                                command = 'cp '+inputFile+' '+outputFile
+                                print('command = ',command)
+                                #os.system(command)
+                                shutil.copyfile(os.path.join(os.path.join(os.path.join(outDir,line),subDir),plot),os.path.join(os.path.join(outDir,line),plot), follow_symlinks=True)
+                                #os.symlink(os.path.join(os.path.join(os.path.join(outDir,line),subDir),plot),os.path.join(os.path.join(outDir,line),plot))
+    if True:
+        dbs_may2008 = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/hash_fitsFiles_DBS_May2008.csv')
+        removeIDPNMains = []
+        for i in range(dbs_may2008.size()):
+            if dbs_may2008.getData('setname',i) == 'DBS_May2008':
+                removeIDPNMains.append(dbs_may2008.getData('idPNMain',i))
+        allFilesName = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/latest/allFindingCharts.list'
+        os.system('ls /Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/latest/targets_SAAO_2023-06-17_*/findingCharts/* > '+allFilesName)
+        with open(allFilesName,'r') as f:
+            allFiles = f.readlines()
+        print('allFiles = ',allFiles)
+
+        allFullPaths = []
+        path = ''
+        for i in range(len(allFiles)):
+            line = allFiles[i].strip()
+            if line != '':
+                if ':' in line:
+                    path = line[:line.rfind(':')]
+                else:
+                    allFullPaths.append(os.path.join(path,line))
+        print('allFullPaths = ',allFullPaths)
+        for fName in allFullPaths:
+            if ('alt' in fName) and ('hashID' in fName):
+                idPNMain = fName[fName.rfind('_')+1:]
+                print('fName = ',fName,': idPNMain = ',idPNMain)
+            elif ('moonDist' in fName):
+                tmp = fName[:fName.rfind('_')]
+                idPNMain = tmp[tmp.rfind('_')+1:]
+                print('fName = ',fName,': idPNMain = ',idPNMain)
+            elif len(fName[fName.rfind('/')+1]) < 6:
+                idPNMain = fName[fName.rfind('/')+1:]
+                print('fName = ',fName,': idPNMain = ',idPNMain)
+            else:
+                print('fName = ',fName)
+                STOP
+            if idPNMain in removeIDPNMains:
+                print('removing file '+fName)
+                if os.path.exists(fName):
+                    os.system('rm -r '+fName)
+                if os.path.islink(fName):
+                    print('still exists, trying again')
+                    os.unlink(fName)
+
+            if fName == 'alt_81_hashID_3025':
+                print('found alt_81_hashID_3025 -> please check')
+                STOP
         #removeNotUsed()
         #checkListObjectsRaDec()
 #        removeListAFromB(os.path.join(goodTargetsDir,'findingCharts.bak/priorityQ.list'),os.path.join(goodTargetsDir,'findingCharts/allCandidates.list'))
@@ -743,4 +819,4 @@ if __name__ == '__main__':
                             '23:00-24:00',]:
                     removeContentInDirAFromDirB(os.path.join(goodTargetsDir,'charts/'+priority+'/maximumAltitudeAt_'+time),
                                                 os.path.join(goodTargetsDir,'findingCharts/'+time))
-        createRaDecDir(os.path.join(goodTargetsDir,'findingCharts'))
+        #createRaDecDir(os.path.join(goodTargetsDir,'findingCharts'))
