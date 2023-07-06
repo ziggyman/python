@@ -15,7 +15,8 @@ import csvFree, csvData
 overscanSection = '[10:50,1:562]'#'[4:21,1:133]'#'[1983:,:]'
 #trimSection = '[51:2148,18:507]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
-trimSection = '[56:2100,134:453]'#DBS May2008 Blue
+trimSection = '[56:2100,135:454]'#DBS May2008 Blue
+#trimSection = '[56:2100,133:452]'#DBS May2008 Blue
 #trimSection = '[56:2100,75:394]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 
 """SPUPNIC"""
@@ -24,7 +25,7 @@ trimSection = '[56:2100,134:453]'#DBS May2008 Blue
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-07/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-12/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -241,15 +242,14 @@ if __name__ == '__main__':
         masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
         smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
         if False:
+            invertY(readFileToArr(inList))
+            #STOP
         #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
         #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
         #    STOP
             separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
         #STOP
-        if False:
-            invertY(readFileToArr(inList))
-            #STOP
-        if False:
+        if True:
             objectFiles = os.path.join(workPath,'science.list')
     #        objectFiles = os.path.join(workPath,'SCIENCE.list')
             # subtract overscan and trim all images
@@ -315,7 +315,7 @@ if __name__ == '__main__':
                             overwrite=True)
             #STOP
             # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
-        if False:
+        if True:
             for inputList in ['arc','science','fluxstds','flatSKYFLAT']:
                 flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                             masterFlat,
@@ -326,7 +326,7 @@ if __name__ == '__main__':
                             masterFlat,
                             norm_value = 1.,
                             fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')))
-        if False:
+
             # interpolate images to get straight dispersion and spectral features
             for inputList in ['arc', 'science','fluxstds']:
                 interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')),
@@ -356,7 +356,6 @@ if __name__ == '__main__':
             makeSkyFlat(os.path.join(workPath,'combinedSkyFlati.fits'),
                         os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                         7)
-        if False:
             for inputList in ['arc', 'science','fluxstds']:
                 flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otzfi.list')),
                             os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
@@ -364,9 +363,8 @@ if __name__ == '__main__':
                 flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otzxfi.list')),
                             os.path.join(workPath,'combinedSkyFlati_flattened.fits'),
                             fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
-        if False:
             for inputList in ['science','fluxstds']:
-                if False:
+                if True:
                     subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
                 subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
@@ -378,7 +376,7 @@ if __name__ == '__main__':
                                                                             refProfApDef,
                                                                             lineList,
                                                                             referenceSpectrum,
-                                                                            display=True,
+                                                                            display=False,
                                                                             chiSquareLimit=0.4,
                                                                             degree=4,
                                                                             #apOffsetX=-155.5,

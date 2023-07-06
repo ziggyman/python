@@ -1,8 +1,34 @@
 import numpy as np
 import os
 from hashUtils import get_IDPNMain_from_name
-from drUtils import readFileToArr,getHeaderValue,setHeaderValue
+from drUtils import readFileToArr,getHeaderValue,setHeaderValue,getHeader
 import csvFree,csvData
+
+date = '2008-05-12'
+path = '/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/'
+areas_blue = csvFree.readCSVFile(os.path.join(path,'B_data',date,'areas.csv'))
+areas_red = csvFree.readCSVFile(os.path.join(path,'R_data',date,'areas.csv'))
+for i in range(areas_blue.size()):
+    fNameBlue = areas_blue.getData('fName',i)
+    fNameBlue = fNameBlue[fNameBlue.rfind('/')+1:]
+    fNameBlue = fNameBlue[fNameBlue.find('_')+1:]
+    fNameBlue = fNameBlue[:fNameBlue.find('_')]
+    print('fNameBlue = <'+fNameBlue+'>')
+    fNameRed = areas_red.getData('fName',i)
+    fNameRed = fNameRed[fNameRed.rfind('/')+1:]
+    fNameRed = fNameRed[fNameRed.find('_')+1:]
+    fNameRed = fNameRed[:fNameRed.find('_')]
+    print('fNameRed = <'+fNameRed+'>')
+    if fNameRed != fNameBlue:
+        print('line i=',i,': fNameRed = <'+fNameRed+'>, fNameBlue = <'+fNameBlue+'>')
+        STOP
+    for key in ['RA','DEC','AIRMASS']:
+        if getHeaderValue(areas_blue.getData('fName',i),key) is None:#[:areas_blue.getData('fName',i).rfind('.')]+'Ec.fits',key) is None:
+            setHeaderValue(areas_blue.getData('fName',i),key,getHeaderValue(areas_red.getData('fName',i)[:areas_red.getData('fName',i).rfind('.')]+'Ec.fits',key))
+            if os.path.isfile(areas_blue.getData('fName',i)[:areas_blue.getData('fName',i).rfind('.')]+'Ec.fits'):
+                setHeaderValue(areas_blue.getData('fName',i)[:areas_blue.getData('fName',i).rfind('.')]+'Ec.fits',key,getHeaderValue(areas_red.getData('fName',i)[:areas_red.getData('fName',i).rfind('.')]+'Ec.fits',key))
+            print('keyword ',key,' set for ',areas_blue.getData('fName',i))
+STOP
 
 data_path = '/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data'
 hash_path = '/Users/azuri/daten/uni/HKU/HASH'

@@ -153,6 +153,8 @@ def writeFits(ccdData, inputFileName, outputFileName, metaKeys=None, metaData=No
         hdulist[len(hdulist)-1].header['OBSERVER'] = 'Quentin Parker + Travis Stenborg'
         print("hdulist[",len(hdulist)-1,"].header['OBSERVER'] = ",hdulist[len(hdulist)-1].header['OBSERVER'])
     print('writeFits: mean(hdulist[',len(hdulist)-1,'].data) = ',np.mean(hdulist[len(hdulist)-1].data))
+#    print('hdulist[',len(hdulist)-1,'].header = ',hdulist[len(hdulist)-1].header)
+#    print('hdulist[len(hdulist)-1].header[TRIMSEC] = ',hdulist[len(hdulist)-1].header['TRIMSEC'])
     hdulist.writeto(outputFileName, overwrite=overwrite)
     print('writeFits: new mean after writing image = ',np.mean(getImageData(outputFileName,len(hdulist)-1)))
 
@@ -1802,23 +1804,57 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' ', display=False):
     pixels = np.array(pixels)
     wLens = np.array(wLens)
 
-    #normalize x to [-1,1]
-    nx = np.array(normalizeX(pixels))
-    print('calcDispersion: pixels = ',pixels.shape,': ',pixels)
-    print('calcDispersion: nx = ',nx.shape,': ',nx)
+    nRuns = 1
+    while True:
+        foundTwice = []
 
-    #fit Legendre polynomial excluding the normalized range limits
-    coeffs = np.polynomial.legendre.legfit(nx[1:nx.shape[0]-1], wLens[1:nx.shape[0]-1], degree)
+        #normalize x to [-1,1]
+        nx = np.array(normalizeX(pixels))
+        print('calcDispersion: pixels = ',pixels.shape,': ',pixels)
+        print('calcDispersion: nx = ',nx.shape,': ',nx)
+        #fit Legendre polynomial excluding the normalized range limits
+        coeffs = np.polynomial.legendre.legfit(nx[1:nx.shape[0]-1], wLens[1:nx.shape[0]-1], degree)
 
-    # calculate fitted values excluding the normalized range limits
-    yFit = np.polynomial.legendre.legval(nx[1:nx.shape[0]-1], coeffs)
-    differences = wLens[1:nx.shape[0]-1] - yFit
-    errors = (differences) ** 2
-    rms = np.sqrt(np.sum(errors) / (wLens.shape[0]-2))
-    for i in range(len(pixels)-2):
-        print('calcDispersion: ',pixels[i+1],wLens[i+1],differences[i],errors[i])
-    print('calcDispersion: RMS = ',rms)
-
+        # calculate fitted values excluding the normalized range limits
+        yFit = np.polynomial.legendre.legval(nx[1:nx.shape[0]-1], coeffs)
+        differences = wLens[1:nx.shape[0]-1] - yFit
+        errors = (differences) ** 2
+        rms = np.sqrt(np.sum(errors) / (wLens.shape[0]-2))
+        idxRange = np.arange(1,len(wLens)-1,1)
+        remove = []
+        for i in idxRange:
+            print('calcDispersion: i = ',i,': ',pixels[i],wLens[i],differences[i-1],errors[i-1])
+        for i in idxRange:
+            found = np.where(wLens[idxRange] == wLens[i])[0]
+            print('found ',wLens[i],' ',len(found),' times')
+            if len(found) > 1:
+                print('found ',wLens[i],' more than once')
+                foundTwice.append(i)
+                minDiff = np.amin(np.abs(differences[idxRange[found]-1]))
+                print('found more than 1:, differences = ',differences[idxRange[found]-1],', minDiff = ',minDiff)
+                for j in range(len(found)):
+                    print('differences[idxRange[found[j=',j,'](=',found[j],')]-1(=',idxRange[found[j]]-1,')] = ',differences[idxRange[found[j]]-1])
+                    if np.abs(differences[idxRange[found[j]]-1]) > minDiff:
+                        if idxRange[found[j]] not in remove:
+                            remove.append(idxRange[found[j]])
+                            print('appended ',remove[len(remove)-1],' to remove')
+            print('calcDispersion: i = ',i,': ',pixels[i],wLens[i],differences[i-1],errors[i-1])
+        remove = np.sort(remove)
+        print('remove = ',remove)
+        print('calcDispersion: RMS = ',rms)
+        if len(remove) > 0:
+            for i in np.arange(len(remove)-1,-1,-1):
+                print('remove: i = ',i)
+                print('trying to remove element ',remove[i])
+                pixels = np.delete(pixels,remove[i])
+                wLens = np.delete(wLens,remove[i])
+#                differences = np.delete(differences,remove[i-1])
+#                errors = np.delete(errors,remove[i-1])
+                nRuns += 1
+        else:
+            break
+#    if nRuns > 1:
+#        STOP
     # plot original values and fit
     if display:
         plt.scatter(pixels[1:nx.shape[0]-1],wLens[1:nx.shape[0]-1])
@@ -2006,7 +2042,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
         imageTransposed = image.transpose()
         print('extractObjectAndSubtractSky: imageTransposed.shape = ',image.shape)
         if display:
-            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image))
+            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image), origin='lower')
             print('image.shape = ',image.shape)
             if skyAbove is not None:
                 plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
@@ -2023,7 +2059,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             plt.show()
         newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0) if ((skyAbove is not None) and (skyBelow is not None)) else [imageTransposed,None]
         if display:
-            plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.mean(newImageData))
+            plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.mean(newImageData), origin='lower')
             if skyAbove is not None:
                 plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
                 plt.plot([0.,image.shape[1]],[skyAbove[1],skyAbove[1]],'r-')
@@ -2037,7 +2073,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             plt.title('sky subtracted image '+twoDImageFileIn)
             plt.show()
             if skyData is not None:
-                plt.imshow(skyData.transpose())
+                plt.imshow(skyData.transpose(), origin='lower')
             if skyAbove is not None:
                 plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
                 plt.plot([0.,image.shape[1]],[skyAbove[1],skyAbove[1]],'r-')
@@ -2053,15 +2089,15 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
     else:
         if (skyAbove is not None) and (skyBelow is not None):
             if display:
-                plt.imshow(image)
+                plt.imshow(image, origin='lower')
                 mng = plt.get_current_fig_manager()
                 mng.full_screen_toggle()
                 plt.show()
             newImageData,skyData = subtractSky(image,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)
             if display:
-                plt.imshow(newImageData)
+                plt.imshow(newImageData, origin='lower')
                 plt.show()
-                plt.imshow(skyData)
+                plt.imshow(skyData, origin='lower')
                 mng = plt.get_current_fig_manager()
                 mng.full_screen_toggle()
                 plt.show()
@@ -2102,7 +2138,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
                 image[yRange[0]:yRange[1]+1,col] -= f(np.arange(yRange[0],yRange[1]+1))
         if display:
             plt.show()
-            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image))
+            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image), origin='lower')
             plt.title(twoDImageFileIn+' sky subtracted')
             mng = plt.get_current_fig_manager()
             mng.full_screen_toggle()
@@ -2924,6 +2960,7 @@ def dispCor(scienceListIn,
 
         #apply heliocentric radial velocity correction
         if doHelioCor:
+            print('running heliocor for ',scienceListIn[iSpec])
             vrad = heliocor(observatoryLocation, headerSc, keywordRA, keywordDEC, keywordObsTime)
             headerSc['VHELIO'] = vrad
             wLenSpec = applyVRadCorrection(wLenSpec, vrad)
@@ -3824,6 +3861,7 @@ def invert(inputFileName,
     hdulist.writeto(outputFileName, overwrite=overwrite)
     hdulist.close()
     setHeaderValue(outputFileName,'flipY' if axis==0 else 'flipX','yes',hduNum)
+    print('invert: outputFileName ',outputFileName,' written')
 
 def invertX(inputFileName,
             hduNum=0,
