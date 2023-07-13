@@ -383,6 +383,7 @@ def separateFileList(inList, suffixes, exptypes=None, objects=None, changeNames=
                     for object in individualLists:
                         if exptype.lower() != 'FLUXSTDS'.lower():
                             createLists(exptype,object,lines,suffix)
+
 # combine images in <ccdImages>, write output to <fitsOutName> if not None
 #
 # parameters:
@@ -3128,13 +3129,13 @@ def calcResponse(fNameList,
             print('calcResponse: priorInFluxStandardDirs = ',priorInFluxStandardDirs)
             if (not done) and (priorInFluxStandardDirs):
                 print('calcResponse: dir = '+prior)
-                img = CCDData.read(fName, unit=u.adu)
-                print('calcResponse: dir(img.header) = ',dir(img.header))
-                for key in img.header.keys():
-                    print(key,': ',img.header[key])
-                print('calcResponse: img.data.shape = ',img.data.shape)
-                print('calcResponse: type(img.data[0]) = ',type(img.data[0]))
-                print("calcResponse: type(img.header['EXPTIME']) = ",type(img.header['EXPTIME']))
+                img = CCDData.read(fName[:fName.rfind('.')]+'Ec.fits', unit=u.adu)
+                #print('calcResponse: dir(img.header) = ',dir(img.header))
+                #for key in img.header.keys():
+                #    print(key,': ',img.header[key])
+                #print('calcResponse: img.data.shape = ',img.data.shape)
+                #print('calcResponse: type(img.data[0]) = ',type(img.data[0]))
+                #print("calcResponse: type(img.header['EXPTIME']) = ",type(img.header['EXPTIME']))
                 # put in units of ADU/s
                 #img.data = img.data / float(img.header['EXPTIME'])
                 #img.unit = u.adu / u.s
@@ -3440,7 +3441,104 @@ def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunc
                 CDELT1=getHeaderValue(spectrumFileNameIn,'CDELT1'),
                )
 
-def scombine(fileListName, spectrumFileNameOut, method='median', lowReject=None, highReject=None, adjustSigLevels=False, useMean=False, display=False):
+def merge(fileNameA,
+          fileNameB,
+          fileNameOut,
+          preserveFlux = True,
+          display = True):
+    crpix_a = getHeaderValue(fileNameA,'CRPIX1')
+    crval_a = getHeaderValue(fileNameA,'CRVAL1')
+    cdelt_a = getHeaderValue(fileNameA,'CDELT1')
+    print('crpix_a = ',crpix_a)
+    print('crval_a = ',crval_a)
+    print('cdelt_a = ',cdelt_a)
+    spec_a = getImageData(fileNameA,hduNum=0)
+    wlen_a = getWavelengthArr(fileNameA,hduNum=0)
+
+    crpix_b = getHeaderValue(fileNameB,'CRPIX1')
+    crval_b = getHeaderValue(fileNameB,'CRVAL1')
+    cdelt_b = getHeaderValue(fileNameB,'CDELT1')
+    print('crpix_b = ',crpix_b)
+    print('crval_b = ',crval_b)
+    print('cdelt_b = ',cdelt_b)
+    spec_b = getImageData(fileNameB,hduNum=0)
+    wlen_b = getWavelengthArr(fileNameB,hduNum=0)
+
+    minDelta = np.min([cdelt_a,cdelt_b])
+    print('cdelt_a = ',cdelt_a,', cdelt_b = ',cdelt_b,': minDelta = ',minDelta)
+
+    print('wlen_a = ',wlen_a)
+    print('wlen_b = ',wlen_b)
+    if minDelta == cdelt_a:
+        if display:
+            plt.plot(wlen_b,spec_b,label='original')
+        wlenNew = np.arange(crval_a,wlen_b[len(wlen_b)-1],cdelt_b)
+        wlen_b_new = wlenNew[np.where((wlenNew >= wlen_b[0]) & (wlenNew <= wlen_b[len(wlen_b)-1]))]
+        print('wlen_b_new = ',wlen_b_new)
+        spec_b = rebin(wlen_b,spec_b,wlen_b_new,preserveFlux=preserveFlux)
+        if display:
+            plt.plot(wlen_b_new,spec_b,label='rebinned')
+            plt.legend()
+            plt.show()
+        wlen_b = wlen_b_new
+    else:
+        if display:
+            plt.plot(wlen_a,spec_a,label='original')
+        wlenNew = np.flip(np.arange(wlen_b[len(wlen_b)-1],wlen_a[0],0.-cdelt_b))
+        wlen_a_new = wlenNew[np.where((wlenNew >= wlen_a[0]) & (wlenNew <= wlen_a[len(wlen_a)-1]))]
+        print('wlen_a_new = ',wlen_a_new)
+        spec_a = rebin(wlen_a,spec_a,wlen_a_new,preserveFlux=preserveFlux)
+        if display:
+            plt.plot(wlen_a_new,spec_a,label='rebinned')
+            plt.legend()
+            plt.show()
+        wlen_a = wlen_a_new
+    print('wlenNew = ',wlenNew)
+    specMerged = np.zeros(wlenNew.shape[0])
+    whereNew = np.where(wlenNew < (crval_b if crval_b < wlen_a[len(wlen_a)-1] else (wlen_a[len(wlen_a)-1] + (cdelt_a/2.))))[0]
+    print('whereNew = ',len(whereNew),': ',whereNew)
+    whereA = np.where(wlen_a < (crval_b if crval_b < wlen_a[len(wlen_a)-1] else (wlen_a[len(wlen_a)-1] + (cdelt_a/2.))))[0]
+    print('whereA = ',len(whereA),': ',whereA)
+    specMerged[whereNew] = spec_a[whereA]
+
+    whereNew = np.where((wlenNew >= crval_b) & (wlenNew <= wlen_a[len(wlen_a)-1]))[0]
+    print('whereNew = ',len(whereNew),': ',whereNew)
+    whereA = np.where(wlen_a >= crval_b)[0]
+    print('whereA = ',len(whereA),': ',whereA)
+    whereB = np.where(wlen_b <= wlen_a[len(wlen_a)-1])[0]
+    print('whereB = ',len(whereB),': ',whereB)
+    specMerged[whereNew] = (spec_a[whereA] + spec_b[whereB]) / 2.
+
+    whereNew = np.where(wlenNew > (wlen_a[len(wlen_a)-1] if wlen_a[len(wlen_a)-1] > crval_b else (crval_b - (cdelt_b/2.))))[0]
+    print('whereNew = ',len(whereNew),': ',whereNew)
+    whereB = np.where(wlen_b > wlen_a[len(wlen_a)-1])[0]
+    print('whereB = ',len(whereB),': ',whereB)
+    specMerged[whereNew] = spec_b[whereB]
+
+    if display:
+        plt.plot(wlen_a,spec_a,label = 'spec_a')
+        plt.plot(wlen_b,spec_b,label = 'spec_b')
+        plt.plot(wlenNew,specMerged,label = 'merged')
+        plt.legend()
+        plt.show()
+
+    writeFits1D(specMerged,
+                fileNameOut,
+                wavelength=None,
+                header=fileNameA,
+                CRVAL1=wlenNew[0],
+                CRPIX1=1,
+                CDELT1=minDelta,
+               )
+
+def scombine(fileListName,
+            spectrumFileNameOut,
+            method='median', # mean, median
+            lowReject=None,
+            highReject=None,
+            adjustSigLevels=False,
+            useMean=False,
+            display=False):
     fileNames = readFileToArr(fileListName)
     fileNames = [fileName if '/' in fileName else os.path.join(fileListName[:fileListName.rfind('/')],fileName) for fileName in fileNames]
     wLenAll = getWavelengthArr(fileNames[0],0)

@@ -25,7 +25,7 @@ trimSection = '[56:2100,135:454]'#DBS May2008 Blue
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-12/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data/2008-05-14/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -249,7 +249,7 @@ if __name__ == '__main__':
         #    STOP
             separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
         #STOP
-        if True:
+        if False:
             objectFiles = os.path.join(workPath,'science.list')
     #        objectFiles = os.path.join(workPath,'SCIENCE.list')
             # subtract overscan and trim all images
@@ -315,7 +315,7 @@ if __name__ == '__main__':
                             overwrite=True)
             #STOP
             # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
-        if True:
+        if False:
             for inputList in ['arc','science','fluxstds','flatSKYFLAT']:
                 flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                             masterFlat,
@@ -368,7 +368,7 @@ if __name__ == '__main__':
                     subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
                 subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-        if True:
+        if False:
             # extract and reidentify ARCs
             # arc_otzxfif.list or arc_otzxf.list???
             arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
@@ -399,7 +399,7 @@ if __name__ == '__main__':
                 with open(inputList[i][:inputList[i].rfind('.')]+'_wLenOrig.dat','w') as f:
                     for wLen in wavelengthsOrig[i]:
                         f.write('%.8f\n' % (wLen))
-        if True:
+        if False:
             areasFileName = os.path.join(workPath,'areas.csv')
             print('reduce: areasFileName = '+areasFileName)
             areas = csvFree.readCSVFile(areasFileName)
@@ -439,15 +439,16 @@ if __name__ == '__main__':
                     skydFiles.append(fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits')
                     ecdfFiles.append(fileName[:fileName.rfind('.')]+'EcdF.fits')
                     # extract MedianSky images
-                    skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
+                    if False:
+                        skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
 
-                    writeFits1D(skySpec,
-                                skyFilesEc[len(skyFilesEc)-1],
-                                wavelength=None,
-                                header=skyFiles[len(skyFiles)-1],
-                                CRVAL1=1,
-                                CRPIX1=1,
-                                CDELT1=1)
+                        writeFits1D(skySpec,
+                                    skyFilesEc[len(skyFilesEc)-1],
+                                    wavelength=None,
+                                    header=skyFiles[len(skyFiles)-1],
+                                    CRVAL1=1,
+                                    CRPIX1=1,
+                                    CDELT1=1)
         if True:
             inputList = getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfifEc.list'))
             wavelengthsOrig = []
@@ -457,7 +458,7 @@ if __name__ == '__main__':
                 wavelengthsOrig.append(np.asarray(wLens))
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
-
+        if False:
             dispCor(skyFilesEc,
                     getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                     wavelengthsOrig,

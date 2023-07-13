@@ -4,7 +4,7 @@ from hashUtils import get_IDPNMain_from_name
 from drUtils import readFileToArr,getHeaderValue,setHeaderValue,getHeader
 import csvFree,csvData
 
-date = '2008-05-12'
+date = '2008-05-14'
 path = '/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/'
 areas_blue = csvFree.readCSVFile(os.path.join(path,'B_data',date,'areas.csv'))
 areas_red = csvFree.readCSVFile(os.path.join(path,'R_data',date,'areas.csv'))
