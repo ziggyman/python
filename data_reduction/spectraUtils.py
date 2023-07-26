@@ -2,6 +2,7 @@ import astropy.io.fits as pyfits
 import numpy as np
 import matplotlib.pyplot as plt
 from PyAstronomy import pyasl
+from astropy.coordinates import SkyCoord
 
 def getImageData(fname,
                  hduNum=0):
@@ -368,3 +369,56 @@ def removeInterval(inputFileName,
               inputFileName=inputFileName,
               outputFileName=outputFileName,
               overwrite=True)
+
+# all angles must be in degrees
+#@return: angular distance in degrees
+def angularDistancePyAsl(ra1, dec1, ra2, dec2):
+    from PyAstronomy import pyasl
+#    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
+    return pyasl.getAngDist(ra1, dec1, ra2, dec2)
+
+
+#@param ra1: RA in degrees
+#@param dec1: DEC in degrees
+#@param ra2: RA in degrees
+#@param dec2: DEC in degrees
+#@return: angular distance in arc seconds
+def angularDistance(ra1, dec1, ra2, dec2):
+    if ':' in str(ra1):
+        print('values must be in degrees!')
+        STOP
+#    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
+    mm1 = SkyCoord(ra=ra1, dec=dec1, frame='icrs', unit="deg")
+    mm2 = SkyCoord(ra=ra2, dec=dec2, frame='icrs', unit="deg")
+    return mm1.separation(mm2).arcsecond
+
+
+# RA string = xx:yy:zz.zzz
+def hmsToDeg(string):
+    h, m, s = [float(i) for i in string.split(':')]
+    return (15. * s / 3600.) + (15. * m / 60.) + (h * 15.)
+
+def degToHMS(degrees):
+    h = int(degrees / 15.)
+    m = int((degrees - (h * 15.)) * 4.)
+    s = (degrees - (m/4.) - (h*15.)) * 240.
+    sStr = '%.3f' % (s)
+    sStr = sStr.zfill(6)
+    return '%02d:%02d:%s' % (h,m,sStr)
+
+# DEC string = xx:yy:zz.zzz
+def dmsToDeg(string):
+    d, m, s = [float(i) for i in string.split(':')]
+#    print('dmsToDeg: string = <'+string+'>: d = ',d,', m = ',m,', s = ',s)
+    if string[0] == '-':
+        d = 0. - d
+        return 0. - (s / 3600. + m / 60. + d)
+    return s / 3600. + m / 60. + d
+
+def degToDMS(degrees):
+    d = int(degrees)
+    m = int((degrees - d) * 60)
+    s = (degrees - d - (m/60.)) * 3600.
+    sStr = '%.3f' % abs(s)
+    sStr = sStr.zfill(6)
+    return '%02d:%02d:%s' % (d,abs(m),sStr)

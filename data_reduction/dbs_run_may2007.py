@@ -1,11 +1,24 @@
 import numpy as np
 import os
 from hashUtils import get_IDPNMain_from_name
-from drUtils import readFileToArr,getHeaderValue,setHeaderValue,getHeader
+from drUtils import readFileToArr,getHeaderValue,setHeaderValue,getHeader,merge
 import csvFree,csvData
 
-date = '2008-05-14'
-path = '/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/'
+date = '2008-05-06'
+path = '/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/interns/done'
+
+objects_blue = readFileToArr(os.path.join(path,'objects_blue_2008-05-07.list'))
+objects_red = readFileToArr(os.path.join(path,'objects_red_2008-05-07.list'))
+
+if len(objects_blue) != len(objects_red):
+    print('different number of files in lists')
+    STOP
+
+for i in range(len(objects_blue)):
+    merge(objects_blue[i],objects_red[i],os.path.join(path,getHeaderValue(objects_blue[i],'OBJECT')+'_MS070508.fits'))
+
+STOP
+
 areas_blue = csvFree.readCSVFile(os.path.join(path,'B_data',date,'areas.csv'))
 areas_red = csvFree.readCSVFile(os.path.join(path,'R_data',date,'areas.csv'))
 for i in range(areas_blue.size()):

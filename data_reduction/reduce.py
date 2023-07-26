@@ -15,9 +15,9 @@ import csvFree, csvData
 overscanSection = '[10:50,1:562]'#'[4:21,1:133]'#'[1983:,:]'
 #trimSection = '[51:2148,18:507]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
-trimSection = '[56:2100,135:454]'#DBS May2008 Blue
+#trimSection = '[56:2100,135:454]'#DBS May2008 Blue
 #trimSection = '[56:2100,133:452]'#DBS May2008 Blue
-#trimSection = '[56:2100,75:394]'#'[26:1774,30:115]'#'[17:1982,38:97]'
+trimSection = '[56:2100,75:394]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 
 """SPUPNIC"""
 #overscanSection = '[1983:,:]'
@@ -25,7 +25,7 @@ trimSection = '[56:2100,135:454]'#DBS May2008 Blue
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data/2008-05-14/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data/2008-05-13/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -66,15 +66,15 @@ fluxstdsListsStartWith = 'fluxstds'#DBS
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_vertical_otzxf')#aprefVerticalTrace_spupnic_2007')
-#refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_red_May2008_otzf')
-refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_red_May2008_otzf')
+#refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_6230-6725_vertical_otzxf')#aprefVerticalTrace_spupnic_2007')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_vertical_otzf')#aprefVerticalTrace_spupnic_2007')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_3600-5600_vertical_otzf')#aprefVerticalTrace_spupnic_2007')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
-#refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
+#refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_6230-6725_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_3600-5600_horizontal_otzf')#aprefHorizontalTrace_spupnic_2007_transposed')
@@ -84,7 +84,8 @@ refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DB
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_otzfif')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_6230-6725_otzxfif')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_BLUE_otzfif')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_red_May2008_otzfif')
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_aug07_Blue_3600-5600_otzfif')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
@@ -93,8 +94,8 @@ refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_ot
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_mar2014.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2013.dat')
 #lineList = os.path.join(refPath,'saao_refspec_may2007.new')
-#lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
-lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
+lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
+#lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_blue.txt')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_red.txt')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_red_6230-6725_lines.txt')
@@ -102,7 +103,8 @@ lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_may2007.fits'
-referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
+referenceSpectrum = os.path.join(refPath,'refArc_DBS_May2008_red_otzxfiEc.fits')
+#referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_aug07_Blue.fits')
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_aug07_Red.fits')
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_RED_62360-6725_otzfifEc.fits')
@@ -249,7 +251,7 @@ if __name__ == '__main__':
         #    STOP
             separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
         #STOP
-        if False:
+        if True:
             objectFiles = os.path.join(workPath,'science.list')
     #        objectFiles = os.path.join(workPath,'SCIENCE.list')
             # subtract overscan and trim all images
@@ -315,7 +317,7 @@ if __name__ == '__main__':
                             overwrite=True)
             #STOP
             # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
-        if False:
+        if True:
             for inputList in ['arc','science','fluxstds','flatSKYFLAT']:
                 flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                             masterFlat,
@@ -368,7 +370,7 @@ if __name__ == '__main__':
                     subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
                 subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-        if False:
+        if True:
             # extract and reidentify ARCs
             # arc_otzxfif.list or arc_otzxf.list???
             arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
@@ -376,7 +378,7 @@ if __name__ == '__main__':
                                                                             refProfApDef,
                                                                             lineList,
                                                                             referenceSpectrum,
-                                                                            display=False,
+                                                                            display=True,
                                                                             chiSquareLimit=0.4,
                                                                             degree=4,
                                                                             #apOffsetX=-155.5,
@@ -439,7 +441,7 @@ if __name__ == '__main__':
                     skydFiles.append(fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits')
                     ecdfFiles.append(fileName[:fileName.rfind('.')]+'EcdF.fits')
                     # extract MedianSky images
-                    if False:
+                    if True:
                         skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
 
                         writeFits1D(skySpec,
@@ -458,7 +460,7 @@ if __name__ == '__main__':
                 wavelengthsOrig.append(np.asarray(wLens))
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
-        if False:
+        if True:
             dispCor(skyFilesEc,
                     getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                     wavelengthsOrig,
