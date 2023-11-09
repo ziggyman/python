@@ -14,10 +14,10 @@ import csvFree, csvData
 
 overscanSection = '[10:50,1:562]'#'[4:21,1:133]'#'[1983:,:]'
 #trimSection = '[51:2148,18:507]'#'[26:1774,30:115]'#'[17:1982,38:97]'
-#trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
+trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #trimSection = '[56:2100,135:454]'#DBS May2008 Blue
 #trimSection = '[56:2100,133:452]'#DBS May2008 Blue
-trimSection = '[56:2100,75:394]'#'[26:1774,30:115]'#'[17:1982,38:97]'
+#trimSection = '[56:2100,75:394]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 
 """SPUPNIC"""
 #overscanSection = '[1983:,:]'
@@ -251,7 +251,7 @@ if __name__ == '__main__':
         #    STOP
             separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
         #STOP
-        if True:
+        if False:
             objectFiles = os.path.join(workPath,'science.list')
     #        objectFiles = os.path.join(workPath,'SCIENCE.list')
             # subtract overscan and trim all images
@@ -317,7 +317,7 @@ if __name__ == '__main__':
                             overwrite=True)
             #STOP
             # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
-        if True:
+        if False:
             for inputList in ['arc','science','fluxstds','flatSKYFLAT']:
                 flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                             masterFlat,
@@ -378,9 +378,11 @@ if __name__ == '__main__':
                                                                             refProfApDef,
                                                                             lineList,
                                                                             referenceSpectrum,
-                                                                            display=True,
-                                                                            chiSquareLimit=0.4,
+                                                                            display=False,
+                                                                            chiSquareLimit=0.45,
                                                                             degree=4,
+                                                                            minLines=10,
+                                                                            maxRMS=0.6,
                                                                             #apOffsetX=-155.5,
                                                                             )
             for i in range(len(arc_otzxf_list)):
@@ -392,7 +394,8 @@ if __name__ == '__main__':
             #extractObjectAndSubtractSky(twoDImageFileIn, specOut, yRange, skyAbove, skyBelow, dispAxis)
             inputList = getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfif.list'))
             for inputFile in inputList:
-                extractSum(inputFile, 'row', fNameOut = inputFile[:inputFile.rfind('.')]+'Ec.fits')
+                if not os.path.isfile(inputFile[:inputFile.rfind('.')]+'Ec.fits'):
+                    extractSum(inputFile, 'row', fNameOut = inputFile[:inputFile.rfind('.')]+'Ec.fits')
 
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
@@ -401,6 +404,7 @@ if __name__ == '__main__':
                 with open(inputList[i][:inputList[i].rfind('.')]+'_wLenOrig.dat','w') as f:
                     for wLen in wavelengthsOrig[i]:
                         f.write('%.8f\n' % (wLen))
+            #STOP
         if False:
             areasFileName = os.path.join(workPath,'areas.csv')
             print('reduce: areasFileName = '+areasFileName)
@@ -484,8 +488,8 @@ if __name__ == '__main__':
 
             areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
             sensFuncs = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),
-                                    getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
-                                    wavelengthsOrig,
+                                    #getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
+                                    #wavelengthsOrig,
                                     areas,
                                     stdStarNameEndsBefore='dbs',
                                     display=True)

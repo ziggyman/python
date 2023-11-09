@@ -1596,26 +1596,51 @@ def xCor(static, moving, display = False):
 def gauss(x,a,x0,sigma,yBackground=0.):
     return a*exp(-(x-x0)**2/(2*sigma**2))+yBackground
 
+def gauss_lin(x,a,x0,sigma,yBackground=0.,linear=0.):
+    return a*exp(-(x-x0)**2/(2*sigma**2))+yBackground+(linear*x)
+
 def xCorFindMinimum(xCorX, xCorY, display = False):
+    print('xCorFindMinimum: xCorX = ',xCorX)
+    print('xCorFindMinimum: xCorY = ',xCorY)
     y = xCorY - np.amax(xCorY)
     a = np.amin(y)
     print('xCorFindMinimum: a = ',a)
     print('xCorFindMinimum: y = ',y,', np.amin(y) = ',np.amin(y))
-    whereMin = np.where(y == np.amin(y))[0]
+    whereMin = np.where(y == a)[0]
     print('xCorFindMinimum: whereMin = ',whereMin)
     x0 = xCorX[whereMin][0]
     print('xCorFindMinimum: x0 = ',type(x0),': ',x0)
     print('xCorX = ',type(xCorX),': ',xCorX)
     print('y = ',type(y),': ',y)
-    p0 = [a,x0,1.,0.]
-    for p in p0:
-        print('type(',p,') = ',type(p))
-    popt,pcov = curve_fit(gauss,xCorX,y,p0=p0)
-    if display:
-        plt.plot(xCorX,y,label='y')
-        plt.plot(xCorX,gauss(xCorX,popt[0],popt[1],popt[2]),label='gauss')
-        plt.legend()
-        plt.show()
+    try:
+        p0 = [a,x0,1.,0.,0.]
+        for p in p0:
+            print('type(',p,') = ',type(p))
+        popt,pcov = curve_fit(gauss_lin,xCorX,y,p0=p0)
+        where = np.where(y == np.min(y))[0]
+        print('popt[1](=',popt[1],') - xCorX[',where[0],'](=',xCorX[where[0]],') = ',popt[1] - xCorX[where[0]])
+        if np.abs(popt[1] - xCorX[where[0]]) > (1.5*np.abs(xCorX[1]-xCorX[0])):
+            print('difference between bestVRad = ',popt[1],' and vRadRange[',where[0],']=',xCorX[where[0]],' gt dVRad')
+            STOP
+        if display:
+            plt.plot(xCorX,y,label='y')
+            plt.plot(xCorX,gauss_lin(xCorX,popt[0],popt[1],popt[2],popt[3],popt[4]),label='gauss')
+            plt.legend()
+            plt.show()
+    except:
+        p0 = [a,x0,1.,0.]
+        for p in p0:
+            print('type(',p,') = ',type(p))
+        popt,pcov = curve_fit(gauss,xCorX,y,p0=p0)
+        where = np.where(y == np.min(y))[0]
+        if np.abs(popt[1] - xCorX[where[0]]) > (1.5*np.abs(xCorX[1]-xCorX[0])):
+            print('difference between bestVRad = ',popt[1],' and vRadRange[',where[0],']=',xCorX[where[0]],' gt dVRad')
+            STOP
+        if display:
+            plt.plot(xCorX,y,label='y')
+            plt.plot(xCorX,gauss(xCorX,popt[0],popt[1],popt[2],popt[3]),label='gauss')
+            plt.legend()
+            plt.show()
     return popt
 
 
@@ -1630,14 +1655,16 @@ def findLines(spec,
               xCorX,
               xCorY,
               sigma,
+              maxAmp = -0.00001,
               peakHeight=None,
               peakWidth=None,
               threshold=None,
               plot=False):
-    maxPosDiff = 0.67
-    maxSigDiff = sigma * 0.6
+    maxPosDiff = 0.9
+    maxSigDiff = sigma * 0.75
     print('findLines: peakHeight = ',peakHeight,', peakWidth = ',peakWidth,', threshold = ',threshold)
     peaks,properties = find_peaks(spec, height = peakHeight, width=peakWidth, threshold=threshold)#
+    print('found ',len(peaks),' peaks')
     if plot:
         plt.plot(spec)
         plt.scatter(peaks,spec[peaks])
@@ -1696,7 +1723,7 @@ def findLines(spec,
         print('findLines: popt = ',popt)
         if popt[2] < 0.:
             popt[2] = 0.-popt[2]
-        maxAmp = -0.00001
+        maxAmp = -1.0e-9#-0.00001
         if ((popt[0] < maxAmp)
             and (np.absolute(xCenter - popt[1]) < maxPosDiff)
             and (np.absolute(sigma - popt[2]) < maxSigDiff)
@@ -1712,7 +1739,7 @@ def findLines(spec,
         else:
             print('findLines: rejected fit for line at ',xCorX[xCorPeaks[i]],', fitted parameters = [a=',popt[0],', x0=',popt[1],', sigma=',popt[2],', background=',popt[3],']')
             if popt[0] >= maxAmp:
-                print('findLines: amplitude >= ',maxAmp)
+                print('findLines: amplitude(=',popt[0],') >= ',maxAmp)
             if np.absolute(xCenter - popt[1]) >= maxPosDiff:
                 print('findLines: np.absolute(xCenter - popt[1])(=',np.absolute(xCenter - popt[1]),') >= maxPosDiff=',maxPosDiff)
             if np.absolute(sigma - popt[2]) >= maxSigDiff:
@@ -1861,10 +1888,15 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' ', display=False):
             for i in np.arange(len(remove)-1,-1,-1):
                 print('remove: i = ',i)
                 print('trying to remove element ',remove[i])
+                print('pixels = ',len(pixels),': ',pixels,', remove[',i,'] = ',remove[i])
                 pixels = np.delete(pixels,remove[i])
+                print('wLens = ',len(wLens),': ',wLens,', remove[',i,'] = ',remove[i])
                 wLens = np.delete(wLens,remove[i])
-#                differences = np.delete(differences,remove[i-1])
-#                errors = np.delete(errors,remove[i-1])
+                print('differences = ',len(differences),': ',differences,', remove[',i,']-1 = ',remove[i]-1)
+                differences = np.delete(differences,remove[i]-1)
+                print('errors = ',len(errors),': ',errors,': ',differences,', remove[',i,']-1 = ',remove[i]-1)
+                errors = np.delete(errors,remove[i]-1)
+                print('remove[',i,'] = ',remove[i],' removed')
                 nRuns += 1
         else:
             break
@@ -1879,7 +1911,10 @@ def calcDispersion(lineList, xRange, degree=3, delimiter=' ', display=False):
 
     #p = L.fit(pixels, wLens, 3)
     #print('calcDispersion: p = ',p)
-    return [coeffs,rms]
+    goodLines = []
+    for i in np.arange(1,len(pixels)-1,1):
+        goodLines.append([pixels[i],wLens[i]])
+    return [goodLines, coeffs,rms]
 
 def chisqfunc(fac, object, sky, sigma):
     model = fac * sky
@@ -2314,14 +2349,18 @@ def findGoodLines(xSpec,
                   display=False,
                   chiSquareLimit=0.25):
     xXCor, xCorChiSquares = xCor([xSpec,ySpec],lineProfile)
+    peakHeight = np.amax(ySpec) * 0.0025
+    print('findGoodLines: peakHeight = ',peakHeight)
+    peakHeight = np.median(ySpec)
+    print('findGoodLines: np.median(ySpec) = ',peakHeight)
     linesX = findLines(ySpec,
                        xXCor,
                        xCorChiSquares,
                        3.,
-                       peakHeight=np.amax(ySpec) * 0.0025,#/ (300000. / 14000.),
-                       peakWidth=2.5,#3.,
-                       threshold=300.,
-                       plot=False,
+                       peakHeight=peakHeight,#/ (300000. / 14000.),
+                       peakWidth=2.,#3.,
+                       threshold=0.,
+                       plot=display,
                       )
     print('findGoodLines: linesX = ',linesX)
     print('lineProfile = ',lineProfile)
@@ -2551,6 +2590,7 @@ def reidentify(arcFitsName2D,
                display=False,
                chiSquareLimit=0.25,
                degree=5,
+               minLines=8,
                apOffsetX=0.):
     print('lineListIn = <'+lineListIn+'>')
 #    STOP
@@ -2565,8 +2605,11 @@ def reidentify(arcFitsName2D,
 
     lineProfiles = getLineProfiles(arcFitsName2DForLineProfile, display=display, apOffsetX=apOffsetX)
     bestLineProfile = getBestLineProfile(lineProfiles,outFileName=None,display=display)
-    specY = extractSum(arcFitsName2D,'row')
-    writeFits1D(specY, arcFitsName2D[:arcFitsName2D.rfind('.')]+'Ec.fits', wavelength=None, header=arcFitsName2D, CRVAL1=1., CRPIX1=1., CDELT1=1.)
+    if os.path.isfile(arcFitsName2D[:arcFitsName2D.rfind('.')]+'Ec.fits'):
+        specY = getImageData(arcFitsName2D[:arcFitsName2D.rfind('.')]+'Ec.fits',0)
+    else:
+        specY = extractSum(arcFitsName2D,'row')
+        writeFits1D(specY, arcFitsName2D[:arcFitsName2D.rfind('.')]+'Ec.fits', wavelength=None, header=arcFitsName2D, CRVAL1=1., CRPIX1=1., CDELT1=1.)
     if display:
         plt.plot(specY)
         plt.show()
@@ -2597,6 +2640,7 @@ def reidentify(arcFitsName2D,
         print('reidentify: line = <'+line+'>')
         print('reidentify: line[:line.find(' ')] = <'+line[:line.find(' ')]+'>, line[line.find(' ')+1:] = <'+line[line.find(' ')+1:]+'>')
     refLineList = [[float(line[:line.find(' ')]),float(line[line.find(' ')+1:])] for line in lineList]
+    print('goodLines = ',goodLines)
     print('refLineList = ',refLineList)
     lineListIdentified = crossCheckLines(goodLines,refLineList)
     print('reidentify: ',arcFitsName2D,': lineListIdentified = ',len(lineListIdentified),': ',lineListIdentified)
@@ -2606,8 +2650,8 @@ def reidentify(arcFitsName2D,
                 f.write('%.5f %.5f\n' % (line[0],line[1]))
 
     xSpec = np.arange(0,specY.shape[0],1.)
-    coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=degree, display=display)
-    if display:
+    lineListIdentified, coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=degree, display=display)
+    if False:
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
         plt.plot(wLenSpec,specY)
@@ -2618,6 +2662,9 @@ def reidentify(arcFitsName2D,
         plt.title(arcFitsName2D[arcFitsName2D.rfind('/')+1:])
         plt.show()
 
+    if len(lineListIdentified) < minLines:
+        print('ERROR: number of identified lines is less than the minimum for spectrum ',arcFitsName2D)
+        STOP
     return [lineListIdentified, coeffs, [0,xSpec[xSpec.shape[0]-1]], rms]
 
 def rebin(wavelength, spectrum, newWavelength, preserveFlux = True):#, outFileName = None, header = None):
@@ -2631,6 +2678,7 @@ def rebin(wavelength, spectrum, newWavelength, preserveFlux = True):#, outFileNa
         wLenNew = np.fliplr([newWavelength])[0]
     else:
         wLenNew = newWavelength
+    print('spec.shape = ',spec.shape,', spec.shape = ',spec.shape)
     input_spectrum = Spectrum1D( flux=np.array(spec) * u.erg / (u.cm * u.cm) / u.s / u.AA,
                                 spectral_axis = np.array(wLen) * u.AA)
     print('rebin: spec = ',spec.shape,': ',spec)
@@ -2689,6 +2737,7 @@ def rebin_spec(wave, specin, wavnew):
     obs = observation.Observation(spec, filt, binset=wavnew, force='taper')
 
     return obs.binflux
+
 def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CRPIX1=None, CDELT1=None):
     head = None
     if not header is None:
@@ -2773,28 +2822,43 @@ def resampleSpec(wLen, spec):
     resampledSpec = rebin(wLen, spec, resampled, preserveFlux = False)
     return [resampled,resampledSpec]
 
-def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, display=False, chiSquareLimit=0.25,degree=5, apOffsetX=0.):
+def extractAndReidentifyARCs(arcListIn,
+                             refApDef,
+                             lineListIn,
+                             xCorSpecIn,
+                             display=False,
+                             chiSquareLimit=0.25,
+                             degree=5,
+                             minLines=8,
+                             maxRMS=0.6,
+                             shiftApDef=True,
+                             apOffsetX=0.):
     print('refApDef = <'+refApDef)
     wavelengthsOrigOut = []
     wavelengthsResampledOut = []
     xCorSpec = getImageData(xCorSpecIn,0)#[12:-12]
     xCorSpecX = np.arange(0,len(xCorSpec),1)#[12:-12] - (len(xCorSpec) / 2.)
     for arc in arcListIn:
+        print('extractAndReidentifyARCs: arc = ',arc)
         try:
             gratingAngle = getHeaderValue(arc, 'GR-ANGLE', hduNum=0).strip()
         except:
             gratingAngle = '0.0'
 
         arcInterp = arc[:-5]+'i.fits'
-        oneDSpecInterp = extractSum(arcInterp,'row')
-
-        writeFits1D(oneDSpecInterp,
-                    arcInterp[:-5]+'Ec.fits',
-                    wavelength=None,
-                    header=arcInterp,
-                    CRVAL1=1,
-                    CRPIX1=1,
-                    CDELT1=1)
+        print('extractAndReidentifyARCs: arcInterp = ',arcInterp)
+        if os.path.isfile(arcInterp[:-5]+'Ec.fits'):
+            print('arcInterp = <'+arcInterp[:-5]+'Ec.fits'+'> already exists')
+            oneDSpecInterp = getImageData(arcInterp[:-5]+'Ec.fits',0)
+        else:
+            oneDSpecInterp = extractSum(arcInterp,'row')
+            writeFits1D(oneDSpecInterp,
+                        arcInterp[:-5]+'Ec.fits',
+                        wavelength=None,
+                        header=arcInterp,
+                        CRVAL1=1,
+                        CRPIX1=1,
+                        CDELT1=1)
         oneDSpecInterpX = np.arange(0,len(oneDSpecInterp),1)
         if display:
             plt.plot(oneDSpecInterp)
@@ -2827,17 +2891,26 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
                       shift)
         print('extractAndReidentifyARCs: shifted line list = <'+lineListTmp+'tmp>')
         print('extractAndReidentifyARCs: referenceApertureDefinitionFile = <'+refApDef+'>')
-        tempFile = arc[:arc.rfind('/')+1]+'database/aptmp'+arc[arc.rfind('/')+1:arc.rfind('.')]
-        print('extractAndReidentifyARCs: tempFile = <'+tempFile+'>')
         if '%' in refApDef:
             refApDefTmp = refApDef % (int(gratingAngle[:gratingAngle.find('.')]),
                              int(gratingAngle[gratingAngle.find('.')+1:]))
         else:
             refApDefTmp = refApDef
+        if os.path.isfile(arcInterp):
+            tempFile = arcInterp[:arcInterp.rfind('/')+1]+'database/aptmp'+arcInterp[arcInterp.rfind('/')+1:arcInterp.rfind('.')]
+            print('extractAndReidentifyARCs: tempFile = <'+tempFile+'>')
+            if shiftApDef:
+                shiftApertureDefs(tempFile,tempFile,shift)
+            forProfileFile = arcInterp
+        else:
+            forProfileFile = refApDefTmp[:refApDefTmp.find('database')]+refApDefTmp[refApDefTmp.rfind('/ap')+3:]+'.fits'
+            copyfile(forProfileFile,arcInterp[:arcInterp.rfind('/')+1]+forProfileFile[forProfileFile.rfind('/')+1:])
+            forProfileFile = arcInterp[:arcInterp.rfind('/')+1]+forProfileFile[forProfileFile.rfind('/')+1:]
+            tempFile = forProfileFile[:forProfileFile.rfind('/')+1]+'database/aptmp'+forProfileFile[forProfileFile.rfind('/')+1:forProfileFile.rfind('.')]
         copyfile(refApDefTmp,tempFile)
-        shiftApertureDefs(tempFile,tempFile,shift)
+        print('forProfileFile = <'+forProfileFile+'>')
         lineListNew, coeffs, xRange, rms = reidentify(arcInterp,
-                                                      arc,
+                                                      forProfileFile,
                                                       tempFile,
                                                       lineListIn+'tmp',
                                                       lineListOut=arc[:arc.rfind('.')]+'_lines.dat',
@@ -2845,7 +2918,12 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
                                                       display=display,
                                                       chiSquareLimit=chiSquareLimit,
                                                       degree=degree,
+                                                      minLines=minLines,
                                                       apOffsetX=apOffsetX)
+        print('lineListNew = ',lineListNew)
+        if rms > maxRMS:
+            print('ERROR: RMS(=',rms,') > maxRMS(=',maxRMS,')')
+            STOP
         xSpec = np.arange(xRange[0],xRange[1]+1,1.)
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
@@ -2866,7 +2944,7 @@ def extractAndReidentifyARCs(arcListIn, refApDef, lineListIn, xCorSpecIn, displa
         writeFits1D(resampledSpec,
                     arcInterp[:-5]+'Ecd.fits',
                     wavelength=None,
-                    header=arcInterp,
+                    header=arcInterp[:-5]+'Ec.fits',
                     CRVAL1=resampled[0],
                     CRPIX1=1,
                     CDELT1=resampled[1]-resampled[0])
@@ -3003,7 +3081,7 @@ def dispCor(scienceListIn,
         print('dispcor: factorAfter = ',factorAfter)
 
         wLenSpec = (wLenSpecBefore * factorBefore) + (wLenSpecAfter * factorAfter)
-        print('dispCor: wLenSpec = ',wLenSpec)
+        print('dispCor before heliocor: wLenSpec = ',wLenSpec)
 
         #read science header and append keywords
         headerSc['REFSPEC1'] = arcBefore[arcBefore.rfind('/')+1:]+' %.5f' % (factorBefore)
@@ -3015,8 +3093,9 @@ def dispCor(scienceListIn,
             vrad = heliocor(observatoryLocation, headerSc, keywordRA, keywordDEC, keywordObsTime)
             headerSc['VHELIO'] = vrad
             wLenSpec = applyVRadCorrection(wLenSpec, vrad)
-            print('dispCor: after heliocentric correction for vrad = ',vrad,': wLenSpec = ',wLenSpec)
+            print('dispCor: after heliocentric correction for vrad = ',vrad,': wLenSpec = ',wLenSpec.shape,': wLenSpec')
         hdulist.close()
+        print('after heliocor: wLenSpec = ',wLenSpec)
 
         # read wavelength information from reference ARCs
         hdulist = pyfits.open(arcBefore)
@@ -3117,8 +3196,8 @@ def readFluxStandardFile(fName):
     return [wavelengths, fluxes]
 
 def calcResponse(fNameList,
-                 arcList,
-                wLenOrig,
+#                 arcList,
+#                wLenOrig,
                 areas,
                 stdStarNameEndsBefore = '_a',
                 fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt',
@@ -3227,7 +3306,7 @@ def calcResponse(fNameList,
 
                 if display:
                     plt.plot(wapprox, obj_flux.data)
-                    plt.title(fName[fName.rfind('/')+1:])
+                    plt.title('1. '+fName[fName.rfind('/')+1:])
 #                    plt.errorbar(wapprox.value, obj_flux.data, alpha=0.25)#, yerr=ex_tbl['fluxerr'].data
                     plt.show()
 
@@ -3242,27 +3321,7 @@ def calcResponse(fNameList,
                                           flux=obj_flux)#.quantity,)
                                           #uncertainty=StdDevUncertainty(ex_tbl['fluxerr']))
 
-                print('calcResponse: obj_spectrum = ',obj_spectrum,', stdstar = ',stdstar)
-                sensfunc_lin = standard_sensfunc(obj_spectrum, stdstar, display=True, mode='linear')
-                print('calcResponse: sensfunc_lin = ',sensfunc_lin)
-                # the actual sensitivity function(s), which in theory include some crude information about
-                # the flat fielding (response) - though the reference spectrum is very coarse.
-                if display:
-                    plt.plot(sensfunc_lin['wave'], sensfunc_lin['S'])
-                    plt.title(fName[fName.rfind('/')+1:])
-                    plt.show()
-
-                # now apply the sensfunc back to the std star to demonstrate
-                # NOTE: this only works b/c wavelength is exactly the same. Normally use `apply_sensfunc`
-                if display:
-                    plt.plot(wapprox, obj_flux * sensfunc_lin['S'])
-                    plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
-                    plt.xlim(5500,7500)
-                    plt.ylim(0, 0.3e-12)
-                    plt.title(fName[fName.rfind('/')+1:])
-                    plt.show()
-
-                # now let's demo the Airmass correction
+                """correct flux standard spectrum for AIRMASS"""
                 Xfile = obs_extinction(airmassExtCor)
 
                 try:
@@ -3275,8 +3334,35 @@ def calcResponse(fNameList,
                 if display:
                     plt.plot(obj_spectrum.wavelength, obj_spectrum.flux)
                     plt.plot(Atest.wavelength, Atest.flux)
-                    plt.title(fName[fName.rfind('/')+1:])
+                    plt.title('4. '+fName[fName.rfind('/')+1:])
                     plt.show()
+
+                print('calcResponse: obj_spectrum = ',obj_spectrum,', stdstar = ',stdstar)
+                sensfunc_lin = standard_sensfunc(Atest, stdstar, display=True, mode='linear')
+                print('calcResponse: sensfunc_lin = ',sensfunc_lin)
+                # the actual sensitivity function(s), which in theory include some crude information about
+                # the flat fielding (response) - though the reference spectrum is very coarse.
+                if display:
+                    plt.plot(sensfunc_lin['wave'], sensfunc_lin['S'])
+                    plt.title('2. '+fName[fName.rfind('/')+1:])
+                    plt.show()
+
+                # now apply the sensfunc back to the std star to demonstrate
+                # NOTE: this only works b/c wavelength is exactly the same. Normally use `apply_sensfunc`
+                if display:
+                    print('wapprox = ',wapprox)
+                    print('obj_flux = ',obj_flux)
+                    print('sensfunc_lin = ',sensfunc_lin)
+                    print('stdstar["wave"] = ',stdstar['wave'])
+                    print('stdstar["flux"] = ',stdstar['flux'])
+                    plt.plot(Atest.wavelength, Atest.flux * sensfunc_lin['S'])
+                    plt.scatter(stdstar['wave'], stdstar['flux'], c='C1')
+#                    plt.xlim(5500,7500)
+#                    plt.ylim(0, 0.3e-12)
+                    plt.title('3. '+fName[fName.rfind('/')+1:])
+                    plt.show()
+
+                # now let's demo the Airmass correction
 
                 sensFuncs.append(sensfunc_lin)
 
@@ -3496,6 +3582,8 @@ def merge(fileNameA,
           fileNameOut,
           preserveFlux = True,
           display = True):
+    print('fileNameA = ',fileNameA)
+    print('fileNameB = ',fileNameB)
     crpix_a = getHeaderValue(fileNameA,'CRPIX1')
     crval_a = getHeaderValue(fileNameA,'CRVAL1')
     cdelt_a = getHeaderValue(fileNameA,'CDELT1')
@@ -3522,9 +3610,9 @@ def merge(fileNameA,
     if minDelta == cdelt_a:
         if False:
             plt.plot(wlen_b,spec_b,label='original')
-        wlenNew = np.arange(crval_a,wlen_b[len(wlen_b)-1],cdelt_b)
+        wlenNew = np.arange(crval_a,wlen_b[len(wlen_b)-1],cdelt_a)
         wlen_b_new = wlenNew[np.where((wlenNew >= wlen_b[0]) & (wlenNew <= wlen_b[len(wlen_b)-1]))]
-        print('wlen_b_new = ',wlen_b_new)
+        print('wlen_b_new = ',len(wlen_b_new),': ',wlen_b_new)
         spec_b = rebin(wlen_b,spec_b,wlen_b_new,preserveFlux=preserveFlux)
         if False:
             plt.plot(wlen_b_new,spec_b,label='rebinned')
@@ -3536,18 +3624,18 @@ def merge(fileNameA,
             plt.plot(wlen_a,spec_a,label='original')
         wlenNew = np.flip(np.arange(wlen_b[len(wlen_b)-1],wlen_a[0],0.-cdelt_b))
         wlen_a_new = wlenNew[np.where((wlenNew >= wlen_a[0]) & (wlenNew <= wlen_a[len(wlen_a)-1]))]
-        print('wlen_a_new = ',wlen_a_new)
+        print('wlen_a_new = ',len(wlen_a_new),': ',wlen_a_new)
         spec_a = rebin(wlen_a,spec_a,wlen_a_new,preserveFlux=preserveFlux)
         if False:
             plt.plot(wlen_a_new,spec_a,label='rebinned')
             plt.legend()
             plt.show()
         wlen_a = wlen_a_new
-    print('wlenNew = ',wlenNew)
+    print('wlenNew = ',len(wlenNew),': ',wlenNew)
     specMerged = np.zeros(wlenNew.shape[0])
-    whereNew = np.where(wlenNew < (crval_b if crval_b < wlen_a[len(wlen_a)-1] else (wlen_a[len(wlen_a)-1] + (cdelt_a/2.))))[0]
+    whereNew = np.where(wlenNew < (crval_b if (crval_b < wlen_a[len(wlen_a)-1]) else (wlen_a[len(wlen_a)-1] + (cdelt_a/2.))))[0]
     print('whereNew = ',len(whereNew),': ',whereNew)
-    whereA = np.where(wlen_a < (crval_b if crval_b < wlen_a[len(wlen_a)-1] else (wlen_a[len(wlen_a)-1] + (cdelt_a/2.))))[0]
+    whereA = np.where(wlen_a < (crval_b if (crval_b < wlen_a[len(wlen_a)-1]) else (wlen_a[len(wlen_a)-1] + (cdelt_a/2.))))[0]
     print('whereA = ',len(whereA),': ',whereA)
     specMerged[whereNew] = spec_a[whereA]
 
@@ -3559,8 +3647,9 @@ def merge(fileNameA,
     print('whereB = ',len(whereB),': ',whereB)
     specMerged[whereNew] = (spec_a[whereA] + spec_b[whereB]) / 2.
 
-    whereNew = np.where(wlenNew > (wlen_a[len(wlen_a)-1] if wlen_a[len(wlen_a)-1] > crval_b else (crval_b - (cdelt_b/2.))))[0]
+    whereNew = np.where(wlenNew > (wlen_a[len(wlen_a)-1] if (wlen_a[len(wlen_a)-1] > crval_b) else (crval_b - (cdelt_b/2.))))[0]
     print('whereNew = ',len(whereNew),': ',whereNew)
+    print('wlenNew[whereNew] = ',wlenNew[whereNew])
     whereB = np.where(wlen_b > wlen_a[len(wlen_a)-1])[0]
     print('whereB = ',len(whereB),': ',whereB)
     specMerged[whereNew] = spec_b[whereB]
@@ -4177,19 +4266,23 @@ def getRadialVelocityFromXCor(pnSpec, pnSpecComp, vRadSpecComp = 0.):
     print('getRadialVelocityFromXCor: pnSpecWLen = ',pnSpecWLen.shape,': [',pnSpecWLen[0],',...,',pnSpecWLen[pnSpecWLen.shape[0]-1],']')
     pnSpecCompWLen = getWavelengthArr(pnSpecComp,0)
     print('getRadialVelocityFromXCor: pnSpecCompWLen = ',pnSpecCompWLen.shape,': [',pnSpecCompWLen[0],',...,',pnSpecCompWLen[pnSpecCompWLen.shape[0]-1],']')
-    plt.plot(pnSpecCompWLen,pnSpecCompData,label='original')
     if vRadSpecComp != 0.:
+        plt.plot(pnSpecCompWLen,pnSpecCompData,label='original')
         pnSpecCompWLen = applyVRadCorrection(pnSpecCompWLen,0.-vRadSpecComp)
-    plt.plot(pnSpecCompWLen,pnSpecCompData,label='vrad=0')
+        plt.plot(pnSpecCompWLen,pnSpecCompData,label='vrad=0')
+        plt.plot([6562.81,6562.81],[0.,1.])
+        plt.legend()
+        plt.show()
+    plt.plot(pnSpecWLen,pnSpecData,label='original')
     plt.plot([6562.81,6562.81],[0.,1.])
     plt.legend()
     plt.show()
 
-    vRadRange = np.arange(-500.,500.,1.)
+    vRadRange = np.arange(-500.,500.,5.)
     chiSquares = []
     for vRad in vRadRange:
         wLenVRad  = applyVRadCorrection(pnSpecCompWLen, 0.-vRad)
-        wLen,pnSpecDataRebinned,pnSpecCompDataRebinned = rebinAndTrimToSameWavelengthRangeAndDispersion(pnSpecWLen, pnSpecData, wLenVRad, pnSpecCompData, True if vRad == vRadRange[0] else False)
+        wLen,pnSpecDataRebinned,pnSpecCompDataRebinned = rebinAndTrimToSameWavelengthRangeAndDispersion(pnSpecWLen, pnSpecData, wLenVRad, pnSpecCompData, True if vRad == vRadRange[int(len(vRadRange)/2.)] else False)
 
         wLenNaNPos = np.argwhere(np.isnan(wLen))
         print('getRadialVelocityFromXCor: vRad = ',vRad,': wLenNaNPos = ',wLenNaNPos)
@@ -4204,29 +4297,34 @@ def getRadialVelocityFromXCor(pnSpec, pnSpecComp, vRadSpecComp = 0.):
         pnSpecCompDataRebinnedNaNPos = np.argwhere(np.isnan(pnSpecCompDataRebinned))
         print('getRadialVelocityFromXCor: vRad = ',vRad,': pnSpecCompDataRebinnedNaNPos = ',pnSpecCompDataRebinnedNaNPos)
         if pnSpecCompDataRebinnedNaNPos.shape[0] > 0:
-            pnSpecCompDataRebinned[pnSpecCompDataRebinnedNaNPos[0]] = 0.
-            print('pnSpecCompDataRebinned[',pnSpecCompDataRebinnedNaNPos[0],'] = ',pnSpecCompDataRebinned[pnSpecCompDataRebinnedNaNPos[0]])
+            for pos in pnSpecCompDataRebinnedNaNPos:
+                pnSpecCompDataRebinned[pos] = 0.
+                print('pnSpecCompDataRebinned[pos=',pos,'] = ',pnSpecCompDataRebinned[pos])
 
-        chiSquares.append(np.sum(np.square(pnSpecDataRebinned - pnSpecCompDataRebinned)) / pnSpecCompDataRebinned.shape[0])
+        chiSquare = np.sum(np.square(pnSpecDataRebinned - pnSpecCompDataRebinned)) / pnSpecCompDataRebinned.shape[0]
+        print('chiSquare = ',chiSquare)
+        if np.isnan(chiSquare):
+            STOP
+        chiSquares.append(chiSquare)
     print('vRadRange = ',vRadRange)
-    print('chiSquares = ',chiSquares)
     plt.plot(vRadRange,chiSquares)
     plt.show()
 
-    print('getRadialVelocityFromXCor: chiSquare = ',chiSquares)
+    print('getRadialVelocityFromXCor: chiSquares = ',chiSquares)
     naNPos = np.argwhere(np.isnan(chiSquares))
     print('getRadialVelocityFromXCor: naNPos = ',naNPos)
 
     where = np.where(chiSquares==np.min(chiSquares))[0]
     print('where = ',where)
-    popt = xCorFindMinimum(vRadRange[where[0]-10:where[0]+10], chiSquares[where[0]-10:where[0]+10], display = True)
+    range = int(len(vRadRange)/10.)
+    popt = xCorFindMinimum(vRadRange[where[0]-range:where[0]+range], chiSquares[where[0]-range:where[0]+range], display = True)
     print('getRadialVelocityFromXCor: popt = ',popt)
     bestVRad = popt[1]
-    if bestVRad - vRadRange[where[0]] > 1.:
-        print('difference between bestVRad = ',bestVRad,' and vRadRange[',where[0],'] gt 1.')
+    if bestVRad - vRadRange[where[0]] > 1.5*np.abs(vRadRange[1]-vRadRange[0]):
+        print('difference between bestVRad = ',bestVRad,' and vRadRange[',where[0],']=',vRadRange[where[0]],' gt dVRad')
         STOP
     print('getRadialVelocityFromXCor: bestVRad = ',bestVRad)
-    wLenZero = applyVRadCorrection(pnSpecWLen,0.-bestVRad)
+    wLenZero = applyVRadCorrection(pnSpecWLen,bestVRad)
 
     plt.plot(pnSpecCompWLen, pnSpecCompData, label = 'pnSpecComp')
     plt.plot(wLenZero, pnSpecData, label = 'pnSpec bestVRad')
@@ -4294,6 +4392,13 @@ def getPNLines():
                 [7325.00,23]]
     return lineList
 
+def readPNLineList():
+    lines = read_csv('line_list.csv')
+#    print('lines = ',lines)#['lambda (Ang)'])
+    wave = [float(line['lambda (Ang)']) for line in lines]
+#    print('wave = ',wave)
+    return wave
+
 def synPNSpec():
     lineList = getPNLines()
     wLen = np.arange(4000.,7400.,0.5)
@@ -4304,16 +4409,16 @@ def synPNSpec():
     plt.show()
 
 def makeTemplateSpec(fitsFileName, display=False):
-    lineList = getPNLines()
+    lineList = readPNLineList()
 
     wLen = getWavelengthArr(fitsFileName,0)
     spec = getImageData(fitsFileName,0)
 
     tempSpec = np.zeros(len(wLen))
     for line in lineList:
-        if (line[0] > wLen[0]) & (line[0] < wLen[len(wLen)-1]):
-            amp = np.max(spec[np.where((wLen > (line[0] - 4.3)) & (wLen < (line[0] + 4.3)))[0]])
-            tempSpec += gauss(wLen,amp,line[0],4.)
+        if (line > wLen[0]) & (line < wLen[len(wLen)-1]):
+            amp = np.max(spec[np.where((wLen > (line - 2.3)) & (wLen < (line + 2.3)))[0]])
+            tempSpec += gauss(wLen,amp,line,4.)
 
     if display:
         plt.plot(wLen,spec,label='original')
