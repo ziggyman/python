@@ -96,7 +96,7 @@ def turn_coler_withY(a):
 
 vmax = np.max([1.5 * np.mean(image), 1.])
 vmin=np.min([1.5 * np.mean(image), 1.])
-plt.imshow(image, vmin=0., vmax=vmax)
+plt.imshow(image, origin='lower', vmin=0., vmax=vmax)
 # print(image[0])
 fig.canvas.mpl_connect('button_press_event', on_press)
 
