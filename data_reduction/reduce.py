@@ -6,6 +6,7 @@ from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyA
 from drUtils import readFluxStandardsList,calcResponse,applySensFuncs,extractObjectAndSubtractSky
 from drUtils import scombine,continuum,subtractMedianSky,removeFilesFromListWithAngleNotEqualTo
 from drUtils import getWavelengthArr,getListOfFiles,getHeaderValue,fixDBSHeaders,writeFits1D,invertY
+from drUtils import cleanSpec
 import numpy as np
 import os
 from shutil import copyfile
@@ -25,7 +26,7 @@ trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data/2008-05-13/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-06/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -66,15 +67,19 @@ fluxstdsListsStartWith = 'fluxstds'#DBS
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_vertical_otzxf')#aprefVerticalTrace_spupnic_2007')
-refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_red_May2008_otzf')
-#refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
+
+#refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_red_May2008_otzf')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
+
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_6230-6725_vertical_otzxf')#aprefVerticalTrace_spupnic_2007')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_vertical_otzf')#aprefVerticalTrace_spupnic_2007')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_3600-5600_vertical_otzf')#aprefVerticalTrace_spupnic_2007')
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
-#refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
+
+#refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
+
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_6230-6725_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_3600-5600_horizontal_otzf')#aprefHorizontalTrace_spupnic_2007_transposed')
@@ -84,8 +89,10 @@ refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horiz
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_otzfif')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_6230-6725_otzxfif')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_BLUE_otzfif')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_red_May2008_otzfif')
-#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
+
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_red_May2008_otzfif')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
+
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_aug07_Blue_3600-5600_otzfif')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
@@ -94,8 +101,10 @@ refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_red_May2008_otz
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_mar2014.dat')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2013.dat')
 #lineList = os.path.join(refPath,'saao_refspec_may2007.new')
-lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
-#lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
+
+#lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
+lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
+
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_blue.txt')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_red.txt')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_red_6230-6725_lines.txt')
@@ -103,8 +112,10 @@ lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_may2007.fits'
-referenceSpectrum = os.path.join(refPath,'refArc_DBS_May2008_red_otzxfiEc.fits')
-#referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
+
+#referenceSpectrum = os.path.join(refPath,'refArc_DBS_May2008_red_otzxfiEc.fits')
+referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
+
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_aug07_Blue.fits')
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_aug07_Red.fits')
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_RED_62360-6725_otzfifEc.fits')
@@ -370,7 +381,7 @@ if __name__ == '__main__':
                     subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
                 subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-        if True:
+        if False:
             # extract and reidentify ARCs
             # arc_otzxfif.list or arc_otzxf.list???
             arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
@@ -406,25 +417,42 @@ if __name__ == '__main__':
                         f.write('%.8f\n' % (wLen))
             #STOP
         if False:
+            extractInputList = os.path.join(workPath,'to_extract.csv')
             areasFileName = os.path.join(workPath,'areas.csv')
             print('reduce: areasFileName = '+areasFileName)
-            areas = csvFree.readCSVFile(areasFileName)
-            for i in range(areas.size()):
-                print('reduce: areas.getData("fName",',i,') = '+areas.getData('fName',i),', object = ',areas.getData('object',i),', skyBelow = ',areas.getData('skyBelow',i),', skyAbove = ',areas.getData('skyAbove',i,),', method = ',areas.getData('method',i),', notes = ',areas.getData('notes',i))
             scienceSpectra = []#extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
-            for i in range(areas.size()):
-                if areas.getData('fName',i)[0] != '#':
-                    skyAbove = None if areas.getData('skyAbove',i) == '' else [int(areas.getData('skyAbove',i)[1:areas.getData('skyAbove',i).find(':')]),int(areas.getData('skyAbove',i)[areas.getData('skyAbove',i).find(':')+1:-1])]
-                    skyBelow = None if areas.getData('skyBelow',i) == '' else [int(areas.getData('skyBelow',i)[1:areas.getData('skyBelow',i).find(':')]),int(areas.getData('skyBelow',i)[areas.getData('skyBelow',i).find(':')+1:-1])]
-                    print('reduce: i = ',i,': fName = ',areas.getData('fName',i))
-                    extractObjectAndSubtractSky(os.path.join(workPath,areas.getData('fName',i)) if '/' not in areas.getData('fName',i) else areas.getData('fName',i),
-                                                os.path.join(workPath,areas.getData('fName',i)[:-5]+'Ec.fits'),
-                                                [int(areas.getData('object',i)[1:areas.getData('object',i).find(':')]),int(areas.getData('object',i)[areas.getData('object',i).find(':')+1:-1])],
+            areasFileExists = False
+            if os.path.exists(areasFileName):
+                areas = csvFree.readCSVFile(areasFileName)
+                for i in range(areas.size()):
+                    print('reduce: areas.getData("fName",',i,') = '+areas.getData('fName',i),', object = ',areas.getData('object',i),', skyBelow = ',areas.getData('skyBelow',i),', skyAbove = ',areas.getData('skyAbove',i,),', method = ',areas.getData('method',i),', notes = ',areas.getData('notes',i))
+                extractList = areas
+                areasFileExists = True
+            else:
+                extractList = csvFree.readCSVFile(extractInputList)
+                with open(areasFileExists,'w') as fAreas:
+                    fAreas.write('fName,object,skyBelow,skyAbove,method,notes\n')
+            for i in range(extractList.size()):
+                if extractList.getData('fName',i)[0] != '#':
+                    skyAbove = None
+                    skyBelow = None
+                    obsArea = None
+                    extractionMethod = None
+                    if areasFileExists:
+                        obsArea = [int(areas.getData('object',i)[1:areas.getData('object',i).find(':')]),int(areas.getData('object',i)[areas.getData('object',i).find(':')+1:-1])]
+                        skyAbove = None if areas.getData('skyAbove',i) == '' else [int(areas.getData('skyAbove',i)[1:areas.getData('skyAbove',i).find(':')]),int(areas.getData('skyAbove',i)[areas.getData('skyAbove',i).find(':')+1:-1])]
+                        skyBelow = None if areas.getData('skyBelow',i) == '' else [int(areas.getData('skyBelow',i)[1:areas.getData('skyBelow',i).find(':')]),int(areas.getData('skyBelow',i)[areas.getData('skyBelow',i).find(':')+1:-1])]
+                        extractionMethod = areas.getData('method',i)
+                    print('reduce: i = ',i,': fName = ',extractList.getData('fName',i))
+                    extractObjectAndSubtractSky(os.path.join(workPath,extractList.getData('fName',i)) if '/' not in extractList.getData('fName',i) else extractList.getData('fName',i),
+                                                os.path.join(workPath,extractList.getData('fName',i)[:-5]+'Ec.fits'),
+                                                obsArea,
                                                 skyAbove = skyAbove,
                                                 skyBelow = skyBelow,
-                                                extractionMethod = areas.getData('method',i),
+                                                extractionMethod = extractionMethod,
                                                 dispAxis = 'row',
-                                                display = True)
+                                                display = True,
+                                                areasFileOut = areasFileName if not areasFileExists else None)
         if True:
             inputList = objectListsStartWith
             doHelioCor = True# if inputList == objectListsStartWith else False
@@ -445,7 +473,7 @@ if __name__ == '__main__':
                     skydFiles.append(fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits')
                     ecdfFiles.append(fileName[:fileName.rfind('.')]+'EcdF.fits')
                     # extract MedianSky images
-                    if True:
+                    if False:
                         skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
 
                         writeFits1D(skySpec,
@@ -455,7 +483,7 @@ if __name__ == '__main__':
                                     CRVAL1=1,
                                     CRPIX1=1,
                                     CDELT1=1)
-        if True:
+        if False:
             inputList = getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfifEc.list'))
             wavelengthsOrig = []
             for i in range(len(inputList)):
@@ -464,7 +492,7 @@ if __name__ == '__main__':
                 wavelengthsOrig.append(np.asarray(wLens))
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
-        if True:
+        if False:
             dispCor(skyFilesEc,
                     getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                     wavelengthsOrig,
@@ -484,7 +512,7 @@ if __name__ == '__main__':
                     'DATE-OBS',
                     doHelioCor = doHelioCor)
 
-        if True:
+        if False:
 
             areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
             sensFuncs = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),
@@ -498,6 +526,12 @@ if __name__ == '__main__':
             applySensFuncs(ecdFiles,
                         ecdfFiles,
                         sensFuncs)
+
+        # clean spectra
+        if True:
+            for ecdfFile in ecdfFiles:
+                cleanSpec(ecdfFile,ecdfFile.replace('EcdF.fits','-sky.fits'),ecdfFile.replace('.fits','_clean.fits'))
+
 
         if False:
             fixWCSDim()

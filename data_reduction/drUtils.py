@@ -2071,7 +2071,8 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
                                 skyBelow=None,
                                 extractionMethod='sum',
                                 dispAxis='row',
-                                display=False):
+                                display=False,
+                                areasFileOut = None):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('extractObjectAndSubtractSky: image.shape = ',image.shape)
     print('extractObjectAndSubtractSky: twoDImageFileIn = <'+twoDImageFileIn+'>')
@@ -2081,6 +2082,13 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
 
     hdulist = pyfits.open(twoDImageFileIn)
     head = hdulist[0].header
+
+    createAreas = False
+    if yRange is None:
+        createAreas = True
+        yRange,skyBelow,skyAbove,note = createAreas(twoDImageFileIn)
+        with open(areasFileOut,'a') as fAreas:
+            fAreas.write('%s,[%d:%d],[%d:%d],[%d:%d],%s,%s\n' % (twoDImageFileIn,yRange[0],yRange[1],skyBelow[0],skyBelow[1],skyAbove[0],skyBelow[1],extractionMethod,note))
 
     plt.rcParams["figure.figsize"] = [15., 7.0]
     plt.rcParams["figure.autolayout"] = True
@@ -2651,7 +2659,7 @@ def reidentify(arcFitsName2D,
 
     xSpec = np.arange(0,specY.shape[0],1.)
     lineListIdentified, coeffs, rms = calcDispersion(lineListIdentified, xRange=[0,xSpec[xSpec.shape[0]-1]], degree=degree, display=display)
-    if False:
+    if display:
         xSpecNorm = normalizeX(xSpec)
         wLenSpec = np.polynomial.legendre.legval(xSpecNorm, coeffs)
         plt.plot(wLenSpec,specY)
@@ -4435,3 +4443,408 @@ def makeTemplateSpec(fitsFileName, display=False):
                 CRPIX1=getHeaderValue(fitsFileName,'CRPIX1'),
                 )
     return fitsOutName
+
+def createAreas(fName):
+    import matplotlib.widgets as mwidgets
+    import matplotlib.patches as patches
+
+    cid = None
+    rid = None
+    coords = []
+    skyBelow = []
+    skyAbove = []
+    obs = []
+    rectSkyBelow = None
+    rectSkyAbove = None
+    rectObs = None
+    areaType = 'sky below'
+
+    image = getImageData(fName)
+
+    fig = plt.figure(figsize=(15,6))
+    axMainRect = [0.14,0.3,0.85,0.7]
+    axMain = plt.axes(axMainRect)
+    axAreaType = plt.axes([0.01,0.55,0.08,0.13])
+    axVMin = plt.axes([0.1,0.2,0.88,0.09])
+    axVMax = plt.axes([0.1,0.1,0.88,0.09])
+    axDone = plt.axes([0.01,0.9,0.1,0.1])
+    axNote = plt.axes([0.1,0.01,0.88,0.08])
+
+    radio_background = 'lightgoldenrodyellow'
+
+    axAreaType.set_facecolor(radio_background)
+
+    max_val=0
+    min_val=0
+    def onClick(event):
+#        global coords
+#        global axMainRect
+        if event.inaxes is axMain:
+            print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                ('double' if event.dblclick else 'single', event.button,
+                event.x, event.y, event.xdata, event.ydata))
+            coords.append(event.ydata)
+    def onRelease(event):
+#        global coords
+#        global axMainRect
+#        global rectSkyAbove
+#        global rectSkyBelow
+#        global rectObs
+#        global areaType
+#        global obs
+#        global skyBelow
+#        global skyAbove
+        if event.inaxes is axMain:
+            print('%s release: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+                ('double' if event.dblclick else 'single', event.button,
+                event.x, event.y, event.xdata, event.ydata))
+            print('fig.canvas.toolbar.mode = <',fig.canvas.toolbar.mode,'>')
+            if fig.canvas.toolbar.mode == '':
+                coords.append(event.ydata)
+                xmin, xmax = axMain.get_xlim()
+                print('xmin = ',xmin,', xmax = ',xmax)
+                if areaType == 'sky below':
+                    skyBelow = coords[len(coords)-2:]
+                    skyBelow.sort()
+                    skyBelow = [int(skyBelow[0]),int(skyBelow[1])+1]
+                    print('skyBelow set to ',skyBelow)
+                    if rectSkyBelow is not None:
+                        rectSkyBelow.remove()
+                    rectSkyBelow = patches.Rectangle( ( xmin,skyBelow[0] ), xmax-xmin, skyBelow[1]-skyBelow[0], alpha = 0.5, ec = "gray", fc = "CornflowerBlue", visible = True)
+                    axMain.add_patch(rectSkyBelow)
+                    fig.canvas.draw_idle()
+                elif areaType == 'sky above':
+                    skyAbove = coords[len(coords)-2:]
+                    skyAbove.sort()
+                    skyAbove = [int(skyAbove[0]),int(skyAbove[1])+1]
+                    print('skyAbove set to ',skyAbove)
+                    if rectSkyAbove is not None:
+                        rectSkyAbove.remove()
+                    rectSkyAbove = patches.Rectangle( ( xmin,skyAbove[0] ), xmax-xmin, skyAbove[1]-skyAbove[0], alpha = 0.5, ec = "gray", fc = "green", visible = True)
+                    axMain.add_patch(rectSkyAbove)
+                    fig.canvas.draw_idle()
+                elif areaType == 'object':
+                    obs = coords[len(coords)-2:]
+                    obs.sort()
+                    obs = [int(obs[0]),int(obs[1])+1]
+                    print('obs set to ',obs)
+                    if rectObs is not None:
+                        rectObs.remove()
+                    rectObs = patches.Rectangle( ( xmin,obs[0] ), xmax-xmin, obs[1]-obs[0], alpha = 0.5, ec = "gray", fc = "orange", visible = True)
+                    axMain.add_patch(rectObs)
+                    fig.canvas.draw_idle()
+                else:
+                    print('WARNING: areaType(=',areaType,') not recognised')
+                coords = []
+            #    print('skyBelow = ',skyBelow)
+            #    print('skyAbove = ',skyAbove)
+            #    print('obs = ',obs)
+
+    cid = fig.canvas.mpl_connect('button_press_event', onClick)
+    rid = fig.canvas.mpl_connect('button_release_event', onRelease)
+    print('coords = ',coords)
+
+
+    vmax = np.max([1.5 * np.mean(image), 1.])
+    vmin=np.min([1.5 * np.mean(image), 1.])
+    im = axMain.imshow(image, origin='lower', vmin=vmin, vmax=vmax)
+
+    def update_max(val):
+        max_val=val
+    #    axMain.clear()
+        im.set_clim(vmax=max_val)
+        fig.canvas.draw_idle()
+
+    def update_min(val):
+        min_val=val
+        im.set_clim(vmin=min_val)
+        fig.canvas.draw_idle()
+
+    radio = mwidgets.RadioButtons(axAreaType, ('sky below', 'sky above', 'object'), active=0)
+    def setAreaType(label):
+ #       global areaType
+        areaType = label
+    radio.on_clicked(setAreaType)
+
+    note = ''
+    def submit(text):
+ #       global note
+        note = text
+        print('note set to <'+note+'>')
+    noteBox = mwidgets.TextBox(axNote,'Notes')
+    noteBox.on_submit(submit)
+
+    d_val=(vmax-vmin)*1
+
+    #axcolor = 'lightgoldenrodyellow'
+    #axfreq = plt.axes([0.15, 0.05, 0.65, 0.03], facecolor=axcolor)
+    vMaxS = mwidgets.Slider(axVMax, 'vmax', vmax-d_val, vmax,valfmt='% .2f', valinit=0, valstep=0.01)
+    vMaxS.on_changed(update_max)
+    vMaxS.reset()
+    #axfreq1 = plt.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor)
+    vMinS = mwidgets.Slider(axVMin, 'vmin', vmax-d_val, vmax,valfmt='% .2f', valinit=0, valstep=0.01)
+    vMinS.on_changed(update_min)
+    vMinS.reset()
+    max_val=vmax
+    min_val=vmin
+    vMaxS.set_val(vmax)
+    vMinS.set_val(min_val)
+
+    def done(event):
+ #       global skyAbove
+ #       global skyBelow
+#        global obs
+#        global fNameOut
+        print('obs = ',obs,', skyBelow = ',skyBelow,', skyAbove = ',skyAbove)
+        if not os.path.exists(fNameOut):
+            with open(fNameOut,'w') as f:
+                f.write('fName,object,skyBelow,skyAbove,method,notes\n')
+        with open(fNameOut,'a') as f:
+            f.write('%s,[%d:%d],[%d:%d],[%d:%d],sum,\n' % (fName,obs[0],obs[1],skyBelow[0],skyBelow[1],skyAbove[0],skyAbove[1]))
+
+    bDone = mwidgets.Button(axDone, 'Done')
+    bDone.on_clicked(done)
+
+    plt.show()
+    return([obs,skyBelow,skyAbove,note])
+
+def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
+    from matplotlib.widgets import AxesWidget, RadioButtons, Slider
+    import matplotlib.colors as colors
+
+    global wLen
+    global cleanType
+    global wLen
+    global spec
+    global xRange
+
+    fig = plt.figure(figsize=(15,9))
+    axMainRect = [0.04,0.2,0.95,0.5]
+    ax2DRect = plt.axes([0.04,0.74,0.95,0.2])
+    axMain = plt.axes(axMainRect)
+    axTrimClean = plt.axes([0.01,0.01,0.08,0.1])
+    axVMin = plt.axes([0.15,0.06,0.84,0.04])
+    axVMax = plt.axes([0.15,0.01,0.84,0.04])
+    max_val=0
+    min_val=0
+
+
+    spec = getImageData(inputSpec1D,0)
+    wLen = getWavelengthArr(inputSpec1D,0)
+    image = getImageData(inputSpec2D,0)
+    vmax = np.max([1.5 * np.mean(image), 1.])
+    vmin=np.min([1.5 * np.mean(image), 1.])
+    im = ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+    ax2DRect.set_title(inputSpec1D[inputSpec1D.rfind('/')+1:inputSpec1D.rfind('.')])
+    xRange = []
+    cleanType = 'trim'
+
+    radio = RadioButtons(axTrimClean, ('trim', 'clean'), active=0)
+    def setCleanType(label):
+        global cleanType
+        cleanType = label
+
+    radio.on_clicked(setCleanType)
+
+
+    def update_max(val):
+        max_val=val
+    #    axMain.clear()
+        im.set_clim(vmax=max_val)
+        fig.canvas.draw_idle()
+
+    def update_min(val):
+        min_val=val
+        im.set_clim(vmin=min_val)
+        fig.canvas.draw_idle()
+
+
+    d_val=(vmax-vmin)/1000
+
+    #axcolor = 'lightgoldenrodyellow'
+    #axfreq = plt.axes([0.15, 0.05, 0.65, 0.03], facecolor=axcolor)
+    vMaxS = Slider(axVMax, 'vmax', vmin, vmax,valfmt='% .2f', valinit=0, valstep=d_val)
+    vMaxS.on_changed(update_max)
+    vMaxS.reset()
+    #axfreq1 = plt.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor)
+    vMinS = Slider(axVMin, 'vmin', vmin, vmax,valfmt='% .2f', valinit=0, valstep=d_val)
+    vMinS.on_changed(update_min)
+    vMinS.reset()
+    max_val=vmax
+    min_val=vmin
+    vMaxS.set_val(vmax)
+    vMinS.set_val(min_val)
+
+    def onClick(event):
+        global wLen
+        global spec
+        global xRange
+        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+            ('double' if event.dblclick else 'single', event.button,
+            event.x, event.y, event.xdata, event.ydata))
+        if event.inaxes is axMain:
+            print('fig.canvas.toolbar.mode = ',fig.canvas.toolbar.mode)
+            if fig.canvas.toolbar.mode == '':
+
+                if cleanType == 'trim':
+                    if event.xdata < wLen[int(len(wLen)/2.)]:
+                        idx = np.where(wLen > event.xdata)
+                    else:
+                        idx = np.where(wLen < event.xdata)
+                    wLen = wLen[idx]
+                    spec = spec[idx]
+                    axMain.plot(wLen,spec)
+                    fig.canvas.draw_idle()
+                elif cleanType == 'clean':
+                    if len(xRange) == 1:
+                        xRange.append(event.xdata)
+                        idx = np.where((wLen > xRange[0]) & (wLen < xRange[1]))[0]
+                        print('clean: idx = ',idx)
+                        spec[idx] = spec[idx[0]-1]
+                        axMain.plot(wLen,spec)
+                        fig.canvas.draw_idle()
+                    else:
+                        xRange = [event.xdata]
+                else:
+                    print('ERROR: cleanType <'+cleanType+'> not supported')
+
+    cid = fig.canvas.mpl_connect('button_press_event', onClick)
+
+    axMain.plot(wLen,spec)
+    plt.show()
+    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+
+
+def cleanImage(inputImage, outputImage):
+    from matplotlib.widgets import AxesWidget, RadioButtons, Slider
+    import matplotlib.colors as colors
+    from scipy.interpolate import RegularGridInterpolator
+
+    global cleanType
+    global image
+    global cleanRange
+
+    fig = plt.figure(figsize=(15,9))
+#    axMainRect = [0.04,0.2,0.95,0.5]
+    ax2DRect = plt.axes([0.04,0.2,0.95,0.8])
+#    axMain = plt.axes(axMainRect)
+    axTrimClean = plt.axes([0.01,0.01,0.08,0.1])
+    axVMin = plt.axes([0.15,0.06,0.84,0.04])
+    axVMax = plt.axes([0.15,0.01,0.84,0.04])
+    max_val=0
+    min_val=0
+
+
+#    spec = getImageData(inputSpec1D,0)
+#    wLen = getWavelengthArr(inputSpec1D,0)
+    image = np.array(getImageData(inputImage,0))
+    vmax = np.max([1.5 * np.mean(image), 1.])
+    vmin=np.min([1.5 * np.mean(image), 1.])
+    im = ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+    ax2DRect.set_title(inputImage[inputImage.rfind('/')+1:inputImage.rfind('.')])
+    cleanRange = []
+    cleanType = 'trim'
+
+    radio = RadioButtons(axTrimClean, ('trim', 'clean'), active=0)
+    def setCleanType(label):
+        global cleanType
+        cleanType = label
+
+    radio.on_clicked(setCleanType)
+
+
+    def update_max(val):
+        max_val=val
+    #    axMain.clear()
+        im.set_clim(vmax=max_val)
+        fig.canvas.draw_idle()
+
+    def update_min(val):
+        min_val=val
+        im.set_clim(vmin=min_val)
+        fig.canvas.draw_idle()
+
+
+    d_val=(vmax-vmin)/1000
+
+    #axcolor = 'lightgoldenrodyellow'
+    #axfreq = plt.axes([0.15, 0.05, 0.65, 0.03], facecolor=axcolor)
+    vMaxS = Slider(axVMax, 'vmax', vmin, vmax,valfmt='% .2f', valinit=0, valstep=d_val)
+    vMaxS.on_changed(update_max)
+    vMaxS.reset()
+    #axfreq1 = plt.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor)
+    vMinS = Slider(axVMin, 'vmin', vmin, vmax,valfmt='% .2f', valinit=0, valstep=d_val)
+    vMinS.on_changed(update_min)
+    vMinS.reset()
+    max_val=vmax
+    min_val=vmin
+    vMaxS.set_val(vmax)
+    vMinS.set_val(min_val)
+
+    def onClick(event):
+        global image
+        global cleanRange
+
+        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+            ('double' if event.dblclick else 'single', event.button,
+            event.x, event.y, event.xdata, event.ydata))
+        if event.inaxes is ax2DRect:
+            print('fig.canvas.toolbar.mode = ',fig.canvas.toolbar.mode)
+            if fig.canvas.toolbar.mode == '':
+                print('cleanRange = ',cleanRange)
+#                if cleanType == 'trim':
+#                    if event.xdata < wLen[int(len(wLen)/2.)]:
+#                        idx = np.where(wLen > event.xdata)
+#                    else:
+#                        idx = np.where(wLen < event.xdata)
+#                    wLen = wLen[idx]
+#                    spec = spec[idx]
+#                    axMain.plot(wLen,spec)
+#                    fig.canvas.draw_idle()
+#                elif cleanType == 'clean':
+                if len(cleanRange) == 1:
+                    xlim = ax2DRect.get_xlim()
+                    ylim = ax2DRect.get_ylim()
+                    cleanRange.append([int(event.xdata),int(event.ydata)])
+                    xRange = np.arange(0,image.shape[1],1)
+                    yRange = np.arange(0,image.shape[0],1)
+                    idx = np.where((xRange >= cleanRange[0][0]) & (xRange <= cleanRange[1][0]))[0]
+                    print('clean: idx = ',idx)
+                    idy = np.where((yRange >= cleanRange[0][1]) & (yRange <= cleanRange[1][1]))[0]
+                    print('clean: idy = ',idy)
+                    grid = np.zeros((len(idx)+2,len(idy)+2))
+                    print('len(idx) = ',len(idx),', len(idy) = ',len(idy),': grid.shape = ',grid.shape)
+                    grid[:,0] = image[idy[0]-1,idx[0]-1:idx[len(idx)-1]+2]
+                    print('grid = ',grid)
+                    grid[:,len(idy)+1] = image[idy[len(idy)-1]+2,idx[0]-1:idx[len(idx)-1]+2]
+                    print('grid = ',grid)
+                    grid[0,:] = image[idy[0]-1:idy[len(idy)-1]+2,idy[0]-1]
+                    print('grid = ',grid)
+                    grid[len(idx)+1,:] = image[idy[0]-1:idy[len(idy)-1]+2,idy[len(idy)-1]+1]
+                    print('grid = ',grid)
+                    for x in np.arange(1,grid.shape[0]-1,1):
+                        for y in np.arange(1,grid.shape[1]-1,1):
+                            smallGrid = [[grid[0,y],grid[len(idx)+1,y]],[grid[x,0],grid[x,len(idy)-1]]]
+                            interp = RegularGridInterpolator(([0,1],[0,1]), smallGrid)
+                            grid[x,y] = interp(np.array([x/grid.shape[0],y/grid.shape[1]]))
+                            print('grid[',x,',',y,'] = ',grid[x,y])
+                    print('image.shape = ',image.shape)
+                    image[idy[0]+1:idy[len(idy)-1]+1,idx[0]+1:idx[len(idx)-1]+1] = np.transpose(grid[1:len(idx),1:len(idy)])
+                    print('image[',idx[0],':',idx[len(idx)-1],',',idy[0],':',idy[len(idy)-1],'] = ',image[idx[0]:idx[len(idx)-1],idy[0]:idy[len(idy)-1]])
+                    ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+                    ax2DRect.set_xlim(xlim)
+                    ax2DRect.set_ylim(ylim)
+                    #plt.show()
+                    fig.canvas.draw_idle()
+                else:
+                    cleanRange = [[int(event.xdata),int(event.ydata)]]
+#                else:
+#                    print('ERROR: cleanType <'+cleanType+'> not supported')
+
+    cid = fig.canvas.mpl_connect('button_press_event', onClick)
+
+    plt.show()
+    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])

@@ -90,10 +90,6 @@ def turn_coler_withY(a):
         ax.imshow(image, vmin=min_val, vmax=max_val)
         fig.canvas.draw_idle()
 
-
-
-
-
 vmax = np.max([1.5 * np.mean(image), 1.])
 vmin=np.min([1.5 * np.mean(image), 1.])
 plt.imshow(image, origin='lower', vmin=0., vmax=vmax)
