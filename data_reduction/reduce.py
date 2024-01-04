@@ -26,7 +26,7 @@ trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-06/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/R_data/2008-05-06/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -416,7 +416,7 @@ if __name__ == '__main__':
                     for wLen in wavelengthsOrig[i]:
                         f.write('%.8f\n' % (wLen))
             #STOP
-        if False:
+        if True:
             extractInputList = os.path.join(workPath,'to_extract.csv')
             areasFileName = os.path.join(workPath,'areas.csv')
             print('reduce: areasFileName = '+areasFileName)
@@ -424,6 +424,9 @@ if __name__ == '__main__':
             areasFileExists = False
             if os.path.exists(areasFileName):
                 areas = csvFree.readCSVFile(areasFileName)
+                print('areas.header = ',areas.header)
+                areas.header = [key.replace('\r','') for key in areas.header]
+                print('areas.header = ',areas.header)
                 for i in range(areas.size()):
                     print('reduce: areas.getData("fName",',i,') = '+areas.getData('fName',i),', object = ',areas.getData('object',i),', skyBelow = ',areas.getData('skyBelow',i),', skyAbove = ',areas.getData('skyAbove',i,),', method = ',areas.getData('method',i),', notes = ',areas.getData('notes',i))
                 extractList = areas
@@ -466,12 +469,24 @@ if __name__ == '__main__':
             areasList = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
             for fileName in areasList.getData('fName'):
                 if fileName[0] != '#':
-                    ecFiles.append(fileName[:fileName.rfind('.')]+'Ec.fits')
-                    skyFiles.append(fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSky.fits')
-                    skyFilesEc.append(fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEc.fits')
-                    ecdFiles.append(fileName[:fileName.rfind('.')]+'Ecd.fits')
-                    skydFiles.append(fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits')
-                    ecdfFiles.append(fileName[:fileName.rfind('.')]+'EcdF.fits')
+                    tmpFileName = fileName[:fileName.rfind('.')]+'Ec.fits'
+                    if os.path.exists(tmpFileName):
+                        ecFiles.append(tmpFileName)
+                    tmpFileName = fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSky.fits'
+                    if os.path.exists(tmpFileName):
+                        skyFiles.append(tmpFileName)
+                    tmpFileName = fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEc.fits'
+                    if os.path.exists(tmpFileName):
+                        skyFilesEc.append(tmpFileName)
+                    tmpFileName = fileName[:fileName.rfind('.')]+'Ecd.fits'
+                    if os.path.exists(tmpFileName):
+                        ecdFiles.append(tmpFileName)
+                    tmpFileName = fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits'
+                    if os.path.exists(tmpFileName):
+                        skydFiles.append(tmpFileName)
+                    tmpFileName = fileName[:fileName.rfind('.')]+'EcdF.fits'
+                    if os.path.exists(tmpFileName):
+                        ecdfFiles.append(tmpFileName)
                     # extract MedianSky images
                     if False:
                         skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
@@ -483,7 +498,7 @@ if __name__ == '__main__':
                                     CRVAL1=1,
                                     CRPIX1=1,
                                     CDELT1=1)
-        if False:
+        if True:
             inputList = getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfifEc.list'))
             wavelengthsOrig = []
             for i in range(len(inputList)):
@@ -492,7 +507,7 @@ if __name__ == '__main__':
                 wavelengthsOrig.append(np.asarray(wLens))
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
-        if False:
+        if True:
             dispCor(skyFilesEc,
                     getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                     wavelengthsOrig,
@@ -512,7 +527,7 @@ if __name__ == '__main__':
                     'DATE-OBS',
                     doHelioCor = doHelioCor)
 
-        if False:
+        if True:
 
             areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
             sensFuncs = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),

@@ -3139,6 +3139,7 @@ def dispCor(scienceListIn,
 #        print("(headerArcBefore['CDELT1'] * factorBefore) + (headerArcAfter['CDELT1'] * factorAfter) = ",(headerArcBefore['CDELT1'] * factorBefore) + (headerArcAfter['CDELT1'] * factorAfter))
         #STOP
         resampled,resampledSpec = resampleSpec(wLenSpec,spec)
+        print('scienceListOut = ',len(scienceListOut),scienceListOut)
         writeFits1D(resampledSpec,
                     scienceListOut[iSpec],
                     wavelength=None,
@@ -3528,7 +3529,19 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
 #    extinctionCurve = FluxCal.obs_extinction('kpno')
 #    print('fluxCalibrate:extinctionCurve = ',extinctionCurve)
 
-def continuum(spectrumFileNameIn, spectrumFileNameOut, fittingFunction, evalFunction, order, nIterReject, nIterFit, lowReject, highReject, type='difference', adjustSigLevels=False, useMean=False, display = False):
+def continuum(spectrumFileNameIn,
+            spectrumFileNameOut,
+            fittingFunction,
+            evalFunction,
+            order,
+            nIterReject,
+            nIterFit,
+            lowReject,
+            highReject,
+            type='difference',
+            adjustSigLevels=False,
+            useMean=False,
+            display = False):
     if isinstance(spectrumFileNameIn,str):
         print('continuum: reading file '+spectrumFileNameIn)
         specOrig = getImageData(spectrumFileNameIn,0)
@@ -4609,7 +4622,7 @@ def createAreas(fName):
     return([obs,skyBelow,skyAbove,note])
 
 def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
-    from matplotlib.widgets import AxesWidget, RadioButtons, Slider
+    from matplotlib.widgets import AxesWidget, RadioButtons, Slider, TextBox, Button
     import matplotlib.colors as colors
 
     global wLen
@@ -4617,23 +4630,85 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
     global wLen
     global spec
     global xRange
+    global continuum_order
+    global continuum_high_reject
+    global continuum_low_reject
+
+
+    def submit_continuum_order(text):
+        global continuum_order
+        continuum_order = int(text)
+
+    def submit_continuum_low_reject(text):
+        global continuum_low_reject
+        continuum_low_reject = float(text)
+
+    def submit_continuum_high_reject(text):
+        global continuum_high_reject
+        continuum_high_reject = float(text)
+
+    def remove_continuum(event):
+        global spec
+        writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+        fittingFunction = np.polynomial.legendre.legfit
+        evalFunction = np.polynomial.legendre.legval
+        order = continuum_order
+        nIterReject = 2
+        nIterFit = 3
+        lowReject = continuum_low_reject
+        highReject = continuum_high_reject
+        useMean = True
+        continuum(outputSpec,
+                  outputSpec,
+                  fittingFunction,
+                  evalFunction,
+                  order,
+                  nIterReject,
+                  nIterFit,
+                  lowReject,
+                  highReject,
+                  type='difference',
+                  adjustSigLevels=False,
+                  useMean=useMean,
+                  display=False)
+        spec = getImageData(outputSpec,0)
+        axMain.plot(wLen,spec)
+        fig.canvas.draw_idle()
 
     fig = plt.figure(figsize=(15,9))
-    axMainRect = [0.04,0.2,0.95,0.5]
-    ax2DRect = plt.axes([0.04,0.74,0.95,0.2])
+    axMainRect = [0.04,0.26,0.95,0.5]
+    ax2DRect = plt.axes([0.04,0.77,0.95,0.2])
     axMain = plt.axes(axMainRect)
     axTrimClean = plt.axes([0.01,0.01,0.08,0.1])
     axVMin = plt.axes([0.15,0.06,0.84,0.04])
     axVMax = plt.axes([0.15,0.01,0.84,0.04])
+    do_continuum_axbox = plt.axes([0.01,0.11,0.1,0.05])
+    continuum_order_axbox = plt.axes([0.2,0.11,0.1,0.05])
+    continuum_high_reject_axbox = plt.axes([0.4,0.11,0.1,0.05])
+    continuum_low_reject_axbox = plt.axes([0.6,0.11,0.1,0.05])
     max_val=0
     min_val=0
 
+    do_continuum_box = Button(do_continuum_axbox, 'remove continuum')
+    do_continuum_box.on_clicked(remove_continuum)
+
+    continuum_order = 9
+    continuum_order_box = TextBox(continuum_order_axbox, 'order', initial=continuum_order)
+    continuum_order_box.on_submit(submit_continuum_order)
+
+    continuum_low_reject = 3.
+    continuum_low_reject_box = TextBox(continuum_low_reject_axbox, 'low reject', initial=continuum_low_reject)
+    continuum_low_reject_box.on_submit(submit_continuum_low_reject)
+
+    continuum_high_reject = 3.
+    continuum_high_reject_box = TextBox(continuum_high_reject_axbox, 'high reject', initial=continuum_high_reject)
+    continuum_high_reject_box.on_submit(submit_continuum_high_reject)
 
     spec = getImageData(inputSpec1D,0)
     wLen = getWavelengthArr(inputSpec1D,0)
     image = getImageData(inputSpec2D,0)
-    vmax = np.max([1.5 * np.mean(image), 1.])
-    vmin=np.min([1.5 * np.mean(image), 1.])
+    vmax = np.max([2. * np.mean(image), 1.])
+    vmin = 0.#np.min([1.5 * np.mean(image), 1.])
     im = ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
                                               vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
     ax2DRect.set_title(inputSpec1D[inputSpec1D.rfind('/')+1:inputSpec1D.rfind('.')])
@@ -4646,7 +4721,6 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
         cleanType = label
 
     radio.on_clicked(setCleanType)
-
 
     def update_max(val):
         max_val=val
@@ -4719,7 +4793,7 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
 def cleanImage(inputImage, outputImage):
     from matplotlib.widgets import AxesWidget, RadioButtons, Slider
     import matplotlib.colors as colors
-    from scipy.interpolate import RegularGridInterpolator
+    from scipy import interpolate# import RegularGridInterpolator
 
     global cleanType
     global image
@@ -4811,34 +4885,70 @@ def cleanImage(inputImage, outputImage):
                     xRange = np.arange(0,image.shape[1],1)
                     yRange = np.arange(0,image.shape[0],1)
                     idx = np.where((xRange >= cleanRange[0][0]) & (xRange <= cleanRange[1][0]))[0]
-                    print('clean: idx = ',idx)
+#                    print('clean: idx = ',idx)
                     idy = np.where((yRange >= cleanRange[0][1]) & (yRange <= cleanRange[1][1]))[0]
-                    print('clean: idy = ',idy)
-                    grid = np.zeros((len(idx)+2,len(idy)+2))
-                    print('len(idx) = ',len(idx),', len(idy) = ',len(idy),': grid.shape = ',grid.shape)
-                    grid[:,0] = image[idy[0]-1,idx[0]-1:idx[len(idx)-1]+2]
-                    print('grid = ',grid)
-                    grid[:,len(idy)+1] = image[idy[len(idy)-1]+2,idx[0]-1:idx[len(idx)-1]+2]
-                    print('grid = ',grid)
-                    grid[0,:] = image[idy[0]-1:idy[len(idy)-1]+2,idy[0]-1]
-                    print('grid = ',grid)
-                    grid[len(idx)+1,:] = image[idy[0]-1:idy[len(idy)-1]+2,idy[len(idy)-1]+1]
-                    print('grid = ',grid)
-                    for x in np.arange(1,grid.shape[0]-1,1):
-                        for y in np.arange(1,grid.shape[1]-1,1):
-                            smallGrid = [[grid[0,y],grid[len(idx)+1,y]],[grid[x,0],grid[x,len(idy)-1]]]
-                            interp = RegularGridInterpolator(([0,1],[0,1]), smallGrid)
-                            grid[x,y] = interp(np.array([x/grid.shape[0],y/grid.shape[1]]))
-                            print('grid[',x,',',y,'] = ',grid[x,y])
-                    print('image.shape = ',image.shape)
-                    image[idy[0]+1:idy[len(idy)-1]+1,idx[0]+1:idx[len(idx)-1]+1] = np.transpose(grid[1:len(idx),1:len(idy)])
-                    print('image[',idx[0],':',idx[len(idx)-1],',',idy[0],':',idy[len(idy)-1],'] = ',image[idx[0]:idx[len(idx)-1],idy[0]:idy[len(idy)-1]])
+#                    print('clean: idy = ',idy)
+                    for x in idx:
+                        for y in idy:
+                            image[y,x] = np.nan
+#                            print('image[',y,',',x,'] = ',image[y,x])
+#                    image[idx,idy] = np.nan
+                    ax2DRect.cla()
+#                    ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+#                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+                    x = np.arange(0,image.shape[1])
+                    y = np.arange(0,image.shape[0])
+                    image = np.ma.masked_invalid(image)
+                    xx, yy = np.meshgrid(x,y)
+#                    print('xx = ',xx.shape,': ',xx)
+#                    print('xx = ',yy.shape,': ',yy)
+                    x1 = xx[~image.mask]
+#                    print('x1 = ',x1)
+                    y1 = yy[~image.mask]
+#                    print('y1 = ',y1)
+                    newImage = image[~image.mask]
+#                    print('newImage = ',newImage.shape,': ',newImage)
+#                    ax2DRect.imshow(newImage, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+#                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+                    image = interpolate.griddata((x1,y1), newImage.ravel(),(xx,yy),method='linear')
+#                    grid = np.zeros((len(idx)+2,len(idy)+2))
+#                    grid[:,:] = np.nan
+#                    print('len(idx) = ',len(idx),', len(idy) = ',len(idy),': grid.shape = ',grid.shape)
+#                    grid[:,0] = image[idy[0]-1,idx[0]-1:idx[len(idx)-1]+2]
+#                    print('grid = ',grid)
+#                    grid[:,len(idy)+1] = image[idy[len(idy)-1]+1,idx[0]-1:idx[len(idx)-1]+2]
+#                    print('grid = ',grid)
+#                    grid[0,:] = image[idy[0]-1:idy[len(idy)-1]+2,idx[0]-1]
+#                    print('grid = ',grid)
+#                    grid[len(idx)+1,:] = image[idy[0]-1:idy[len(idy)-1]+2,idx[len(idx)-1]+1]
+#                    print('grid = ',grid)
+#                    image[idy[0]-1:idy[len(idy)-1]+2,idx[0]-1:idx[len(idx)-1]+2] = np.transpose(grid)
                     ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
                                               vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
                     ax2DRect.set_xlim(xlim)
                     ax2DRect.set_ylim(ylim)
                     #plt.show()
                     fig.canvas.draw_idle()
+#                    x = np.arange(0,grid.shape[1])
+#                    y =
+#                    for x in np.arange(1,grid.shape[0]-1,1):
+#                        for y in np.arange(1,grid.shape[1]-1,1):
+#                            smallGrid = np.array([[grid[0,y],grid[len(idx)+1,y]],[grid[x,0],grid[x,len(idy)+1]]])
+#                            print('x = ',x,', y = ',y,': smallGrid = ',smallGrid)
+#                            interp = RegularGridInterpolator((np.array([0,1]),np.array([0,1])), smallGrid)
+#                            grid[x,y] = interp(np.array([x/grid.shape[0],y/grid.shape[1]]))
+#                            print('xx=',x/grid.shape[0],', yy=',y/grid.shape[1],': grid[',x,',',y,'] = ',grid[x,y])
+#                    print('image.shape = ',image.shape)
+#                    image[idy[0]:idy[len(idy)-1]+1,idx[0]:idx[len(idx)-1]+1] = np.transpose(grid[1:len(idx)+1,1:len(idy)+1])
+#                    print('image[',idx[0],':',idx[len(idx)-1],',',idy[0],':',idy[len(idy)-1],'] = ',image[idx[0]:idx[len(idx)-1],idy[0]:idy[len(idy)-1]])
+#                    ax2DRect.imshow(grid, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+#                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+#                    ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+#                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+#                    ax2DRect.set_xlim(xlim)
+#                    ax2DRect.set_ylim(ylim)
+                    #plt.show()
+#                    fig.canvas.draw_idle()
                 else:
                     cleanRange = [[int(event.xdata),int(event.ydata)]]
 #                else:
@@ -4847,4 +4957,4 @@ def cleanImage(inputImage, outputImage):
     cid = fig.canvas.mpl_connect('button_press_event', onClick)
 
     plt.show()
-    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+    writeFits(image,inputImage,outputImage)

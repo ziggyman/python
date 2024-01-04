@@ -32,7 +32,7 @@ for i in range(postCEPNe.size()):
     else:
         print('did not find ',ra,', ',dec,' in full HASH sample with GPAs, name = ',postCEPNe.getData('PN',i))
         nNotFound += 1
-STOP
+#STOP
 print('found ',nFound,' postCSPNe in full sample and did not find ',nNotFound)
 idPNMainsHASH = fullSampleHASH.getData('idPNMain',idxs)
 print('idPNMains = ',idPNMainsHASH)
@@ -65,7 +65,7 @@ for flags in [[1,2,3],[1,2],[1]]:
         print('sample = '+sample)
         if sample == 'withoutBulge':
             for i in np.arange(len(GPAs)-1,-1,-1):
-                if (np.abs(GPAs[i]['l']) < 10.) and (np.abs(GPAs[i]['b']) < 10.):
+                if ((np.abs(GPAs[i]['l']) < 10.) or (np.abs(GPAs[i]['l']) > 350.)) and (np.abs(GPAs[i]['b']) < 10.):
                     print('removing GPAs[',i,'] = ',GPAs[i])
                     del(GPAs[i])
         print('GPAs = ',len(GPAs),': ',GPAs)

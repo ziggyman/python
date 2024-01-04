@@ -27,7 +27,7 @@ xRangeMax = [-2.83,2.83]
 yRangeMax = [-1.4143,1.4143]
 
 path = '/Users/azuri/daten/uni/HKU/PN alignment'
-outPath = '/Volumes/discovery/azuri/data/pnAlignment'
+outPath = path#'/Volumes/discovery/azuri/data/pnAlignment'
 if rotateBipolars:
     outPath = outPath + '/bipolars_rotated'
 
@@ -47,7 +47,7 @@ if reesZijlstra:
 
 else:
     #my data:
-    dataFileName = os.path.join(path, 'PN-alignments_finished.csv')
+    dataFileName = os.path.join(path, 'PN-alignments2_finished.csv')
 #    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
     if mockSample:
         hashFileName = os.path.join(path, 'mock/HASH_bipolar+elliptical_true_PNe_withPA_Bmean45_sdev10_Emean135_sdev20.csv')
@@ -55,7 +55,7 @@ else:
     elif mockRandomSample:
         hashFileName = os.path.join(path, 'mock/HASH_bipolar+elliptical_true_PNe_withPA_random.csv')
     else:
-        hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true+likely_PNe+004.2-05.9+005.9-02.6+001.4+05.3+357.5+03.2+357.6-03.3.csv')#HASH_bipolar+elliptical_true_PNe.csv')
+        hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true+likely_PNe.csv')#HASH_bipolar+elliptical_true_PNe.csv')
 
     #xRange = [-0.263,0.263]
     #yRange = [-0.0873,0.0873]#yRangeMax#
@@ -232,7 +232,7 @@ def makeLatexName(inputStr):
 if __name__ == "__main__":
     #print('data.getData("EPA") = ',data.getData('EPA'))
     csvBinaries = readPostCEBinaryList('/Users/azuri/daten/uni/HKU/publications/PNorientations/post-CEbinaryPNe.list')
-    STOP
+    #STOP
     hashData = None
     useHashFileName = None
     if mockSample or mockRandomSample:
@@ -246,6 +246,14 @@ if __name__ == "__main__":
         useHashFileName = newHashFileName
 
     iSec = 1
+
+    noGPA = hashData.find('GPA','')
+    print('noGPA = ',noGPA)
+    if noGPA[0] >= 0:
+        for i in np.arange(len(noGPA)-1,-1,-1):
+            print('noGPA[i = ',i,'] = ',noGPA[i])
+            print("idPMain = ",hashData.getData('idPNMain',noGPA[i]),": hashData.getData('GPA',noGPA[i]) = <"+hashData.getData('GPA',noGPA[i])+'>')
+            hashData.removeRow(noGPA[i])
 
     with open(os.path.join(outPath,'numbers.txt'),'w') as numbers:
         for area in areas:
@@ -264,7 +272,7 @@ if __name__ == "__main__":
                 texFileSummary.write('\\usepackage{xcolor}\n')
                 texFileSummary.write('\\usepackage{float}\n')
                 texFileSummary.write('\\begin{document}\n')
-                for maxFlag in [3]:#np.arange(1,4,1):
+                for maxFlag in np.arange(1,4,1):
                     for mainClass in mainClasses:
                         for rosePlotArea in [True,]:#False,True]:#,False]:
                             for rosePlotSmooth in [False,]:#True,False]:
@@ -379,7 +387,7 @@ if __name__ == "__main__":
                                                     x = xy.x
                                                     y = xy.y
                 #                                    print('x = ',x,', y = ',y)
-
+                                                    print("hashData.getData('GPA', iLine=",iLine,") = ",hashData.getData('GPA', iLine))
                                                     gpa = float(hashData.getData('GPA', iLine))
                                                     if rotateBipolars and (hashData.getData('mainClass', iLine) == 'B'):
                                                         gpa += 90.
