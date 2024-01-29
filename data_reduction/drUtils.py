@@ -54,6 +54,7 @@ fluxStdDirsByPriority = ['spec50cal',
                          'irscal',
                          'iidscal',
                          'spechayescal',
+                         'eso/ctiostan',
                          'gemini']
 
 def readFileToArr(fname):
@@ -2100,7 +2101,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
         imageTransposed = image.transpose()
         print('extractObjectAndSubtractSky: imageTransposed.shape = ',image.shape)
         if display:
-            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image), origin='lower')
+            plt.imshow(image,vmin=0.,vmax=1.5*np.abs(np.mean(image)), origin='lower')
             print('image.shape = ',image.shape)
             if skyAbove is not None:
                 plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
@@ -2117,7 +2118,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             plt.show()
         newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0) if ((skyAbove is not None) and (skyBelow is not None)) else [imageTransposed,None]
         if display:
-            plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.mean(newImageData), origin='lower')
+            plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.abs(np.mean(newImageData)), origin='lower')
             if skyAbove is not None:
                 plt.plot([0.,image.shape[1]],[skyAbove[0],skyAbove[0]],'r-')
                 plt.plot([0.,image.shape[1]],[skyAbove[1],skyAbove[1]],'r-')
@@ -2179,24 +2180,30 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             plt.plot([yRange[0],yRange[0]],[np.amin(profile),np.amax(profile)],'g-')
             plt.plot([yRange[1],yRange[1]],[np.amin(profile),np.amax(profile)],'g-')
         rowsSky = []
-        if skyAbove is not None:
-            for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
-                rowsSky.append(i)
+        skyArr = []
         if skyBelow is not None:
-            for i in np.arange(skyBelow[0],skyBelow[1]+1,1):
-                rowsSky.append(i)
+#            for i in np.arange(skyBelow[0],skyBelow[1]+1,1):
+#                rowsSky.append(i)
+            rowsSky.append(skyBelow[0] + ((skyBelow[1]-skyBelow[0])/2.))
+        if skyAbove is not None:
+#            for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
+#                rowsSky.append(i)
+            rowsSky.append(skyAbove[0] + ((skyAbove[1]-skyAbove[0])/2.))
         if (skyAbove is not None) or (skyBelow is not None):
             rowsSky = np.array(rowsSky)
             for col in range(image.shape[1]):
                 skyArr = []
-                for i in rowsSky:
-                    skyArr.append(image[i,col])
-
+#                for i in rowsSky:
+#                    skyArr.append(image[i,col])
+                skyArr.append(np.mean(image[skyBelow[0]:skyBelow[1]+1,col]))
+                skyArr.append(np.mean(image[skyAbove[0]:skyAbove[1]+1,col]))
+                print('rowsSky = ',len(rowsSky),': ',rowsSky)
+                print('skyArr = ',len(skyArr),': ',skyArr)
                 f = interp1d(rowsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
                 image[yRange[0]:yRange[1]+1,col] -= f(np.arange(yRange[0],yRange[1]+1))
         if display:
             plt.show()
-            plt.imshow(image,vmin=0.,vmax=1.5*np.mean(image), origin='lower')
+            plt.imshow(image,vmin=0.,vmax=1.5*np.abs(np.mean(image)), origin='lower')
             plt.title(twoDImageFileIn+' sky subtracted')
             mng = plt.get_current_fig_manager()
             mng.full_screen_toggle()
@@ -3140,6 +3147,7 @@ def dispCor(scienceListIn,
         #STOP
         resampled,resampledSpec = resampleSpec(wLenSpec,spec)
         print('scienceListOut = ',len(scienceListOut),scienceListOut)
+        print('iSpec = ',iSpec)
         writeFits1D(resampledSpec,
                     scienceListOut[iSpec],
                     wavelength=None,
@@ -3285,17 +3293,17 @@ def calcResponse(fNameList,
                 #scienceSpectra = []#extractSum(fn,'row',fn[:-5]+'Ec.fits') for fn in getListOfFiles(os.path.join(workPath,'SCIENCE_otzfif.list'))]
                 extractedFileName = ''
                 print('fName = ',fName)
-                foundEx = False
-                for i in range(areas.size()):
-                    print('')
-                    if areas.getData('fName',i) == fName:
-                        extractedFileName = areas.getData('fName',i)[:-5]+'Ecd.fits'
-                        print('calcResponse: reading extractedFileName = <'+extractedFileName+'>')
-                        wapprox = getWavelengthArr(extractedFileName)
-                        foundEx = True
-                if not foundEx:
-                    print('calcResponse: did not find fName = <'+fName+'> in areas')
-                    STOP
+#                foundEx = False
+#                for i in range(areas.size()):
+#                    print('')
+#                    if areas.getData('fName',i) == fName:
+                extractedFileName = fName[:-5]+'Ecd.fits'
+#                        print('calcResponse: reading extractedFileName = <'+extractedFileName+'>')
+                wapprox = getWavelengthArr(extractedFileName)
+#                        foundEx = True
+#                if not foundEx:
+#                    print('calcResponse: did not find fName = <'+fName+'> in areas')
+#                    STOP
                 obj_flux = CCDData.read(extractedFileName, unit=u.adu)
                 obj_flux = obj_flux.data / float(img.header['EXPTIME'])
                 obj_flux = obj_flux * u.adu / u.s
@@ -3397,6 +3405,8 @@ def calcResponse(fNameList,
 
 
 def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='apoextinct.dat'):
+    print('applySensFuncs: objectSpectraIn = ',len(objectSpectraIn),': ',objectSpectraIn)
+    print('applySensFuncs: objectSpectraOut = ',len(objectSpectraOut),': ',objectSpectraOut)
     for iSpec in range(len(objectSpectraIn)):
         print('applySensFuncs: reading spectrum file <'+objectSpectraIn[iSpec]+'>')
         img = CCDData.read(objectSpectraIn[iSpec], unit=u.adu)
@@ -4958,3 +4968,12 @@ def cleanImage(inputImage, outputImage):
 
     plt.show()
     writeFits(image,inputImage,outputImage)
+
+def measureSNR(spectrumFileNameIn):
+    spec = getImageData(spectrumFileNameIn,0)
+    snr = []
+    for i in np.arange(10,len(spec)-10,1):
+        snr.append(np.mean(spec[i-10:i+10] / np.std(spec[i-10:i+10])))
+    plt.plot(snr)
+    print(spectrumFileNameIn,': median SNR = ',np.median(snr))
+    plt.show()

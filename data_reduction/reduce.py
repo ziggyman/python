@@ -26,7 +26,7 @@ trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/R_data/2008-05-06/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/R_data/2008-05-14/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -454,7 +454,7 @@ if __name__ == '__main__':
                                                 skyBelow = skyBelow,
                                                 extractionMethod = extractionMethod,
                                                 dispAxis = 'row',
-                                                display = True,
+                                                display = False,
                                                 areasFileOut = areasFileName if not areasFileExists else None)
         if True:
             inputList = objectListsStartWith
@@ -479,14 +479,14 @@ if __name__ == '__main__':
                     if os.path.exists(tmpFileName):
                         skyFilesEc.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'Ecd.fits'
-                    if os.path.exists(tmpFileName):
-                        ecdFiles.append(tmpFileName)
+                    #if os.path.exists(tmpFileName):
+                    ecdFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits'
                     if os.path.exists(tmpFileName):
                         skydFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'EcdF.fits'
-                    if os.path.exists(tmpFileName):
-                        ecdfFiles.append(tmpFileName)
+                    #if os.path.exists(tmpFileName):
+                    ecdfFiles.append(tmpFileName)
                     # extract MedianSky images
                     if False:
                         skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
@@ -517,6 +517,7 @@ if __name__ == '__main__':
                     'DEC',#TELDEC',
                     'DATE-OBS',
                     doHelioCor = False)
+            print('ecFiles = ',ecFiles)
             dispCor(ecFiles,
                     getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                     wavelengthsOrig,

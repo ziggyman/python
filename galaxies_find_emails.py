@@ -15,6 +15,8 @@ apnVII_participants = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies s
 
 apnV = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies special issue guest editor/APNV-participants.txt')
 
+apnVI = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies special issue guest editor/APNVI_participants.csv','\t',False)
+
 workplansII = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies special issue guest editor/emails_WorkPLANsII.csv')
 
 q_pn_distribution_list = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies special issue guest editor/PN-email-distribution-list copy.csv')
@@ -101,6 +103,9 @@ nature = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies special issue 
 #first_names_nature = nature.getData('first name')
 #print('names_nature = ',names_nature)
 
+
+hash = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies special issue guest editor/hash_users.csv')
+
 #names_iaus323 = iaus323.getData('Last Name')
 #first_names_iaus323 = iaus323.getData('First Name')
 #emails_iaus323 = iaus323.getData('email\r')
@@ -111,29 +116,50 @@ nature = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/galaxies special issue 
 final_list = csvData.CSVData()
 final_list.header = ['first name','last name','email']
 for i in range(iaus384.size()):
-    final_list.append([iaus384.getData('Name',i),iaus384.getData('Surname',i),iaus384.getData('Email\r',i)])
+    final_list.append([iaus384.getData('Name',i),iaus384.getData('Surname',i),iaus384.getData('Email\r',i).strip()])
 print('with IAUS384: final_list.size() = ',final_list.size())
 
 for i in range(apnVII_speakers.size()):
     if final_list.find('email',apnVII_speakers.getData('email',i))[0] < 0:
-        final_list.append([apnVII_speakers.getData('first name',i),apnVII_speakers.getData('last name',i),apnVII_speakers.getData('email',i)])
+        final_list.append([apnVII_speakers.getData('first name',i),apnVII_speakers.getData('last name',i),apnVII_speakers.getData('email',i).strip()])
 print('with apnVII_speakers: final_list.size() = ',final_list.size())
+
+for i in range(apnVI.size()):
+    if final_list.find('email',apnVI.getData('email',i))[0] < 0:
+        final_list.append([apnVI.getData('First name',i),apnVI.getData('Last name',i),apnVI.getData('email',i).strip()])
+print('with apnVI: final_list.size() = ',final_list.size())
 
 for i in range(new.size()):
     if final_list.find('email',new.getData('email\r',i))[0] < 0:
-        final_list.append([new.getData('first name',i),new.getData('last name',i),new.getData('email\r',i)])
+        final_list.append([new.getData('first name',i),new.getData('last name',i),new.getData('email\r',i).strip()])
 print('with possible authors: final_list.size() = ',final_list.size())
-
-for i in range(iaus323.size()):
-    if final_list.find('email',iaus323.getData('email\r',i))[0] < 0:
-        final_list.append([iaus323.getData('First Name',i),iaus323.getData('Last Name',i),iaus323.getData('email\r',i)])
-print('with IAUS323: final_list.size() = ',final_list.size())
 
 for i in range(workplansII.size()):
     if final_list.find('email',workplansII.getData('email\r',i))[0] < 0:
-        final_list.append([workplansII.getData('first name',i),workplansII.getData('last name',i),workplansII.getData('email\r',i)])
+        final_list.append([workplansII.getData('first name',i),workplansII.getData('last name',i),workplansII.getData('email\r',i).strip()])
 print('with WorkPLANsII: final_list.size() = ',final_list.size())
 
+for i in range(q_pn_distribution_list.size()):
+    if final_list.find('email',q_pn_distribution_list.getData('email',i))[0] < 0:
+        final_list.append([q_pn_distribution_list.getData('first name',i),q_pn_distribution_list.getData('last name',i),q_pn_distribution_list.getData('email',i).strip()])
+print('with q_pn_distribution_list: final_list.size() = ',final_list.size())
+
+for i in range(iaus323.size()):
+    if final_list.find('email',iaus323.getData('email\r',i))[0] < 0:
+        final_list.append([iaus323.getData('First Name',i),iaus323.getData('Last Name',i),iaus323.getData('email\r',i).strip()])
+print('with IAUS323: final_list.size() = ',final_list.size())
+
+for i in range(hash.size()):
+    if final_list.find('email',hash.getData('email',i))[0] < 0:
+        if hash.getData('firstName',i) == 'NULL':
+            final_list.append(['HASH user','',hash.getData('email',i)])
+        else:
+            name = hash.getData('firstName',i)
+            final_list.append([name[:name.find(' ')],name[name.find(' ')+1:],hash.getData('email',i)])
+
+print('with HASH users: final_list.size() = ',final_list.size())
+
+csvFree.writeCSVFile(final_list,'/Users/azuri/daten/uni/HKU/galaxies special issue guest editor/final_list.csv')
 
 not_found = []
 
@@ -152,11 +178,15 @@ if False:
             found = csv.find(emailKey,email)[0]
             if found >= 0:
                 print('found email <'+email+'> in csv at position ',found)
-                if len(apnVII_speakers.getData('first name',i)) < len(csv.getData('first name',found)):
-                    apnVII_speakers.setData('first name',i,csv.getData('first name',found))
-                if len(apnVII_speakers.getData('last name',i)) < len(csv.getData('last name',found)):
-                    apnVII_speakers.setData('last name',i,csv.getData('last name',found))
+                if len(apnVII_speakers.getData('first name',i)) < len(csv.getData(firstNameKey,found)):
+                    apnVII_speakers.setData('first name',i,csv.getData(firstNameKey,found))
+                if len(apnVII_speakers.getData('last name',i)) < len(csv.getData(lastNameKey,found)):
+                    apnVII_speakers.setData('last name',i,csv.getData(lastNameKey,found))
+        for i in range(csv.size()):
+            if final_list.find('email',csv.getData(emailKey,i))[0] < 0:
+                final_list.append([csv.getData(firstNameKey,i),csv.getData(lastNameKey,i),csv.getData(emailKey,i)])
     csvFree.writeCSVFile(apnVII_speakers,'/Users/azuri/daten/uni/HKU/galaxies special issue guest editor/APNVII-invited-speaker-emails.txt')
+
     STOP
 
 names_to_find = [names_apn8,names_iaus283,names_apnVII,names_nature]
