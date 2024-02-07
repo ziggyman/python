@@ -212,6 +212,8 @@ def sigmaRej(values, sigLow, sigHigh, adjustSigLevels, useMean=False):
 # --- in case of 1D image data replace the area [skyLeftArea[1]:skyRightArea[0]] with the interpolated 'sky'
 # --- otherwise subtract the 2D sky image from the 2D image data
 def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=3.0):
+    if (skyLeftArea is None) and (skyRightArea is None):
+        return [imageData,np.zeros(imageData.shape, dtype=type(imageData[0,0]))]
     dtype = None
     axis = None
     oneD = False
@@ -285,11 +287,11 @@ def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=
 #            print 'subtractSky: iRow = ',iRow
             ySkyRow = sigmaRej(ySky[iRow,:], sigLow, sigHigh, True)
             skyParams = linReg(xSky,ySkyRow)
-    #        print 'subtractSky: imageData[',iRow,',:] = ',imageData[iRow,:],', newImageData[',iRow,',:].shape = ',newImageData[iRow,:].shape,', skyParams[',iRow,'] = ',len(skyParams[iRow]),': ',skyParams[iRow]
+            #print('subtractSky: imageData[',iRow,',:] = ',imageData[iRow,:],', newImageData[',iRow,',:].shape = ',newImageData[iRow,:].shape,', skyParams[',iRow,'] = ',len(skyParams[iRow]),': ',skyParams[iRow])
             skyData[iRow,:] = (skyParams[0] * xObs) + skyParams[1]
-    #        print 'subtractSky: skyData[',iRow,',:] = ',skyData[iRow,:]
+            #print('subtractSky: skyData[',iRow,',:] = ',skyData[iRow,:])
             newImageData[iRow,:] = imageData[iRow,:] - skyData[iRow,:]
-    #        print 'subtractSky: newImageData[',iRow,',:] = ',newImageData[iRow,:]
+            #print('subtractSky: newImageData[',iRow,',:] = ',newImageData[iRow,:])
     return [newImageData,skyData]
 
 #def subtractSky(obsAreas,obsData,skyLeftArea,skyLeft,skyRightArea,skyRight):

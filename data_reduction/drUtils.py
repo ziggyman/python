@@ -2116,7 +2116,7 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             mng.full_screen_toggle()
             plt.title('original image '+twoDImageFileIn)
             plt.show()
-        newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0) if ((skyAbove is not None) and (skyBelow is not None)) else [imageTransposed,None]
+        newImageData,skyData = subtractSky(imageTransposed,skyAbove,skyBelow,sigLow=3.0,sigHigh=3.0)# if ((skyAbove is not None) and (skyBelow is not None)) else [imageTransposed,None]
         if display:
             plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.abs(np.mean(newImageData)), origin='lower')
             if skyAbove is not None:
@@ -2181,15 +2181,9 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             plt.plot([yRange[1],yRange[1]],[np.amin(profile),np.amax(profile)],'g-')
         rowsSky = []
         skyArr = []
-        if skyBelow is not None:
-#            for i in np.arange(skyBelow[0],skyBelow[1]+1,1):
-#                rowsSky.append(i)
+        if (skyBelow is not None) and (skyAbove is not None):
             rowsSky.append(skyBelow[0] + ((skyBelow[1]-skyBelow[0])/2.))
-        if skyAbove is not None:
-#            for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
-#                rowsSky.append(i)
             rowsSky.append(skyAbove[0] + ((skyAbove[1]-skyAbove[0])/2.))
-        if (skyAbove is not None) or (skyBelow is not None):
             rowsSky = np.array(rowsSky)
             for col in range(image.shape[1]):
                 skyArr = []
@@ -2201,10 +2195,35 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
                 print('skyArr = ',len(skyArr),': ',skyArr)
                 f = interp1d(rowsSky, np.array(skyArr), bounds_error = False,fill_value='extrapolate')
                 image[yRange[0]:yRange[1]+1,col] -= f(np.arange(yRange[0],yRange[1]+1))
+        else:
+            skyArr = []
+            if skyBelow is not None:
+    #            for i in np.arange(skyBelow[0],skyBelow[1]+1,1):
+    #                rowsSky.append(i)
+                rowsSky.append(skyBelow[0] + ((skyBelow[1]-skyBelow[0])/2.))
+                for col in range(image.shape[1]):
+                    image[yRange[0]:yRange[1]+1,col] -= np.mean(image[skyBelow[0]:skyBelow[1]+1,col])
+            if skyAbove is not None:
+    #            for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
+    #                rowsSky.append(i)
+                rowsSky.append(skyAbove[0] + ((skyAbove[1]-skyAbove[0])/2.))
+                for col in range(image.shape[1]):
+                    image[yRange[0]:yRange[1]+1,col] -= np.mean(image[skyAbove[0]:skyAbove[1]+1,col])
         if display:
             plt.show()
             plt.imshow(image,vmin=0.,vmax=1.5*np.abs(np.mean(image)), origin='lower')
             plt.title(twoDImageFileIn+' sky subtracted')
+            mng = plt.get_current_fig_manager()
+            mng.full_screen_toggle()
+            plt.show()
+            plt.imshow(newImageData.transpose(),vmin=0.,vmax=1.5*np.abs(np.mean(newImageData)), origin='lower')
+            plt.title(twoDImageFileIn+' sky subtracted newImageData')
+            mng = plt.get_current_fig_manager()
+            mng.full_screen_toggle()
+            plt.show()
+            tempIm = image-newImageData.transpose()
+            plt.imshow(tempIm,vmin=0.,vmax=1.5*np.abs(np.mean(tempIm)), origin='lower')
+            plt.title(twoDImageFileIn+' sky subtracted difference image-newImageData')
             mng = plt.get_current_fig_manager()
             mng.full_screen_toggle()
             plt.show()
@@ -2266,6 +2285,8 @@ def extractObjectAndSubtractSky(twoDImageFileIn,
             plt.plot([np.amin(profile),np.amax(profile)],[yRange[0],yRange[0]],'g-')
             plt.plot([np.amin(profile),np.amax(profile)],[yRange[1],yRange[1]],'g-')
         colsSky = []
+        print('please adapt all the changes from "if dispAxis == row"')
+        STOP
         if skyAbove is not None:
             for i in np.arange(skyAbove[0],skyAbove[1]+1,1):
                 colsSky.append(i)

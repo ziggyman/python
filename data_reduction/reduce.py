@@ -26,7 +26,7 @@ trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/R_data/2008-05-14/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/B_data/2008-05-14/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -448,10 +448,19 @@ if __name__ == '__main__':
                         extractionMethod = areas.getData('method',i)
                     print('reduce: i = ',i,': fName = ',extractList.getData('fName',i))
                     extractObjectAndSubtractSky(os.path.join(workPath,extractList.getData('fName',i)) if '/' not in extractList.getData('fName',i) else extractList.getData('fName',i),
-                                                os.path.join(workPath,extractList.getData('fName',i)[:-5]+'Ec.fits'),
+                                                os.path.join(workPath,extractList.getData('fName',i)[:-5]+'-skyEc.fits'),
                                                 obsArea,
                                                 skyAbove = skyAbove,
                                                 skyBelow = skyBelow,
+                                                extractionMethod = extractionMethod,
+                                                dispAxis = 'row',
+                                                display = False,
+                                                areasFileOut = areasFileName if not areasFileExists else None)
+                    extractObjectAndSubtractSky(os.path.join(workPath,extractList.getData('fName',i)) if '/' not in extractList.getData('fName',i) else extractList.getData('fName',i),
+                                                os.path.join(workPath,extractList.getData('fName',i)[:-5]+'Ec.fits'),
+                                                obsArea,
+                                                skyAbove = None,
+                                                skyBelow = None,
                                                 extractionMethod = extractionMethod,
                                                 dispAxis = 'row',
                                                 display = False,
@@ -461,14 +470,20 @@ if __name__ == '__main__':
             doHelioCor = True# if inputList == objectListsStartWith else False
             print('doHelioCor = ',doHelioCor)
             ecFiles = []
+            secFiles = []
             skyFiles = []
             skyFilesEc = []
             ecdFiles = []
+            secdFiles = []
             ecdfFiles = []
+            secdfFiles = []
             skydFiles = []
             areasList = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
             for fileName in areasList.getData('fName'):
                 if fileName[0] != '#':
+                    tmpFileName = fileName[:fileName.rfind('.')]+'-skyEc.fits'
+                    if os.path.exists(tmpFileName):
+                        secFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'Ec.fits'
                     if os.path.exists(tmpFileName):
                         ecFiles.append(tmpFileName)
@@ -481,12 +496,18 @@ if __name__ == '__main__':
                     tmpFileName = fileName[:fileName.rfind('.')]+'Ecd.fits'
                     #if os.path.exists(tmpFileName):
                     ecdFiles.append(tmpFileName)
+                    tmpFileName = fileName[:fileName.rfind('.')]+'-skyEcd.fits'
+                    #if os.path.exists(tmpFileName):
+                    secdFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits'
                     if os.path.exists(tmpFileName):
                         skydFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'EcdF.fits'
                     #if os.path.exists(tmpFileName):
                     ecdfFiles.append(tmpFileName)
+                    tmpFileName = fileName[:fileName.rfind('.')]+'-skyEcdF.fits'
+                    #if os.path.exists(tmpFileName):
+                    secdfFiles.append(tmpFileName)
                     # extract MedianSky images
                     if False:
                         skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
@@ -527,6 +548,15 @@ if __name__ == '__main__':
                     'DEC',#TELDEC',
                     'DATE-OBS',
                     doHelioCor = doHelioCor)
+            dispCor(secFiles,
+                    getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
+                    wavelengthsOrig,
+                    secdFiles,
+                    observatoryLocation,
+                    'RA',#TELRA',
+                    'DEC',#TELDEC',
+                    'DATE-OBS',
+                    doHelioCor = doHelioCor)
 
         if True:
 
@@ -536,17 +566,22 @@ if __name__ == '__main__':
                                     #wavelengthsOrig,
                                     areas,
                                     stdStarNameEndsBefore='dbs',
-                                    display=True)
+                                    display=False)
             print('sensFuncs = ',sensFuncs)
 
             applySensFuncs(ecdFiles,
                         ecdfFiles,
+                        sensFuncs)
+            applySensFuncs(secdFiles,
+                        secdfFiles,
                         sensFuncs)
 
         # clean spectra
         if True:
             for ecdfFile in ecdfFiles:
                 cleanSpec(ecdfFile,ecdfFile.replace('EcdF.fits','-sky.fits'),ecdfFile.replace('.fits','_clean.fits'))
+            for secdfFile in secdfFiles:
+                cleanSpec(secdfFile,secdfFile.replace('-skyEcdF.fits','-sky.fits'),secdfFile.replace('.fits','_clean.fits'))
 
 
         if False:
