@@ -450,8 +450,12 @@ def lonLatToRaDec(l, b):
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
-    h, m, s = [float(i) for i in string.split(':')]
-    return (15. * s / 3600.) + (15. * m / 60.) + (h * 15.)
+    try:
+        h, m, s = [float(i) for i in string.split(':')]
+        return (15. * s / 3600.) + (15. * m / 60.) + (h * 15.)
+    except:
+        print('hmsToDeg: string = <'+string+'>')
+        STOP
 
 def degToHMS(degrees):
     h = int(degrees / 15.)
@@ -463,12 +467,15 @@ def degToHMS(degrees):
 
 # string = xx:yy:zz.zzz
 def dmsToDeg(string):
-    d, m, s = [float(i) for i in string.split(':')]
-#    print('dmsToDeg: string = <'+string+'>: d = ',d,', m = ',m,', s = ',s)
-    if string[0] == '-':
-        d = 0. - d
-        return 0. - (s / 3600. + m / 60. + d)
-    return s / 3600. + m / 60. + d
+    try:
+        d, m, s = [float(i) for i in string.split(':')]
+    #    print('dmsToDeg: string = <'+string+'>: d = ',d,', m = ',m,', s = ',s)
+        if string[0] == '-':
+            d = 0. - d
+            return 0. - (s / 3600. + m / 60. + d)
+        return s / 3600. + m / 60. + d
+    except:
+        return float(string)
 
 def degToDMS(degrees):
     d = int(degrees)

@@ -26,7 +26,7 @@ trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/B_data/2008-05-14/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/B_data/2008-05-08/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -68,8 +68,8 @@ fluxstdsListsStartWith = 'fluxstds'#DBS
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_90')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_vertical_otzxf')#aprefVerticalTrace_spupnic_2007')
 
-#refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_red_May2008_otzf')
-refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_red_May2008_otzf')
+#refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
 
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_6230-6725_vertical_otzxf')#aprefVerticalTrace_spupnic_2007')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_vertical_otzf')#aprefVerticalTrace_spupnic_2007')
@@ -77,8 +77,8 @@ refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_bl
 #refHorizontalTraceDB = '/Users/azuri/stella/referenceFiles/database/spupnic/aphorizontal_tracer90flipl'
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
 
-#refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
+#refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
 
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_6230-6725_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_BLUE_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
@@ -90,8 +90,8 @@ refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DB
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_RED_6230-6725_otzxfif')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_BLUE_otzfif')
 
-#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_red_May2008_otzfif')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_red_May2008_otzfif')
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
 
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_aug07_Blue_3600-5600_otzfif')
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle16_3_lines_identified_good.dat')
@@ -102,8 +102,8 @@ refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_ot
 #lineList = os.path.join(refPath,'saao_refspec_gr7_angle%d_%d_lines_identified_good_aug2013.dat')
 #lineList = os.path.join(refPath,'saao_refspec_may2007.new')
 
-#lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
-lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
+lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
+#lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
 
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_CuAr_blue.txt')
 #lineList = os.path.join(refPath,'dbs_refspec_aug2007_red.txt')
@@ -113,8 +113,8 @@ lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_otzxfifEc_mar2014.fits'
 #referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_may2007.fits'
 
-#referenceSpectrum = os.path.join(refPath,'refArc_DBS_May2008_red_otzxfiEc.fits')
-referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
+referenceSpectrum = os.path.join(refPath,'refArc_DBS_May2008_red_otzxfiEc.fits')
+#referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
 
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_aug07_Blue.fits')
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_aug07_Red.fits')
@@ -392,7 +392,7 @@ if __name__ == '__main__':
                                                                             display=False,
                                                                             chiSquareLimit=0.45,
                                                                             degree=4,
-                                                                            minLines=10,
+                                                                            minLines=8,
                                                                             maxRMS=0.6,
                                                                             #apOffsetX=-155.5,
                                                                             )
@@ -435,6 +435,7 @@ if __name__ == '__main__':
                 extractList = csvFree.readCSVFile(extractInputList)
                 with open(areasFileExists,'w') as fAreas:
                     fAreas.write('fName,object,skyBelow,skyAbove,method,notes\n')
+        if True:
             for i in range(extractList.size()):
                 if extractList.getData('fName',i)[0] != '#':
                     skyAbove = None
@@ -479,6 +480,7 @@ if __name__ == '__main__':
             secdfFiles = []
             skydFiles = []
             areasList = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
+
             for fileName in areasList.getData('fName'):
                 if fileName[0] != '#':
                     tmpFileName = fileName[:fileName.rfind('.')]+'-skyEc.fits'
@@ -494,20 +496,23 @@ if __name__ == '__main__':
                     if os.path.exists(tmpFileName):
                         skyFilesEc.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'Ecd.fits'
-                    #if os.path.exists(tmpFileName):
-                    ecdFiles.append(tmpFileName)
+                    if os.path.exists(tmpFileName):
+                        ecdFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'-skyEcd.fits'
-                    #if os.path.exists(tmpFileName):
-                    secdFiles.append(tmpFileName)
+                    if os.path.exists(tmpFileName):
+                        secdFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')].replace('-MedianSky','')+'MedianSkyEcd.fits'
                     if os.path.exists(tmpFileName):
                         skydFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'EcdF.fits'
-                    #if os.path.exists(tmpFileName):
+#                    if os.path.exists(tmpFileName):
                     ecdfFiles.append(tmpFileName)
+#                    else:
+#                        print('did not find ',tmpFileName)
+#                        STOP
                     tmpFileName = fileName[:fileName.rfind('.')]+'-skyEcdF.fits'
-                    #if os.path.exists(tmpFileName):
-                    secdfFiles.append(tmpFileName)
+                    if os.path.exists(tmpFileName):
+                        secdfFiles.append(tmpFileName)
                     # extract MedianSky images
                     if False:
                         skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
@@ -529,34 +534,37 @@ if __name__ == '__main__':
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
         if True:
-            dispCor(skyFilesEc,
-                    getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
-                    wavelengthsOrig,
-                    skydFiles,
-                    observatoryLocation,
-                    'RA',#TELRA',
-                    'DEC',#TELDEC',
-                    'DATE-OBS',
-                    doHelioCor = False)
-            print('ecFiles = ',ecFiles)
-            dispCor(ecFiles,
-                    getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
-                    wavelengthsOrig,
-                    ecdFiles,
-                    observatoryLocation,
-                    'RA',#TELRA',
-                    'DEC',#TELDEC',
-                    'DATE-OBS',
-                    doHelioCor = doHelioCor)
-            dispCor(secFiles,
-                    getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
-                    wavelengthsOrig,
-                    secdFiles,
-                    observatoryLocation,
-                    'RA',#TELRA',
-                    'DEC',#TELDEC',
-                    'DATE-OBS',
-                    doHelioCor = doHelioCor)
+            if len(skyFilesEc) > 0:
+                dispCor(skyFilesEc,
+                        getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
+                        wavelengthsOrig,
+                        skydFiles,
+                        observatoryLocation,
+                        'RA',#TELRA',
+                        'DEC',#TELDEC',
+                        'DATE-OBS',
+                        doHelioCor = False)
+            if len(ecFiles) > 0:
+                print('ecFiles = ',ecFiles)
+                dispCor(ecFiles,
+                        getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
+                        wavelengthsOrig,
+                        ecdFiles,
+                        observatoryLocation,
+                        'RA',#TELRA',
+                        'DEC',#TELDEC',
+                        'DATE-OBS',
+                        doHelioCor = doHelioCor)
+            if len(secFiles) > 0:
+                dispCor(secFiles,
+                        getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
+                        wavelengthsOrig,
+                        secdFiles,
+                        observatoryLocation,
+                        'RA',#TELRA',
+                        'DEC',#TELDEC',
+                        'DATE-OBS',
+                        doHelioCor = doHelioCor)
 
         if True:
 
@@ -568,20 +576,31 @@ if __name__ == '__main__':
                                     stdStarNameEndsBefore='dbs',
                                     display=False)
             print('sensFuncs = ',sensFuncs)
-
-            applySensFuncs(ecdFiles,
-                        ecdfFiles,
-                        sensFuncs)
-            applySensFuncs(secdFiles,
-                        secdfFiles,
-                        sensFuncs)
+            if len(ecdFiles) > 0:
+                applySensFuncs(ecdFiles,
+                            ecdfFiles,
+                            sensFuncs)
+            if len(secdFiles) > 0:
+                applySensFuncs(secdFiles,
+                            secdfFiles,
+                            sensFuncs)
 
         # clean spectra
         if True:
-            for ecdfFile in ecdfFiles:
-                cleanSpec(ecdfFile,ecdfFile.replace('EcdF.fits','-sky.fits'),ecdfFile.replace('.fits','_clean.fits'))
-            for secdfFile in secdfFiles:
-                cleanSpec(secdfFile,secdfFile.replace('-skyEcdF.fits','-sky.fits'),secdfFile.replace('.fits','_clean.fits'))
+            start = True
+            if len(ecdfFiles) > 0:
+                for ecdfFile in ecdfFiles:
+                    if 'MPA1602-5603a' in ecdfFile:
+                        start = True
+                    if start:
+                        cleanSpec(ecdfFile,ecdfFile.replace('EcdF.fits','-sky.fits'),ecdfFile.replace('.fits','_clean.fits'))
+            else:
+                print('len(ecdfFiles) == 0')
+            if len(secdfFiles) > 0:
+                for secdfFile in secdfFiles:
+                    cleanSpec(secdfFile,secdfFile.replace('-skyEcdF.fits','-sky.fits'),secdfFile.replace('.fits','_clean.fits'))
+            else:
+                print('len(secdfFiles) == 0')
 
 
         if False:

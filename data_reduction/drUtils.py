@@ -2787,6 +2787,7 @@ def writeFits1D(flux, outFileName, wavelength=None, header=None, CRVAL1=None, CR
         if 'NAXIS2' in head.keys():
             del head['NAXIS2']
         print('writeFits1D: dir(head) = ',dir(head))
+        head['NAXIS1'] = flux.shape[0]
         for key in head:
             print('writeFits1D: ',key+': <',head[key],'>: ',type(head[key]))
             if isinstance(head[key],str):
@@ -2935,6 +2936,7 @@ def extractAndReidentifyARCs(arcListIn,
         if os.path.isfile(arcInterp):
             tempFile = arcInterp[:arcInterp.rfind('/')+1]+'database/aptmp'+arcInterp[arcInterp.rfind('/')+1:arcInterp.rfind('.')]
             print('extractAndReidentifyARCs: tempFile = <'+tempFile+'>')
+            copyfile(refApDefTmp,tempFile)
             if shiftApDef:
                 shiftApertureDefs(tempFile,tempFile,shift)
             forProfileFile = arcInterp
@@ -2943,7 +2945,7 @@ def extractAndReidentifyARCs(arcListIn,
             copyfile(forProfileFile,arcInterp[:arcInterp.rfind('/')+1]+forProfileFile[forProfileFile.rfind('/')+1:])
             forProfileFile = arcInterp[:arcInterp.rfind('/')+1]+forProfileFile[forProfileFile.rfind('/')+1:]
             tempFile = forProfileFile[:forProfileFile.rfind('/')+1]+'database/aptmp'+forProfileFile[forProfileFile.rfind('/')+1:forProfileFile.rfind('.')]
-        copyfile(refApDefTmp,tempFile)
+            copyfile(refApDefTmp,tempFile)
         print('forProfileFile = <'+forProfileFile+'>')
         lineListNew, coeffs, xRange, rms = reidentify(arcInterp,
                                                       forProfileFile,
@@ -3468,6 +3470,8 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='
 #        print('applySensFuncs: dir(cdelt) = ',dir(cdelt))
 #        print('applySensFuncs: crpix = ',crpix)
 #        print('applySensFuncs: objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
+        print('objectSpectraIn = ',len(objectSpectraIn),': ',objectSpectraIn,', iSpec = ',iSpec,', objectsSpectraIn[',iSpec,'] = ',objectSpectraIn[iSpec])
+        print('objectSpectraOut = ',len(objectSpectraOut),': ',objectSpectraOut,', iSpec = ',iSpec)
         print('applySensFuncs: writing file ',objectSpectraOut[iSpec])
         writeFits1D(objectSpectrumFluxCalibrated.data,
                     objectSpectraOut[iSpec],
@@ -3731,72 +3735,127 @@ def scombine(fileListName,
             adjustSigLevels=False,
             useMean=False,
             display=False):
+
     fileNames = readFileToArr(fileListName)
     fileNames = [fileName if '/' in fileName else os.path.join(fileListName[:fileListName.rfind('/')],fileName) for fileName in fileNames]
-    wLenAll = getWavelengthArr(fileNames[0],0)
-    print('scombine: wLenAll = ',wLenAll)
-    spectra = []
-    exptimes = []
-    for fileName in fileNames:
-        exptimes.append(float(getHeaderValue(fileName,'EXPTIME')))
-        if fileName == fileNames[0]:
-            spectra.append(getImageData(fileName,0))
-        else:
-            spectra.append(rebin(getWavelengthArr(fileName,0), getImageData(fileName,0), wLenAll, preserveFlux = True))
-        if display:
-            plt.plot(wLenAll, spectra[len(spectra)-1], label=fileName[fileName.rfind('/')+1:fileName.rfind('.')])
-    exptimes = np.array(exptimes)
-    print('scombine: exptimes = ',exptimes)
-    goodPix = []
-    combinedSpectrum = np.zeros(wLenAll.shape[0])
-    exptimesPix = []
-    if lowReject is not None:
-        for pix in np.arange(0,wLenAll.shape[0],1):
-            vPix, indices = sigmaReject([spectrum[pix] for spectrum in spectra],
-                                        nIter=1,
-                                        lowReject=lowReject,
-                                        highReject=highReject,
-                                        replace=False,
-                                        adjustSigLevels=adjustSigLevels,
-                                        useMean=useMean,
-                                        keepFirstAndLastX=False)
 
-            print('scombine: vPix = ',vPix)
-            goodPix.append(vPix)
-            print('scombine: exptimes[indices = ',indices,'] = ',exptimes[indices])
-            exptimesPix.append(np.mean(exptimes[indices]))
-    else:
-        for pix in np.arange(0,wLenAll.shape[0],1):
-            goodPix.append([spectrum[pix] for spectrum in spectra])
-            exptimesPix.append(np.mean(exptimes))
-    for pix in np.arange(0,wLenAll.shape[0],1):
-        notNaN = np.where([not np.isnan(a) for a in goodPix[pix]])
-        #print('scombine: notNaN = ',notNaN)
-        if (len(goodPix[pix]) % 2 == 0) or (method == 'mean'):
-            combinedSpectrum[pix] = np.mean(np.array(goodPix[pix][notNaN]))
-        else:
-            combinedSpectrum[pix] = np.median(np.array(goodPix[pix][notNaN]))
-        #print('scombine: pix = ',pix,': wLenAll[',pix,'] = ',wLenAll[pix],': goodPix = ',goodPix[pix],', np.mean(np.array(goodPix[pix])) = ',np.mean(np.array(goodPix[pix])),', np.median(np.array(goodPix[pix])) = ',np.median(np.array(goodPix[pix])),', combinedSpectrum[',pix,'] = ',combinedSpectrum[pix])
 
-    print('scombine: exptimes = ',exptimes)
-    header = getHeader(fileNames[0])
-    print('scombine: exptimesPix = ',exptimesPix)
-    header['EXPTIME'] = np.mean(exptimesPix)
-    print('scombine: set header[EXPTIME] to ',header['EXPTIME'])
+    specA = getImageData(fileNames[0],0)
+    wLenA = getWavelengthArr(fileNames[0],0)
+    spectrumA = Spectrum1D( flux=np.array(specA) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                spectral_axis = np.array(wLenA) * u.AA)
 
+    specB = getImageData(fileNames[1],0)
+    wLenB = getWavelengthArr(fileNames[1],0)
+    spectrumB = Spectrum1D( flux=np.array(specB) * u.erg / (u.cm * u.cm) / u.s / u.AA,
+                                spectral_axis = np.array(wLenB) * u.AA)
+
+    new_spectral_axis = np.arange(np.min([wLenA[0],wLenB[0]]),np.max([wLenA[len(wLenA)-1],wLenB[len(wLenB)-1]]),np.min([wLenA[1]-wLenA[0],wLenB[1]-wLenB[0]]))*spectrumA.spectral_axis.unit#np.concatenate([spectrumA.spectral_axis.value, spectrumB.spectral_axis.to_value(spectrumA.spectral_axis.unit)]) * spectrumA.spectral_axis.unit
+    print('new_spectral_axis = ',new_spectral_axis)
+    resampler = LinearInterpolatedResampler(extrapolation_treatment='zero_fill')
+
+    new_spec1 = resampler(spectrumA, new_spectral_axis)
+    new_spec2 = resampler(spectrumB, new_spectral_axis)
+
+    final_spec = new_spec1 + new_spec2
     if display:
-        plt.plot(wLenAll, combinedSpectrum, 'g-', label = 'combined')
-        plt.legend()
+        plt.plot(final_spec.spectral_axis, final_spec.flux)
+        plt.title(fileNames[0])
         plt.show()
 
-    writeFits1D(combinedSpectrum,
-                spectrumFileNameOut,
-                wavelength=None,
-                header=header,
-                CRVAL1=getHeaderValue(fileNames[0],'CRVAL1'),
-                CRPIX1=getHeaderValue(fileNames[0],'CRPIX1'),
-                CDELT1=getHeaderValue(fileNames[0],'CDELT1'),
-               )
+    print('dir(final_spec.spectral_axis) = ',dir(final_spec.spectral_axis))
+    print('dir(final_spec.spectral_axis.data) = ',dir(final_spec.spectral_axis.data))
+
+    print('type(final_spec.spectral_axis.data[0]) = ',type(final_spec.spectral_axis.data[0]))
+
+    print('type(final_spec) = ',type(final_spec))
+    print('dir(final_spec) = ',dir(final_spec))
+
+    #STOP
+#    if os.path.exists(spectrumFileNameOut):
+#        os.remove(spectrumFileNameOut)
+#    final_spec.write(spectrumFileNameOut,format='tabular-fits')
+
+
+    #dispersion = np.array(final_spec.spectral_axis.data)
+    #plt.plot(np.array(final_spec.spectral_axis.data)[1:]-np.array(final_spec.spectral_axis.data)[0:-1],'b+')
+    #plt.show()
+
+    if True:
+        writeFits1D(final_spec.flux.data,
+                    spectrumFileNameOut,
+                    wavelength=None,
+                    header=getHeader(fileNames[0],0),
+                    CRVAL1=final_spec.spectral_axis.data[0],
+                    CRPIX1=1,
+                    CDELT1=final_spec.spectral_axis.data[1]-final_spec.spectral_axis.data[0],
+                )
+        #STOP
+    if False:
+        wLenAll = getWavelengthArr(fileNames[0],0)
+        print('scombine: wLenAll = ',wLenAll)
+        spectra = []
+        exptimes = []
+        for fileName in fileNames:
+            exptimes.append(float(getHeaderValue(fileName,'EXPTIME')))
+            if fileName == fileNames[0]:
+                spectra.append(getImageData(fileName,0))
+            else:
+                spectra.append(rebin(getWavelengthArr(fileName,0), getImageData(fileName,0), wLenAll, preserveFlux = True))
+            if display:
+                plt.plot(wLenAll, spectra[len(spectra)-1], label=fileName[fileName.rfind('/')+1:fileName.rfind('.')])
+        exptimes = np.array(exptimes)
+        print('scombine: exptimes = ',exptimes)
+        goodPix = []
+        combinedSpectrum = np.zeros(wLenAll.shape[0])
+        exptimesPix = []
+        if lowReject is not None:
+            for pix in np.arange(0,wLenAll.shape[0],1):
+                vPix, indices = sigmaReject([spectrum[pix] for spectrum in spectra],
+                                            nIter=1,
+                                            lowReject=lowReject,
+                                            highReject=highReject,
+                                            replace=False,
+                                            adjustSigLevels=adjustSigLevels,
+                                            useMean=useMean,
+                                            keepFirstAndLastX=False)
+
+                print('scombine: vPix = ',vPix)
+                goodPix.append(vPix)
+                print('scombine: exptimes[indices = ',indices,'] = ',exptimes[indices])
+                exptimesPix.append(np.mean(exptimes[indices]))
+        else:
+            for pix in np.arange(0,wLenAll.shape[0],1):
+                goodPix.append([spectrum[pix] for spectrum in spectra])
+                exptimesPix.append(np.mean(exptimes))
+        for pix in np.arange(0,wLenAll.shape[0],1):
+            notNaN = np.where([not np.isnan(a) for a in goodPix[pix]])
+            if (len(goodPix[pix]) % 2 == 0) or (method == 'mean'):
+                print('scombine: pix = ',pix,': notNaN = ',notNaN)
+                combinedSpectrum[pix] = np.mean(np.array(goodPix[pix]))#[notNaN][0]))
+            else:
+                combinedSpectrum[pix] = np.median(np.array(goodPix[pix]))#[notNaN][0]))
+            #print('scombine: pix = ',pix,': wLenAll[',pix,'] = ',wLenAll[pix],': goodPix = ',goodPix[pix],', np.mean(np.array(goodPix[pix])) = ',np.mean(np.array(goodPix[pix])),', np.median(np.array(goodPix[pix])) = ',np.median(np.array(goodPix[pix])),', combinedSpectrum[',pix,'] = ',combinedSpectrum[pix])
+
+        print('scombine: exptimes = ',exptimes)
+        header = getHeader(fileNames[0])
+        print('scombine: exptimesPix = ',exptimesPix)
+        header['EXPTIME'] = np.mean(exptimesPix)
+        print('scombine: set header[EXPTIME] to ',header['EXPTIME'])
+
+        if display:
+            plt.plot(wLenAll, combinedSpectrum, 'g-', label = 'combined')
+            plt.legend()
+            plt.show()
+
+        writeFits1D(combinedSpectrum,
+                    spectrumFileNameOut,
+                    wavelength=None,
+                    header=header,
+                    CRVAL1=getHeaderValue(fileNames[0],'CRVAL1'),
+                    CRPIX1=getHeaderValue(fileNames[0],'CRPIX1'),
+                    CDELT1=getHeaderValue(fileNames[0],'CDELT1'),
+                )
 
 def markEmissionLines(xRange, yRange):
     lines = [['[OII]',3727.],
@@ -4664,7 +4723,10 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
     global continuum_order
     global continuum_high_reject
     global continuum_low_reject
-
+    global spec_bak
+    global wlen_bak
+    spec_bak = None
+    wlen_bak = None
 
     def submit_continuum_order(text):
         global continuum_order
@@ -4677,6 +4739,34 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
     def submit_continuum_high_reject(text):
         global continuum_high_reject
         continuum_high_reject = float(text)
+
+    def normalize(event):
+        global spec
+        writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+        fittingFunction = np.polynomial.legendre.legfit
+        evalFunction = np.polynomial.legendre.legval
+        order = continuum_order
+        nIterReject = 2
+        nIterFit = 3
+        lowReject = continuum_low_reject
+        highReject = continuum_high_reject
+        useMean = True
+        continuum(outputSpec,
+                  outputSpec,
+                  fittingFunction,
+                  evalFunction,
+                  order,
+                  nIterReject,
+                  nIterFit,
+                  lowReject,
+                  highReject,
+                  type='ratio',
+                  adjustSigLevels=False,
+                  useMean=useMean,
+                  display=False)
+        spec = getImageData(outputSpec,0)
+        axMain.plot(wLen,spec)
+        fig.canvas.draw_idle()
 
     def remove_continuum(event):
         global spec
@@ -4706,6 +4796,19 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
         axMain.plot(wLen,spec)
         fig.canvas.draw_idle()
 
+    def undo(event):
+        global spec_bak
+        global wlen_bak
+        global spec
+        global wLen
+        if spec_bak is not None:
+            spec = spec_bak.copy()
+        if wlen_bak is not None:
+            wLen = wlen_bak.copy()
+        axMain.plot(wLen,spec)
+        fig.canvas.draw_idle()
+
+
     fig = plt.figure(figsize=(15,9))
     axMainRect = [0.04,0.26,0.95,0.5]
     ax2DRect = plt.axes([0.04,0.77,0.95,0.2])
@@ -4714,14 +4817,22 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
     axVMin = plt.axes([0.15,0.06,0.84,0.04])
     axVMax = plt.axes([0.15,0.01,0.84,0.04])
     do_continuum_axbox = plt.axes([0.01,0.11,0.1,0.05])
-    continuum_order_axbox = plt.axes([0.2,0.11,0.1,0.05])
-    continuum_high_reject_axbox = plt.axes([0.4,0.11,0.1,0.05])
-    continuum_low_reject_axbox = plt.axes([0.6,0.11,0.1,0.05])
+    undo_axbox = plt.axes([0.9,0.11,0.1,0.05])
+    normalize_axbox = plt.axes([0.2,0.11,0.1,0.05])
+    continuum_order_axbox = plt.axes([0.44,0.11,0.1,0.05])
+    continuum_high_reject_axbox = plt.axes([0.6,0.11,0.1,0.05])
+    continuum_low_reject_axbox = plt.axes([0.76,0.11,0.1,0.05])
     max_val=0
     min_val=0
 
     do_continuum_box = Button(do_continuum_axbox, 'remove continuum')
     do_continuum_box.on_clicked(remove_continuum)
+
+    normalize_box = Button(normalize_axbox, 'normalise')
+    normalize_box.on_clicked(normalize)
+
+    undo_box = Button(undo_axbox, "undo")
+    undo_box.on_clicked(undo)
 
     continuum_order = 9
     continuum_order_box = TextBox(continuum_order_axbox, 'order', initial=continuum_order)
@@ -4737,11 +4848,18 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
 
     spec = getImageData(inputSpec1D,0)
     wLen = getWavelengthArr(inputSpec1D,0)
-    image = getImageData(inputSpec2D,0)
-    vmax = np.max([2. * np.mean(image), 1.])
+    spec_bak = np.array(spec)
+    wlen_bak = np.array(wLen)
+    if os.path.exists(inputSpec2D):
+        image = getImageData(inputSpec2D,0)
+        vmax = np.max([2. * np.mean(image), 1.])
+    else:
+        image = None
+        vmax=1.
     vmin = 0.#np.min([1.5 * np.mean(image), 1.])
-    im = ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
-                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
+    if image is not None:
+        im = ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
+                             vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
     ax2DRect.set_title(inputSpec1D[inputSpec1D.rfind('/')+1:inputSpec1D.rfind('.')])
     xRange = []
     cleanType = 'trim'
@@ -4756,13 +4874,15 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
     def update_max(val):
         max_val=val
     #    axMain.clear()
-        im.set_clim(vmax=max_val)
-        fig.canvas.draw_idle()
+        if image is not None:
+            im.set_clim(vmax=max_val)
+            fig.canvas.draw_idle()
 
     def update_min(val):
-        min_val=val
-        im.set_clim(vmin=min_val)
-        fig.canvas.draw_idle()
+        if image is not None:
+            min_val=val
+            im.set_clim(vmin=min_val)
+            fig.canvas.draw_idle()
 
 
     d_val=(vmax-vmin)/1000
