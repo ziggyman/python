@@ -1,6 +1,6 @@
 import numpy as np
 from drUtils import scombine
-date = '2008-05-08'
+date = '2008-05-06'
 year = date[2:4]
 month = date[5:7]
 day = date[-2:]
@@ -34,9 +34,13 @@ for i in np.arange(1,len(b_data),1):
             STOP
 
         with open(pathRoot+'combine.list','w') as f:
-            f.write(b_data[i][:b_data[i].find('.fits')]+'-skyEcdF_clean.fits'+'\n')
-            f.write(r_data[i][:r_data[i].find('.fits')]+'-skyEcdF_clean.fits'+'\n')
+            f.write(b_data[i][:b_data[i].find('.fits')]+'EcdF_clean.fits'+'\n')
+            f.write(r_data[i][:r_data[i].find('.fits')]+'EcdF_clean.fits'+'\n')
+#            f.write(b_data[i][:b_data[i].find('.fits')]+'-skyEcdF_clean.fits'+'\n')
+#            f.write(r_data[i][:r_data[i].find('.fits')]+'-skyEcdF_clean.fits'+'\n')
 
-        scombine(pathRoot+'combine.list',
-                 pathRoot+r_objName+'_MS'+day+month+year+'.fits',
-                 display=True)
+        for norm in [True]:#,False]:
+            scombine(pathRoot+'combine.list',
+                    pathRoot+r_objName+'_MS'+day+month+year+'_withNebulaLines.fits',
+                    normalise=norm,
+                    display=True)

@@ -26,7 +26,7 @@ trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
 #workPath = '/Users/azuri/spectra/saao/saao_may2007/RAW/070512/'
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/CentralStars/B_data/2008-05-08/',
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data/2008-05-14/',
              ]
 #workPaths = ['/Users/azuri/spectra/MSSSO_2m3_DBS_aug07/RED/night7/',]
 #workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
@@ -416,7 +416,7 @@ if __name__ == '__main__':
                     for wLen in wavelengthsOrig[i]:
                         f.write('%.8f\n' % (wLen))
             #STOP
-        if True:
+        if False:
             extractInputList = os.path.join(workPath,'to_extract.csv')
             areasFileName = os.path.join(workPath,'areas.csv')
             print('reduce: areasFileName = '+areasFileName)
@@ -435,7 +435,7 @@ if __name__ == '__main__':
                 extractList = csvFree.readCSVFile(extractInputList)
                 with open(areasFileExists,'w') as fAreas:
                     fAreas.write('fName,object,skyBelow,skyAbove,method,notes\n')
-        if True:
+        if False:
             for i in range(extractList.size()):
                 if extractList.getData('fName',i)[0] != '#':
                     skyAbove = None
@@ -505,14 +505,14 @@ if __name__ == '__main__':
                     if os.path.exists(tmpFileName):
                         skydFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'EcdF.fits'
-#                    if os.path.exists(tmpFileName):
-                    ecdfFiles.append(tmpFileName)
+                    if os.path.exists(tmpFileName):
+                        ecdfFiles.append(tmpFileName)
 #                    else:
 #                        print('did not find ',tmpFileName)
 #                        STOP
                     tmpFileName = fileName[:fileName.rfind('.')]+'-skyEcdF.fits'
-                    if os.path.exists(tmpFileName):
-                        secdfFiles.append(tmpFileName)
+                    #if os.path.exists(tmpFileName):
+                    secdfFiles.append(tmpFileName)
                     # extract MedianSky images
                     if False:
                         skySpec = extractSum(skyFiles[len(skyFiles)-1],'row')
@@ -524,7 +524,7 @@ if __name__ == '__main__':
                                     CRVAL1=1,
                                     CRPIX1=1,
                                     CDELT1=1)
-        if True:
+        if False:
             inputList = getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfifEc.list'))
             wavelengthsOrig = []
             for i in range(len(inputList)):
@@ -533,7 +533,7 @@ if __name__ == '__main__':
                 wavelengthsOrig.append(np.asarray(wLens))
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
-        if True:
+        if False:
             if len(skyFilesEc) > 0:
                 dispCor(skyFilesEc,
                         getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
@@ -566,7 +566,7 @@ if __name__ == '__main__':
                         'DATE-OBS',
                         doHelioCor = doHelioCor)
 
-        if True:
+        if False:
 
             areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
             sensFuncs = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),
@@ -587,10 +587,10 @@ if __name__ == '__main__':
 
         # clean spectra
         if True:
-            start = True
+            start = False
             if len(ecdfFiles) > 0:
                 for ecdfFile in ecdfFiles:
-                    if 'MPA1602-5603a' in ecdfFile:
+                    if 'PHR0723+0036' in ecdfFile:
                         start = True
                     if start:
                         cleanSpec(ecdfFile,ecdfFile.replace('EcdF.fits','-sky.fits'),ecdfFile.replace('.fits','_clean.fits'))

@@ -3729,6 +3729,7 @@ def merge(fileNameA,
 
 def scombine(fileListName,
             spectrumFileNameOut,
+            normalise = False,
             method='median', # mean, median
             lowReject=None,
             highReject=None,
@@ -3739,6 +3740,49 @@ def scombine(fileListName,
     fileNames = readFileToArr(fileListName)
     fileNames = [fileName if '/' in fileName else os.path.join(fileListName[:fileListName.rfind('/')],fileName) for fileName in fileNames]
 
+    if normalise:
+        snrA = measureSNR(fileNames[0])
+        snrB = measureSNR(fileNames[1])
+
+        fittingFunction = np.polynomial.legendre.legfit
+        evalFunction = np.polynomial.legendre.legval
+        order = 19
+        nIterReject = 2
+        nIterFit = 3
+        lowReject = 3
+        highReject = 3
+        useMean = True
+
+        continuum(fileNames[0],
+                  fileNames[0][:fileNames[0].rfind('.')]+'_norm.fits',
+                  fittingFunction,
+                  evalFunction,
+                  order,
+                  nIterReject,
+                  nIterFit,
+                  lowReject,
+                  highReject,
+                  type='ratio',
+                  adjustSigLevels=False,
+                  useMean=useMean,
+                  display=False)
+        fileNames[0] = fileNames[0][:fileNames[0].rfind('.')]+'_norm.fits'
+
+
+        continuum(fileNames[1],
+                  fileNames[1][:fileNames[1].rfind('.')]+'_norm.fits',
+                  fittingFunction,
+                  evalFunction,
+                  order,
+                  nIterReject,
+                  nIterFit,
+                  lowReject,
+                  highReject,
+                  type='ratio',
+                  adjustSigLevels=False,
+                  useMean=useMean,
+                  display=False)
+        fileNames[1] = fileNames[1][:fileNames[1].rfind('.')]+'_norm.fits'
 
     specA = getImageData(fileNames[0],0)
     wLenA = getWavelengthArr(fileNames[0],0)
@@ -3782,8 +3826,26 @@ def scombine(fileListName,
     #plt.show()
 
     if True:
+        if normalise:
+            spectrumFileNameOut = spectrumFileNameOut[:spectrumFileNameOut.rfind('.')]+'_SNR%d+%d.fits' % (int(snrA),int(snrB))
+        spectrumFileNameOutTemp = spectrumFileNameOut
+        i = 'a'
+        while os.path.exists(spectrumFileNameOutTemp):
+            spectrumFileNameOutTemp = spectrumFileNameOut[:spectrumFileNameOut.rfind('.')]+i+'.fits'
+            if i == 'a':
+                i='b'
+            elif i == 'b':
+                i='c'
+            elif i == 'c':
+                i='d'
+            elif i == 'd':
+                i='e'
+            elif i == 'e':
+                i='f'
+            else:
+                print('scombine: i=f already exists')
         writeFits1D(final_spec.flux.data,
-                    spectrumFileNameOut,
+                    spectrumFileNameOutTemp,
                     wavelength=None,
                     header=getHeader(fileNames[0],0),
                     CRVAL1=final_spec.spectral_axis.data[0],
@@ -4715,7 +4777,6 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
     from matplotlib.widgets import AxesWidget, RadioButtons, Slider, TextBox, Button
     import matplotlib.colors as colors
 
-    global wLen
     global cleanType
     global wLen
     global spec
@@ -5116,5 +5177,158 @@ def measureSNR(spectrumFileNameIn):
     for i in np.arange(10,len(spec)-10,1):
         snr.append(np.mean(spec[i-10:i+10] / np.std(spec[i-10:i+10])))
     plt.plot(snr)
-    print(spectrumFileNameIn,': median SNR = ',np.median(snr))
+    medianSNR = np.median(snr)
+    print(spectrumFileNameIn,': median SNR = ',medianSNR)
     plt.show()
+    return medianSNR
+
+def fitLines(inputSpec1D,outputSpec):
+    from matplotlib.widgets import AxesWidget, RadioButtons, Slider, TextBox, Button
+    import matplotlib.colors as colors
+
+    global wLen
+    global spec
+    global xRange
+    global continuum_order
+    global continuum_high_reject
+    global continuum_low_reject
+    global spec_bak
+    global wlen_bak
+    spec_bak = None
+    wlen_bak = None
+
+    def submit_continuum_order(text):
+        global continuum_order
+        continuum_order = int(text)
+
+    def submit_continuum_low_reject(text):
+        global continuum_low_reject
+        continuum_low_reject = float(text)
+
+    def submit_continuum_high_reject(text):
+        global continuum_high_reject
+        continuum_high_reject = float(text)
+
+    def normalize(event):
+        global spec
+        writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+        fittingFunction = np.polynomial.legendre.legfit
+        evalFunction = np.polynomial.legendre.legval
+        order = continuum_order
+        nIterReject = 2
+        nIterFit = 3
+        lowReject = continuum_low_reject
+        highReject = continuum_high_reject
+        useMean = True
+        continuum(outputSpec,
+                  outputSpec,
+                  fittingFunction,
+                  evalFunction,
+                  order,
+                  nIterReject,
+                  nIterFit,
+                  lowReject,
+                  highReject,
+                  type='ratio',
+                  adjustSigLevels=False,
+                  useMean=useMean,
+                  display=False)
+        spec = getImageData(outputSpec,0)
+        axMain.plot(wLen,spec)
+        fig.canvas.draw_idle()
+
+    def undo(event):
+        global spec_bak
+        global wlen_bak
+        global spec
+        global wLen
+        if spec_bak is not None:
+            spec = spec_bak.copy()
+        if wlen_bak is not None:
+            wLen = wlen_bak.copy()
+        axMain.plot(wLen,spec)
+        fig.canvas.draw_idle()
+
+
+    fig = plt.figure(figsize=(15,9))
+    axMainRect = [0.04,0.26,0.95,0.5]
+    axMain = plt.axes(axMainRect)
+    axTrimClean = plt.axes([0.01,0.01,0.08,0.1])
+    undo_axbox = plt.axes([0.9,0.11,0.1,0.05])
+    normalize_axbox = plt.axes([0.2,0.11,0.1,0.05])
+    continuum_order_axbox = plt.axes([0.44,0.11,0.1,0.05])
+    continuum_high_reject_axbox = plt.axes([0.6,0.11,0.1,0.05])
+    continuum_low_reject_axbox = plt.axes([0.76,0.11,0.1,0.05])
+    min_val=0
+
+    normalize_box = Button(normalize_axbox, 'normalise')
+    normalize_box.on_clicked(normalize)
+
+    undo_box = Button(undo_axbox, "undo")
+    undo_box.on_clicked(undo)
+
+    continuum_order = 9
+    continuum_order_box = TextBox(continuum_order_axbox, 'order', initial=continuum_order)
+    continuum_order_box.on_submit(submit_continuum_order)
+
+    continuum_low_reject = 3.
+    continuum_low_reject_box = TextBox(continuum_low_reject_axbox, 'low reject', initial=continuum_low_reject)
+    continuum_low_reject_box.on_submit(submit_continuum_low_reject)
+
+    continuum_high_reject = 3.
+    continuum_high_reject_box = TextBox(continuum_high_reject_axbox, 'high reject', initial=continuum_high_reject)
+    continuum_high_reject_box.on_submit(submit_continuum_high_reject)
+
+    spec = getImageData(inputSpec1D,0)
+    wLen = getWavelengthArr(inputSpec1D,0)
+    spec_bak = np.array(spec)
+    wlen_bak = np.array(wLen)
+    xRange = []
+    cleanType = 'trim'
+
+    radio = RadioButtons(axTrimClean, ('trim', 'clean'), active=0)
+    def setCleanType(label):
+        global cleanType
+        cleanType = label
+
+    radio.on_clicked(setCleanType)
+
+    def onClick(event):
+        global wLen
+        global spec
+        global xRange
+        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+            ('double' if event.dblclick else 'single', event.button,
+            event.x, event.y, event.xdata, event.ydata))
+        if event.inaxes is axMain:
+            print('fig.canvas.toolbar.mode = ',fig.canvas.toolbar.mode)
+            if fig.canvas.toolbar.mode == '':
+
+                if cleanType == 'trim':
+                    if event.xdata < wLen[int(len(wLen)/2.)]:
+                        idx = np.where(wLen > event.xdata)
+                    else:
+                        idx = np.where(wLen < event.xdata)
+                    wLen = wLen[idx]
+                    spec = spec[idx]
+                    axMain.plot(wLen,spec)
+                    fig.canvas.draw_idle()
+                elif cleanType == 'clean':
+                    if len(xRange) == 1:
+                        xRange.append(event.xdata)
+                        idx = np.where((wLen > xRange[0]) & (wLen < xRange[1]))[0]
+                        print('clean: idx = ',idx)
+                        spec[idx] = spec[idx[0]-1]
+                        axMain.plot(wLen,spec)
+                        fig.canvas.draw_idle()
+                    else:
+                        xRange = [event.xdata]
+                else:
+                    print('ERROR: cleanType <'+cleanType+'> not supported')
+
+    cid = fig.canvas.mpl_connect('button_press_event', onClick)
+
+    axMain.plot(wLen,spec)
+    plt.title(inputSpec1D[inputSpec1D.rfind('/')+1:])
+    plt.show()
+    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
