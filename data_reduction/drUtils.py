@@ -3599,7 +3599,7 @@ def continuum(spectrumFileNameIn,
         plt.show()
 
     if xLim is None:
-        xLim = [wLen[0],wLen(len(wLen)-1)]
+        xLim = [wLen[0],wLen[len(wLen)-1]]
 
     xrange = np.arange(0,specOrig.shape[0],1)
     specFit = specOrig
@@ -5233,6 +5233,7 @@ def measureSNR(spectrumFileNameIn):
 
 def fitLines(inputSpec1D,outputSpec):
     from matplotlib.widgets import RadioButtons, TextBox, Button
+    from matplotlib.patches import Polygon
 
     global wLen
     global spec
@@ -5329,7 +5330,7 @@ def fitLines(inputSpec1D,outputSpec):
 
 
     fig = plt.figure(figsize=(15,9))
-    axMainRect = [0.04,0.26,0.95,0.5]
+    axMainRect = [0.04,0.26,0.95,0.7]
     axMain = plt.axes(axMainRect)
     axTrimClean = plt.axes([0.01,0.01,0.08,0.1])
     undo_axbox = plt.axes([0.9,0.11,0.1,0.05])
@@ -5415,6 +5416,7 @@ def fitLines(inputSpec1D,outputSpec):
                         if len(newRegion) == 1:
                             print('old newRegion = ',newRegion)
                             newRegion.append(event.xdata)
+                            newRegion = [newRegion[1],newRegion[0]] if (newRegion[1] < newRegion[0]) else [newRegion[0],newRegion[1]]
                             regions.append(newRegion)
                             newRegion = []
                             plotRegions()
@@ -5483,7 +5485,13 @@ def fitLines(inputSpec1D,outputSpec):
                         idx = np.where((wLen >= xRange[0]) & (wLen <= xRange[1]))[0]
                         ew = 0.
                         for i in range(len(idx)-1):
-                            ew += (wLen[idx[i+1]] - wLen[idx[i]]) * (1.-(spec[idx[i+1]]-spec[idx[i]])/2.)
+                            ew += (wLen[idx[i+1]] - wLen[idx[i]]) * (1.-(spec[idx[i+1]]+spec[idx[i]])/2.)
+                            coordsPoly = [(wLen[idx[i]],1.),(wLen[idx[i]],spec[idx[i]]),(wLen[idx[i+1]],spec[idx[i+1]]),(wLen[idx[i+1]],1.)]
+                            p=Polygon(coordsPoly,facecolor='g')
+                            axMain.add_patch(p)
+                            fig.canvas.draw_idle()
+                        print('equivalent width = ',ew)
+                        xRange = []
                     else:
                         xRange = [event.xdata]
                 else:
@@ -5492,6 +5500,7 @@ def fitLines(inputSpec1D,outputSpec):
     cid = fig.canvas.mpl_connect('button_press_event', onClick)
 
     axMain.plot(wLen,spec)
+    axMain.plot(wLen,np.ones(len(wLen)))
     plt.title(inputSpec1D[inputSpec1D.rfind('/')+1:])
     plt.show()
 #    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])

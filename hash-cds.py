@@ -4,7 +4,7 @@ import csvFree,csvData
 #import pandas as pd
 
 path = '/Users/azuri/daten/uni/HKU/HASH/CDS/'
-pnMainFName = os.path.join(path,'hash_PNMain_26-06-2023.csv')
+pnMainFName = os.path.join(path,'hash_PNMain_160424.csv')
 pnMain = csvFree.readCSVFile(pnMainFName)
 
 def createCDSTable():
@@ -26,7 +26,7 @@ def createCDSTable():
             print('removing row ',i,' for idPNmain=',pnMain.getData('idPNMain',i),' due to no show')
             pnMain.removeRow(i)
 
-    AngDiamFName = os.path.join(path,'hash_AngDiam_26-06-2023.csv')
+    AngDiamFName = os.path.join(path,'hash_AngDiam_160424.csv')
     AngDiam = csvFree.readCSVFile(AngDiamFName)
 
     idsAngDiam = np.array(AngDiam.getData('idPNMain'))
@@ -40,7 +40,7 @@ def createCDSTable():
     for key in angDiamKeys:
         pnMain.addColumn(key[0])
 
-    CNamesFName = os.path.join(path,'hash_CNames_26-06-2023.csv')
+    CNamesFName = os.path.join(path,'hash_CNames_160424.csv')
     CNames = csvFree.readCSVFile(CNamesFName)
 
     idsCNames = np.array(CNames.getData('idPNMain'))
@@ -51,7 +51,7 @@ def createCDSTable():
     for key in CNamesKeys:
         pnMain.addColumn(key[0])
 
-    CSCoordsFName = os.path.join(path,'hash_CSCoords_26-06-2023.csv')
+    CSCoordsFName = os.path.join(path,'hash_CSCoords_160424.csv')
     CSCoords = csvFree.readCSVFile(CSCoordsFName)
 
     idsCSCoords = np.array(CSCoords.getData('idPNMain'))
@@ -65,7 +65,7 @@ def createCDSTable():
     for key in CSCoordsKeys:
         pnMain.addColumn(key[0])
 
-    PNMorphFName = os.path.join(path,'hash_PNMorph_26-06-2023.csv')
+    PNMorphFName = os.path.join(path,'hash_PNMorph_160424.csv')
     PNMorph = csvFree.readCSVFile(PNMorphFName)
 
     idsPNMorph = np.array(PNMorph.getData('idPNMain'))
@@ -78,7 +78,7 @@ def createCDSTable():
     for key in PNMorphKeys:
         pnMain.addColumn(key[0])
 
-    PAFName = os.path.join(path,'hash_PA_26-06-2023.csv')
+    PAFName = os.path.join(path,'hash_PA_160424.csv')
     PA = csvFree.readCSVFile(PAFName)
 
     idsPA = np.array(PA.getData('idPNMain'))
@@ -93,7 +93,7 @@ def createCDSTable():
     for key in PAKeys:
         pnMain.addColumn(key[0])
 
-    HrvelFName = os.path.join(path,'hash_Hrvel_26-06-2023.csv')
+    HrvelFName = os.path.join(path,'hash_Hrvel_160424.csv')
     Hrvel = csvFree.readCSVFile(HrvelFName)
 
     idsHrvel = np.array(Hrvel.getData('idPNMain'))
@@ -105,7 +105,7 @@ def createCDSTable():
     for key in HrvelKeys:
         pnMain.addColumn(key[0])
 
-    IRFluxFName = os.path.join(path,'hash_IRFlux_26-06-2023.csv')
+    IRFluxFName = os.path.join(path,'hash_IRFlux_160424.csv')
     IRFlux = csvFree.readCSVFile(IRFluxFName)
 
     idsIRFlux = np.array(IRFlux.getData('idPNMain'))
@@ -120,7 +120,7 @@ def createCDSTable():
     for key in IRFluxKeys:
         pnMain.addColumn(key[0])
 
-    IRMagFName = os.path.join(path,'hash_IRMag_26-06-2023.csv')
+    IRMagFName = os.path.join(path,'hash_IRMag_160424.csv')
     IRMag = csvFree.readCSVFile(IRMagFName)
 
     idsIRMag = np.array(IRMag.getData('idPNMain'))
@@ -135,7 +135,7 @@ def createCDSTable():
     for key in IRMagKeys:
         pnMain.addColumn(key[0])
 
-    RadioContFName = os.path.join(path,'hash_RadioCont_26-06-2023.csv')
+    RadioContFName = os.path.join(path,'hash_RadioCont_160424.csv')
     RadioCont = csvFree.readCSVFile(RadioContFName)
 
     idsRadioCont = np.array(RadioCont.getData('idPNMain'))
@@ -150,7 +150,7 @@ def createCDSTable():
     for key in RadioContKeys:
         pnMain.addColumn(key[0])
 
-    logFHalphaFName = os.path.join(path,'hash_logFHalpha_26-06-2023.csv')
+    logFHalphaFName = os.path.join(path,'hash_logFHalpha_160424.csv')
     logFHalpha = csvFree.readCSVFile(logFHalphaFName)
 
     idslogFHalpha = np.array(logFHalpha.getData('idPNMain'))
@@ -164,7 +164,7 @@ def createCDSTable():
     for key in logFHalphaKeys:
         pnMain.addColumn(key[0])
 
-    logFOIIIFName = os.path.join(path,'hash_logFOIII_26-06-2023.csv')
+    logFOIIIFName = os.path.join(path,'hash_logFOIII_160424.csv')
     logFOIII = csvFree.readCSVFile(logFOIIIFName)
 
     idslogFOIII = np.array(logFOIII.getData('idPNMain'))
@@ -200,7 +200,7 @@ def createCDSTable():
     for key in UsrCommKeys:
         pnMain.addColumn(key[0])
 
-    FitsFilesFName = os.path.join(path,'hash_FitsFiles.csv')
+    FitsFilesFName = os.path.join(path,'hash_FitsFiles_160424.csv')
     FitsFiles = csvFree.readCSVFile(FitsFilesFName)
     idsFitsFiles = np.array(FitsFiles.getData('idPNMain'))
     FitsFilesKeys = [['spectrum','parsedIn']]
@@ -893,112 +893,120 @@ def renameSpectra():
     nUTMJD = 0
     nBoth = 0
     nProblems = 0
-    for i in range(len(fileList)):
-        fName = os.path.join(path,'HASH','spectra',fileList[i])
-        if fName[fName.rfind('.')+1:] == 'fits':
-            if getHeaderValue(fName,'DATE-OBS') is not None:
-                date = getHeaderValue(fName,'DATE-OBS')
-                if ' ' in date:
-                    print('fName = ',fName,': date = ',date)
-                    if '-' in date:
-                        setHeaderValue(fName,'DATE-OBS',date.replace(' ',''))
-                    else:
-                        month = date[date.find(' ')+1:]
-                        month = month[:month.find(' ')]
-                        if month == 'Jan':
-                            month = '01'
-                        elif month == 'Feb':
-                            month = '02'
-                        elif month == 'Mar':
-                            month = '03'
-                        elif month == 'Apr':
-                            month = '04'
-                        elif month == 'May':
-                            month = '05'
-                        elif month == 'Jun':
-                            month = '06'
-                        elif month == 'Jul':
-                            month = '07'
-                        elif month == 'Aug':
-                            month = '08'
-                        elif month == 'Sep':
-                            month = '09'
-                        elif month == 'Oct':
-                            month = '10'
-                        elif month == 'Nov':
-                            month = '11'
-                        elif month == 'Dec':
-                            month = '12'
+    if False:
+        for i in range(len(fileList)):
+            fName = os.path.join(path,'HASH','spectra',fileList[i])
+            if fName[fName.rfind('.')+1:] == 'fits':
+                csvOut.append([])
+                if getHeaderValue(fName,'DATE-OBS') is not None:
+                    date = getHeaderValue(fName,'DATE-OBS')
+                    if ' ' in date:
+                        print('fName = ',fName,': date = ',date)
+                        if '-' in date:
+                            setHeaderValue(fName,'DATE-OBS',date.replace(' ',''))
                         else:
+                            month = date[date.find(' ')+1:]
+                            month = month[:month.find(' ')]
+                            if month == 'Jan':
+                                month = '01'
+                            elif month == 'Feb':
+                                month = '02'
+                            elif month == 'Mar':
+                                month = '03'
+                            elif month == 'Apr':
+                                month = '04'
+                            elif month == 'May':
+                                month = '05'
+                            elif month == 'Jun':
+                                month = '06'
+                            elif month == 'Jul':
+                                month = '07'
+                            elif month == 'Aug':
+                                month = '08'
+                            elif month == 'Sep':
+                                month = '09'
+                            elif month == 'Oct':
+                                month = '10'
+                            elif month == 'Nov':
+                                month = '11'
+                            elif month == 'Dec':
+                                month = '12'
+                            else:
+                                print('month = ',month)
+                                STOP
                             print('month = ',month)
-                            STOP
-                        print('month = ',month)
-                        day = date[date.find(' ')+5:]
-                        day = day[:day.find(' ')]
-                        print('day = ',day)
-                        year = date[date.rfind(' ')+1:]
-                        print('year = ',year)
-                        date = year+'-'+month+'-'+day
-                        print('long date: date set to ',date)
-#                        setHeaderValue(fName,'DATE-OBS',year+'-'+month+'-'+day)
-#                        STOP
-                if 'T' in date:
-                    date = date[:date.find('T')]
-#                print('fName = ',fName,': getHeaderValue(fName,DATE-OBS) = ',date)
-                try:
-                    if '-' in date:
-                        """print('fName = ',fName,': DATE-OBS = ',date)"""
-                except:
-                    print('fName = ',fName,': problem with ',date,' UTDATE = ',getHeaderValue(fName,'UTDATE'))
-                    nProblems += 1
-                    setHeaderValue(fName,'DATE-OBS',getHeaderValue(fName,'UTDATE'))
-                if '/' in date:
-                    day = date[:date.find('/')]
-                    month = date[date.find('/')+1:date.rfind('/')]
-                    year = date[date.rfind('/')+1:]
-                    print('day = ',day,', month = ',month,', year = ',year)
-                    if int(month) > 12:
+                            day = date[date.find(' ')+5:]
+                            day = day[:day.find(' ')]
+                            print('day = ',day)
+                            year = date[date.rfind(' ')+1:]
+                            print('year = ',year)
+                            date = year+'-'+month+'-'+day
+                            print('long date: date set to ',date)
+    #                        setHeaderValue(fName,'DATE-OBS',year+'-'+month+'-'+day)
+    #                        STOP
+                    if 'T' in date:
+                        date = date[:date.find('T')]
+    #                print('fName = ',fName,': getHeaderValue(fName,DATE-OBS) = ',date)
+                    try:
+                        if '-' in date:
+                            """print('fName = ',fName,': DATE-OBS = ',date)"""
+                    except:
+                        print('fName = ',fName,': problem with ',date,' UTDATE = ',getHeaderValue(fName,'UTDATE'))
+                        nProblems += 1
+                        setHeaderValue(fName,'DATE-OBS',getHeaderValue(fName,'UTDATE'))
                         STOP
-                    if len(year) < 4:
-                        if int(year) > 24:
-                            year = '19'+year
-                    print('fName = ',fName,': setting DATE-OBS to '+year+'-'+month+'-'+day)
-                    date = year+'-'+month+'-'+day
-#                    setHeaderValue(fName,'DATE-OBS',year+'-'+month+'-'+day)
-#                if '7026_E' in fName:
-#                    STOP
-                year = date[:date.find('-')]
-                month = date[date.find('-')+1:date.rfind('-')]
-                day = date[date.rfind('-')+1:]
-                if int(day) > 31:# and month > 12:
-                    print('fName = ',fName,': setting date to '+day+'-'+year+'-'+month)
-#                    setHeaderValue(fName,'DATE-OBS',day+'-'+year+'-'+month)
-                    tmp = day
-                    day = month
-                    month = year
-                    year = day
-                    print('day = ',day,', month = ',month,', year = ',year)
-                if len(day) > 2:
-                    print('fName = ',fName,': setting date to '+day+'-'+month+'-'+year)
-#                    setHeaderValue(fName,'DATE-OBS',day+'-'+month+'-'+year)
-                elif len(year) < 3:
-                    print('fName = ',fName,': day = ',day,', month = ',month,', year = ',year)
-                nDATEOBS += 1
+                    if '/' in date:
+                        day = date[:date.find('/')]
+                        month = date[date.find('/')+1:date.rfind('/')]
+                        year = date[date.rfind('/')+1:]
+                        print('day = ',day,', month = ',month,', year = ',year)
+                        if int(month) > 12:
+                            STOP
+                        if len(year) < 4:
+                            if int(year) > 24:
+                                year = '19'+year
+                        print('fName = ',fName,': setting DATE-OBS to '+year+'-'+month+'-'+day)
+                        date = year+'-'+month+'-'+day
+    #                    setHeaderValue(fName,'DATE-OBS',year+'-'+month+'-'+day)
+    #                if '7026_E' in fName:
+    #                    STOP
+                    year = date[:date.find('-')]
+                    month = date[date.find('-')+1:date.rfind('-')]
+                    day = date[date.rfind('-')+1:]
+                    if int(day) > 31:# and month > 12:
+                        print('fName = ',fName,': setting date to '+day+'-'+year+'-'+month)
+    #                    setHeaderValue(fName,'DATE-OBS',day+'-'+year+'-'+month)
+                        tmp = day
+                        day = month
+                        month = year
+                        year = day
+                        print('day = ',day,', month = ',month,', year = ',year)
+                    if len(day) > 2:
+                        print('fName = ',fName,': setting date to '+day+'-'+month+'-'+year)
+                        nProblems += 1
+                        STOP
+    #                    setHeaderValue(fName,'DATE-OBS',day+'-'+month+'-'+year)
+                    elif len(year) < 3:
+                        print('fName = ',fName,': day = ',day,', month = ',month,', year = ',year)
+                        nProblems += 1
+                        STOP
+                    nDATEOBS += 1
+                    if getHeaderValue(fName,'MJD-OBS') is not None:
+                        nBoth += 1
+                if getHeaderValue(fName,'MJD') is not None:
+                    nMJD += 1
                 if getHeaderValue(fName,'MJD-OBS') is not None:
-                    nBoth += 1
-            if getHeaderValue(fName,'MJD') is not None:
-                nMJD += 1
-            if getHeaderValue(fName,'MJD-OBS') is not None:
-                nMJDOBS += 1
-            if getHeaderValue(fName,'UTMJD') is not None:
-                nUTMJD += 1
+                    nMJDOBS += 1
+                if getHeaderValue(fName,'UTMJD') is not None:
+                    nUTMJD += 1
+    print('len(fileList) = ',len(fileList))
     print('nDATEOBS = ',nDATEOBS)
     print('nMJD = ',nMJD)
     print('nUTMJD = ',nUTMJD)
     print('nMJD-OBS = ',nMJDOBS)
     print('nBoth = ',nBoth)
     print('nProblems = ',nProblems)
-    STOP
+    #STOP
 
     with open(moveFile,'w') as f:
         for i in range(pnMain.size()):
@@ -1018,21 +1026,49 @@ def renameSpectra():
                             print('idPNMain = ',idPNMain,': fName = ',fName,': date = ',date)
                             dates.append(datetime(int(date[:date.find('-')]),int(date[date.find('-')+1:date.rfind('-')]),int(date[date.rfind('-')+1:])))
                         else:
-                            print("fName[fName.rfind('.')+1:] = ",fName[fName.rfind('.')+1:])
-                            if fName[fName.rfind('.')+1:] == 'fits':
-                                date = getHeaderValue(os.path.join(path,'HASH','spectra',fName),'DATE-OBS')
-                                print('date = ',date)
-                                if date is not None:
-                                    dates.append(datetime(int(date[:date.find('-')]),int(date[date.find('-')+1:date.rfind('-')]),int(date[date.rfind('-')+1:])))
-                                    dateFound = True
-                                else:
-                                    date = getHeaderValue(os.path.join(path,'HASH','spectra',fName),'UTDATE')
+                            if False:
+                                print("fName[fName.rfind('.')+1:] = ",fName[fName.rfind('.')+1:])
+                                if fName[fName.rfind('.')+1:] == 'fits':
+                                    date = getHeaderValue(os.path.join(path,'HASH','spectra',fName),'DATE-OBS')
                                     print('date = ',date)
                                     if date is not None:
-                                        dates.append(datetime(int(date[:date.find(':')]),int(date[date.find(':')+1:date.rfind(':')]),int(date[date.rfind(':')+1:])))
+                                        if '-' in date:
+                                            dates.append(datetime(int(date[:date.find('-')]),int(date[date.find('-')+1:date.rfind('-')]),int(date[date.rfind('-')+1:])))
+                                        elif '/' in date:
+                                            day = int(date[:date.find('/')])
+                                            month = int(date[date.find('/')+1:date.rfind('/')])
+                                            year = int(date[date.rfind('/')+1:])
+                                            year = (2000+year) if year < 24 else (1900+year)
+                                            print('date = ',date,', day = ',day,', month = ',month,', year = ',year)
+                                            dates.append(datetime(day,month,year))
+    #                                        dates.append(datetime(int(date[:date.find('/')]),int(date[date.find('/')+1:date.rfind('/')]),int(date[date.rfind('/')+1:])))
+                                        else:
+                                            print('ERROR: date = <'+date+'> contains neither - nor /')
+                                            STOP
                                         dateFound = True
                                     else:
-                                        date = getHeaderValue(os.path.join(path,'HASH','spectra',fName),'DATE')
+                                        date = getHeaderValue(os.path.join(path,'HASH','spectra',fName),'UTDATE')
+                                        print('date = ',date)
+                                        if date is not None:
+                                            dates.append(datetime(int(date[:date.find(':')]),int(date[date.find(':')+1:date.rfind(':')]),int(date[date.rfind(':')+1:])))
+                                            dateFound = True
+                                        else:
+                                            date = getHeaderValue(os.path.join(path,'HASH','spectra',fName),'DATE')
+                        print('fName=',fName,': fName[fName.rfind(.)] = ',fName[fName.rfind('.'):])
+                        newName = idPNMain+'_%d%s' % (j,fName[fName.rfind('.'):])
+                        while len(newName[:newName.rfind('.')]) < 8:
+                            newName = '0'+newName
+                        print('newName = <'+newName+'>')
+                        f.write('cp '+os.path.join(path,'HASH/spectra',fName)+' '+os.path.join(path,'spectra',newName)+'\n')
+                        csvOut.append([idPNMain,
+                                       fitsFiles.getData('object',idx[j]),
+                                       newName,
+                                       fitsFiles.getData('reference',idx[j]),
+                                       fitsFiles.getData('dateObs',idx[j]),
+                                       fitsFiles.getData('observer',idx[j]),
+                                       fitsFiles.getData('telescope',idx[j]),
+                                       fitsFiles.getData('instrument',idx[j]),
+                                       fitsFiles.getData('filter',idx[j])])
                 print('idPNMain = ',idPNMain,': dates = ',dates)
 
 
