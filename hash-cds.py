@@ -1073,4 +1073,5 @@ def renameSpectra():
 
 
 if __name__ == '__main__':
-    renameSpectra()
+    createCDSTable()
+#    renameSpectra()
