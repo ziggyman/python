@@ -6,13 +6,14 @@ from astropy.coordinates import SkyCoord, EarthLocation, AltAz, get_moon
 import numpy as np
 from astroplan import download_IERS_A
 from astropy.utils.iers import conf
+import os
 
 import csvFree,csvData
 
 conf.auto_max_age = None
 #download_IERS_A()
 
-midnightTime = Time('2023-06-17 0:00:00')
+midnightTime = Time('2024-06-05 0:00:00')
 doCalc = True
 
 # string = xx:yy:zz.zzz
@@ -77,18 +78,19 @@ def writeCSVLine(dataLine, keys, fileOut):
     fileOut.write(line)
 
 def writeCSV(data, fName, sortKey = None):
-    with open(fName,'w') as f:
-        if len(data) > 0:
-            dataSorted = data
-            keys = list(data[0].keys())
-            if sortKey is not None:
-                dataSorted = sorted(data, key=lambda k: k[sortKey])
-            writeCSVHeader(data[0],f)
-            for dataLine in dataSorted:
-                writeCSVLine(dataLine, keys, f)
-        else:
-            f.write('sorry no targets found')
-    print('wrote ',fName,' with ',len(data),' data lines')
+    if len(data) > 0:
+        with open(fName,'w') as f:
+            if len(data) > 0:
+                dataSorted = data
+                keys = list(data[0].keys())
+                if sortKey is not None:
+                    dataSorted = sorted(data, key=lambda k: k[sortKey])
+                writeCSVHeader(data[0],f)
+                for dataLine in dataSorted:
+                    writeCSVLine(dataLine, keys, f)
+            else:
+                f.write('sorry no targets found')
+        print('wrote ',fName,' with ',len(data),' data lines')
 
 def removeAlreadyObserved(data, fName='/Users/azuri/daten/uni/HKU/observing/already_observed_May062020.list'):
     alreadyObserved = readFileToArr(fName)
@@ -132,10 +134,11 @@ def moveTargetsStartingWithToNewList(fNameIn, namePrefix, fNameGoodOut, fNameRej
 def writeSAAOTargetList(fNameIn, fNameOut):
     all = readCSV(fNameIn)
     print('writeSAAOTargetList: read ',len(all),' lines')
-    with open(fNameOut,'w') as f:
-        for lineIn in all:
-            lineOut = lineIn['Name'].replace(' ','_').replace('"','')+' '+lineIn['RAJ2000']+' '+lineIn['DECJ2000']+' J2000\n'
-            f.write(lineOut)
+    if len(all) > 0:
+        with open(fNameOut,'w') as f:
+            for lineIn in all:
+                lineOut = lineIn['Name'].replace(' ','_').replace('"','')+' '+lineIn['RAJ2000']+' '+lineIn['DECJ2000']+' J2000\n'
+                f.write(lineOut)
 
 def findTargetsVisibleAt(targets, timeUTC, location, utcoffset, minimumAltitude):
     targetsOut = []
@@ -169,7 +172,8 @@ def takeOnlyWhatIsInBothInputLists(fileA, fileB, fileNameOut):
             if lineA['idPNMain'] == lineB['idPNMain']:
                 goodTargets.append(lineA)
 
-    writeCSV(goodTargets, fileNameOut, 'DRAJ2000')
+    if len(goodTargets) > 0:
+        writeCSV(goodTargets, fileNameOut, 'DRAJ2000')
     print('found ',len(goodTargets),' in both files')
     return goodTargets
 
@@ -210,53 +214,55 @@ def findInCSV(csvIn,key,val,keyB=None,valB=None):
 
 def writeCopyImagesComands(csvInFName, outFileName):
     csvIn = csvFree.readCSVFile(csvInFName)
-    print('csvIn.header = ',csvIn.header)
-    altKey = ' Altitude'
-    if altKey not in csvIn.header:
-        altKey = ' maxAlt'
+    if csvIn.size() > 0:
+        print('csvIn.header = ',csvIn.header)
+        altKey = ' Altitude'
+        if altKey not in csvIn.header:
+            altKey = ' maxAlt'
 
-    csvIphas = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_iphas_images_in_use.csv')
-#    csvIquot = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_iquotHaSr_images.csv')
-    csvSHS = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_shs_images.csv')
-#    csvQuot = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_quotHaSr_images.csv')
+        csvIphas = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_iphas_images_in_use.csv')
+    #    csvIquot = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_iquotHaSr_images.csv')
+        csvSHS = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_shs_images.csv')
+    #    csvQuot = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_quotHaSr_images.csv')
 
-    with open(outFileName,'w') as f:
-        picDir = outFileName[outFileName.rfind('/')+1:outFileName.rfind('_')]
-        f.write('mkdir '+picDir+'\n')
-        for i in range(csvIn.size()):
-            idPNMain = csvIn.getData('idPNMain',i).replace(' ','')
+        with open(outFileName,'w') as f:
+            picDir = outFileName[outFileName.rfind('/')+1:outFileName.rfind('_')]
+            f.write('mkdir '+picDir+'\n')
+            for i in range(csvIn.size()):
+                idPNMain = csvIn.getData('idPNMain',i).replace(' ','')
 
-            posIphas = findInCSV(csvIphas,'idPNMain',idPNMain,'band','Ha')
-            print('idPNMain = ',idPNMain,': posIphas = ',posIphas)
-#            posIquot = findInCSV(csvIquot,'idPNMain',idPNMain)
-            posSHS = findInCSV(csvSHS,'idPNMain',idPNMain)
-            print('idPNMain = ',idPNMain,': posSHS = ',posSHS)
-#            posQuot = findInCSV(csvQuot,'idPNMain',idPNMain)
+                posIphas = findInCSV(csvIphas,'idPNMain',idPNMain,'band','Ha')
+                print('idPNMain = ',idPNMain,': posIphas = ',posIphas)
+    #            posIquot = findInCSV(csvIquot,'idPNMain',idPNMain)
+                posSHS = findInCSV(csvSHS,'idPNMain',idPNMain)
+                print('idPNMain = ',idPNMain,': posSHS = ',posSHS)
+    #            posQuot = findInCSV(csvQuot,'idPNMain',idPNMain)
 
-            if posIphas >= 0:
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iphas3colour.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iphas3colour.png\n')
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iphas3colour_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iphas3colour_centroid.png\n')
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int.png\n')
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int_centroid.png\n')
-                f.write('cp /data/fermenter/PNImages/'+idPNMain+'/IPHAS/'+csvIphas.getData('filename',csvIphas.find('idPNMain',idPNMain)[2])+' '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_Ha.fits\n')
-            if posSHS >= 0:
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb.png\n')
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb_centroid.png\n')
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int.png\n')
-                f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int_centroid.png\n')
-                f.write('cp /data/fermenter/PNImages/'+idPNMain+'/SHS/shs*wha.fits '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_shs_wha.fits\n')
+                if posIphas >= 0:
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iphas3colour.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iphas3colour.png\n')
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iphas3colour_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iphas3colour_centroid.png\n')
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int.png\n')
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/IPHAS/'+idPNMain+'_'+csvIphas.getData('field',posIphas)+'_iquotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_iquotHaSr_int_centroid.png\n')
+                    f.write('cp /data/fermenter/PNImages/'+idPNMain+'/IPHAS/'+csvIphas.getData('filename',csvIphas.find('idPNMain',idPNMain)[2])+' '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_Ha.fits\n')
+                if posSHS >= 0:
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb.png\n')
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_threecolour_rgb_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_threecolour_rgb_centroid.png\n')
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int.png\n')
+                    f.write('cp /data/kegs/pngPNImages/'+idPNMain+'/SHS/'+idPNMain+'_quotHaSr_int_centroid.png '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_quotHaSr_int_centroid.png\n')
+                    f.write('cp /data/fermenter/PNImages/'+idPNMain+'/SHS/shs*wha.fits '+picDir+'/alt'+csvIn.getData(altKey,i).replace(' ','')+'_moonDist'+csvIn.getData(' moonDist',i).replace(' ','')+'_'+idPNMain+'_shs_wha.fits\n')
 
 
 def main():
     for site in ['SAAO']:#,'SSO']:
         location = None
-        for noDiameterPN in [False]:#, True]:
-            for priority in [False]:#True, False]:#
+        for noDiameterPN in [False, True]:
+            for priority in [True]:#, False]:#
 
                 if priority:
-                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/all_targets_truePN_MPA.csv'
+#                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/hash_LiParker1.csv'
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/Haoyang.csv'
                 else:
-                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/pnMain_need_spectrum.csv'#all_targets_PLc_03052023.csv'#'/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/hash_TLPc_no_spectrum_210524.csv'#pnMain_need_spectrum.csv'#all_targets_PLc_03052023.csv'#'/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
 
                 ssoObs = Observer.at_site("Siding Spring Observatory")#, timezone='Eastern Standard Time')
                 sso = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
@@ -405,50 +411,55 @@ def main():
                     goodLength = len(goodTargets)
                     print('found ',len(goodTargets),' good targets')
 
-                    goodTargets = removeAlreadyObserved(goodTargets)
+                    #goodTargets = removeAlreadyObserved(goodTargets)
                     print('removed ',goodLength - len(goodTargets),' targets already observed')
                     writeCSV(goodTargets,outFileName,'DRAJ2000')
                     print('wrote goodTargets to file <'+outFileName+'>')
                     #STOP
-                    moveTargetsStartingWithToNewList(outFileName,
-                                                     'DeGaPe',
-                                                     goodFileName,
-                                                     outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv',
-                                                     append=False)
+                    if os.path.exists(outFileName):
+                        moveTargetsStartingWithToNewList(outFileName,
+                                                         'DeGaPe',
+                                                         goodFileName,
+                                                         outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv',
+                                                         append=False)
 
-                    moveTargetsStartingWithToNewList(goodFileName,
-                                                     'MGE',
-                                                     goodFileName,
-                                                     outFileName[0:outFileName.rfind('.')]+'_MGE.csv',
-                                                     append=False)
+                    if os.path.exists(goodFileName):
+                        moveTargetsStartingWithToNewList(goodFileName,
+                                                        'MGE',
+                                                        goodFileName,
+                                                        outFileName[0:outFileName.rfind('.')]+'_MGE.csv',
+                                                        append=False)
 
-                    moveTargetsStartingWithToNewList(goodFileName,
-                                                     'MPA',
-                                                     goodFileName,
-                                                     outFileName[0:outFileName.rfind('.')]+'_MPA.csv',
-                                                     append=False)
+                        moveTargetsStartingWithToNewList(goodFileName,
+                                                        'MPA',
+                                                        goodFileName,
+                                                        outFileName[0:outFileName.rfind('.')]+'_MPA.csv',
+                                                        append=False)
 
-                    if (not noDiameterPN) and (obs == ssoObs):
-                        fileA = goodFileName
-                        fileB = outFileName[:outFileName.rfind('_')]+'_good.csv'
+                        if (not noDiameterPN) and (obs == ssoObs):
+                            fileA = goodFileName
+                            fileB = outFileName[:outFileName.rfind('_')]+'_good.csv'
 
-                        goodFileName = fileB[:fileB.rfind('.')]+'_new.csv'
-                        print('fileA = <'+fileA+'>, fileB = <'+fileB+'>, goodFileName = <'+goodFileName+'>')
-                        takeOnlyWhatIsInBothInputLists(fileA, fileB, goodFileName)
+                            goodFileName = fileB[:fileB.rfind('.')]+'_new.csv'
+                            print('fileA = <'+fileA+'>, fileB = <'+fileB+'>, goodFileName = <'+goodFileName+'>')
+                            takeOnlyWhatIsInBothInputLists(fileA, fileB, goodFileName)
 
 
-                    writeSAAOTargetList(goodFileName,goodFileName[0:goodFileName.rfind('.')]+'.dat')
+                        writeSAAOTargetList(goodFileName,goodFileName[0:goodFileName.rfind('.')]+'.dat')
 
                 print('fullHours = ',fullHours)
                 for fName in [goodFileName, outFileName[0:outFileName.rfind('.')]+'_DeGaPe.csv', outFileName[0:outFileName.rfind('.')]+'_MGE.csv', outFileName[0:outFileName.rfind('.')]+'_MPA.csv']:
-                    targets = readCSV(fName)
-                    writeCopyImagesComands(fName, fName[:-4]+'_commands')
-                    for time in fullHours:
-                        visibleAt = findTargetsVisibleAt(targets, time, location, utcoffset, minimumAltitude)
-                        localTime = time + utcoffset
-                        visFileName = fName[:fName.rfind('.')]+'_visible_at_'+localTime.strftime("%H-%M")+'.csv'
-                        writeCSV(visibleAt, visFileName, 'DRAJ2000')
-                        writeCopyImagesComands(visFileName, visFileName[:-4]+'_commands')
+                    if os.path.exists(fName):
+                        targets = readCSV(fName)
+                        if len(targets) > 0:
+                            writeCopyImagesComands(fName, fName[:-4]+'_commands')
+                            for time in fullHours:
+                                visibleAt = findTargetsVisibleAt(targets, time, location, utcoffset, minimumAltitude)
+                                localTime = time + utcoffset
+                                visFileName = fName[:fName.rfind('.')]+'_visible_at_'+localTime.strftime("%H-%M")+'.csv'
+                                if len(visibleAt) > 0:
+                                    writeCSV(visibleAt, visFileName, 'DRAJ2000')
+                                    writeCopyImagesComands(visFileName, visFileName[:-4]+'_commands')
 
 if __name__ == "__main__":
     main()

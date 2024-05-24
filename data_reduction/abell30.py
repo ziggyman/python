@@ -12,6 +12,43 @@ def f(x, A, B): # this is your 'straight line' y=f(x)
 path = '/Users/azuri/daten/uni/HKU/Kamila/OIII_ratios/Red and blue cube/'
 fitsName = os.path.join(path,'Blue_final_cube_angstroms.fits')
 
+cs_spectrum_1977_name = '/Users/azuri/daten/uni/HKU/Kamila/Abell30_spec1977.txt'
+with open(cs_spectrum_1977_name,'r') as fn:
+    lines = fn.readlines()
+wave_1977 = []
+spec_1977 = []
+for line in lines:
+    wave_1977.append(float(line[:line.find(' ')]))
+    spec_1977.append(float(line[line.find(' ')+1:line.rfind('\n')]))
+spec_1977 = spec_1977 / np.mean(np.array(spec_1977))
+
+cs_spectrum_1964_name = '/Users/azuri/daten/uni/HKU/Kamila/Abell30_spec_im.txt'
+with open(cs_spectrum_1964_name,'r') as fn:
+    lines = fn.readlines()
+wave_1964 = []
+spec_1964 = []
+for line in lines:
+    wave_1964.append(float(line[:line.find(' ')]))
+    spec_1964.append(float(line[line.find(' ')+1:line.rfind('\n')]))
+#print('wave_1964 = ',wave_1964)
+#idx_1964 = np.where(np.array(wave_1964) > 4342.)[0]
+#print('idx_1964 = ',idx_1964)
+#idx_1977 = np.where(np.array(wave_1977) < 5071.)[0]
+#print('idx_1977 = ',idx_1977)
+spec_1964 = np.array(spec_1964)  / np.mean(np.array(spec_1964))# * np.mean(np.array(spec_1964)[idx_1964])
+plt.plot(wave_1964,spec_1964)
+plt.plot(wave_1977,spec_1977)
+plt.show()
+
+cs_spectrum_name = '/Users/azuri/daten/uni/HKU/Kamila/Abell30_CS_centre_sum_spec_new.fits'
+
+pa30_cs_spectrum_name = '/Users/azuri/daten/uni/HKU/Pa30/Pa30_GT080716_cal_sum_cleaned_scaled.fits'
+
+def getImageData(fname,hduNum=1):
+    hdulist = pyfits.open(fname)
+    scidata = hdulist[hduNum].data
+    hdulist.close()
+    return np.array(scidata)
 
 def getWavelengthArr(fname,hduNum=1,dim='3'):
     hdulist = pyfits.open(fname)
@@ -37,6 +74,21 @@ def getHeaderValue(fname, keyword, hduNum=0):
     except:
         return None
 
+# CS Spectrum
+cs_wave = getWavelengthArr(cs_spectrum_name,hduNum=0,dim='1')
+cs_spec = getImageData(cs_spectrum_name,0)
+cs_spec = cs_spec / np.mean(cs_spec)
+plt.plot(cs_wave,cs_spec)
+
+pa30_wave = getWavelengthArr(pa30_cs_spectrum_name,0,dim='1')
+pa30_spec = getImageData(pa30_cs_spectrum_name,0)
+#idx = np.where((pa30_wave > 3763.) & (pa30_wave < 5235.))[0]
+pa30_spec = pa30_spec / np.mean(pa30_spec)# * np.mean(cs_spec)
+plt.plot(pa30_wave,pa30_spec)
+plt.plot(wave_1964,spec_1964)
+plt.plot(wave_1977,spec_1977)
+plt.show()
+STOP
 
 hdulist = pyfits.open(fitsName)
 print('len(hdulist) = ',len(hdulist))

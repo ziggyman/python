@@ -19,25 +19,31 @@ from drUtils import createFindingChartFromFits
 #download_IERS_A()
 
 #goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good'
-goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17'
-outDir = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_DeGaPe/findingCharts')
-fileList = os.path.join(goodTargetsDir,'latest/targets_SAAO_2023-06-17_DeGaPe/allFiles.list')
+goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06'
+outDir = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_priority_good/findingCharts')
+fileList = os.path.join(goodTargetsDir,'allFiles.list')
 
-idPNMain_hash_no_spectrum = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_TLPc_no_spectrum_020623.csv')).getData('idPNMain')
-idPNMain_literature_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'literature_spectrum_available.csv')).getData('idPNMain')
-idPNMain_elcat_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'elcat_available.csv')).getData('idPNMain')
+idPNMain_hash_no_spectrum = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_TLPc_no_spectrum_210524.csv')).getData('idPNMain')
+#idPNMain_literature_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'literature_spectrum_available.csv')).getData('idPNMain')
+#idPNMain_elcat_available = idPNMain_literature_available#csvFree.readCSVFile(os.path.join(goodTargetsDir,'elcat_available.csv')).getData('idPNMain')
 
-pnMain = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_PNMain_010623.csv'))#'hash_TLPc_no_spectrum_010623.csv'))
+pnMain = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_PNMain_210524.csv'))#'hash_TLPc_no_spectrum_010623.csv'))
 
-fitsFiles = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_FitsFiles_010623.csv'))
+fitsFiles = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_FitsFiles_210524.csv'))
 
-usrCommentsFile = os.path.join(goodTargetsDir,'hash_UsrComm_010623.csv')
+usrCommentsFile = os.path.join(goodTargetsDir,'hash_UsrComm_210524.csv')
 
-angDiams = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_AngDiam_050623.csv'))
+angDiams = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_AngDiam_210524.csv'))
 
-names = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_Names_050623.csv'))
+names = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_Names_210524.csv'))
 
 allPossibleTargets = os.path.join(goodTargetsDir,'pnMain_need_spectrum.csv')
+
+#for i in np.arange(pnMain.size()-1,-1,-1):
+#    if not pnMain.getData('idPNMain',i) in idPNMain_hash_no_spectrum:
+#        pnMain.removeRow(i)
+#csvFree.writeCSVFile(pnMain,allPossibleTargets)
+#
 allPNe = csvFree.readCSVFile(allPossibleTargets)
 #usrComments = csvFree.readCSVFile(usrCommentsFile)
 #elcats = ['elcat_dopita.csv','elcat_ercolano.csv','elcat_frew.csv','elcat_hsia.csv','elcat_kerber.csv','elcat_kraan.csv','elcat_kwitter.csv']
@@ -129,66 +135,99 @@ def makeFindingCharts():
 
     idPNMains = getAllIdPNMains(fNamesList)
     nFailed = 0
+    failedidPNMains = []
     for idPNMain in idPNMains:
         print('idPNMain = ',idPNMain)
         images = getImagesForIdPNMain(fNamesList,idPNMain)
         print('images = ',images)
-        #STOP
+#        for im in images:
+#            if 'findingChart' in im:
+#                STOP
 
         pos = csvAllTargets.find('idPNMain',idPNMain,0)[0]
         print('pos = ',pos)
         majDiam = float(csvAllTargets.getData('MajDiam',pos))
         name = csvAllTargets.getData('Name',pos)
         if (majDiam < 200) and ('Ritter' not in name) and ('Objet' not in name):
+            print('outDir = <'+outDir+'>')
             outDirName = os.path.join(outDir,idPNMain)
+            print('outDirName = <'+outDirName+'>')
             print('creating outDirName = <'+outDirName+'>')
             if not os.path.exists(outDirName):
                 os.mkdir(outDirName)
             if not os.path.exists(outDirName):
                 STOP
             for im in images:
-                try:
-                    isGood = False
-                    if os.path.exists(outDirName):
-                        if im.endswith('.png'):
-                            background = Image.open(os.path.join(outDir[:outDir.rfind('/')],im))
-                            overlay = Image.open(os.path.join(outDir[:outDir.rfind('/')],im[:-4])+'_centroid.png')
-
-                            background = background.convert("RGBA")
-                            overlay = overlay.convert("RGBA")
-
-                            new_img = Image.new("RGBA", background.size)
-                            new_img = Image.alpha_composite(new_img, background)
-                            new_img = Image.alpha_composite(new_img, overlay)
-                            newImName = os.path.join(outDirName,im[:-4]+'_findingChart.png')#.replace('.0','')
-                            new_img.save(newImName,"PNG")
-                        elif im.endswith('.fits'):
-                            if im.rfind('_shs') > 0:
+                if not 'findingChart' in im:
+                    try:
+                        isGood = False
+                        if os.path.exists(outDirName):
+                            print('working on im = ',im)
+                            if im.endswith('.png'):
                                 isGood = True
-                                tmp = im[:im.rfind('_shs')]
-                                idPNMain = tmp[tmp.rfind('_')+1:]
+                                backgroundImageName = os.path.join(outDir[:outDir.rfind('/')],im)
+                                background = Image.open(backgroundImageName)
+                                print('backgroundImageName <'+backgroundImageName+'> opened')
+                                overLayImageName = os.path.join(outDir[:outDir.rfind('/')],im[:-4])+'_centroid.png'
+                                print('opening overlayImageName <'+overLayImageName+'>')
+                                overlay = Image.open(overLayImageName)
 
-                                name = csvAllTargets.getData('Name',pos)
-                                print('name = <'+name+'>: MajDiam = ',majDiam)
-                                ra = csvAllTargets.getData('RAJ2000',pos)
-                                dec = csvAllTargets.getData('DECJ2000',pos)
-#                                try:
-                                createFindingChartFromFits(os.path.join(outDir[:outDir.rfind('/')],im),
-                                                            240,
-                                                            majDiam,
-                                                            name,
-                                                            ra,
-                                                            dec,
-                                                            outDirName,
-                                                            display=False)
-#                                    STOP
-#                                except Exception as e:
-#                                    print(e)
-#                                    STOP
+                                background = background.convert("RGBA")
+                                overlay = overlay.convert("RGBA")
 
-                                visName = im[:im.rfind('_')]
-                                visName = visName[:visName.rfind('_')]
+                                new_img = Image.new("RGBA", background.size)
+                                new_img = Image.alpha_composite(new_img, background)
+                                new_img = Image.alpha_composite(new_img, overlay)
+                                newImName = os.path.join(outDirName,im[im.rfind('/')+1:-4]+'_findingChart.png')
+#                                newImName = os.path.join(outDirName,im[:-4]+'_findingChart.png')#.replace('.0','')
+                                #print('newImName = <'+newImName+'>')
+                                new_img.save(newImName,"PNG")
+                                #print('outDirName = <'+outDirName+'>')
+                                print('saved image <'+newImName+'>')
+                                #STOP
+                            elif im.endswith('.fits'):
+                                if im.rfind('_shs') > 0:
+                                    isGood = True
+                                    tmp = im[:im.rfind('_shs')]
+                                    idPNMain = tmp[tmp.rfind('_')+1:]
+
+                                    name = csvAllTargets.getData('Name',pos)
+                                    print('name = <'+name+'>: MajDiam = ',majDiam)
+                                    ra = csvAllTargets.getData('RAJ2000',pos)
+                                    dec = csvAllTargets.getData('DECJ2000',pos)
+    #                                try:
+                                    new_img_name = createFindingChartFromFits(im,#os.path.join(outDir[:outDir.rfind('/')],im),
+                                                                240,
+                                                                majDiam,
+                                                                name,
+                                                                ra,
+                                                                dec,
+                                                                outDirName,
+                                                                display=False)
+                                    print('saved new_img_name = <'+new_img_name+'>')
+                                    #STOP
+    #                                except Exception as e:
+    #                                    print(e)
+    #                                    STOP
+#                                    shutil.move(outDirName+'*.png',finalDir+'/')
+                                elif im.rfind('_Ha') > 0:
+#                                    tmp = im[:im.rfind('_Ha')]
+#                                    if not isGood:
+                                    print('isGood = False')
+#                                        STOP
+#                                        shutil.rmtree(outDirName)
+                                    #raise ValueError('IPHAS image set')
+                                else:
+                                    print('could not identify image type')
+                                    STOP
+                            else:
+                                raise ValueError('could not identify file type of <'+im+'>')
+                            if isGood:
+                                visName = im[im.rfind('/')+1:im.rfind('_')]
+#                                visName = visName[:visName.rfind('_')]
                                 visName = os.path.join(os.path.join(outDir,idPNMain),visName+'_visibility.png')#.replace('.0','')
+                                print('creating ',visName)
+                                #STOP
                                 targetCoord = SkyCoord(ra=float(csvAllTargets.getData('DRAJ2000',pos))*u.deg,
                                                     dec=float(csvAllTargets.getData('DDECJ2000',pos))*u.deg,
                                                     frame='icrs')
@@ -212,31 +251,32 @@ def makeFindingCharts():
                                                         +':00-'
                                                         +(str(maxAltitudeHour+1) if (maxAltitudeHour+1) > 9 else ('0'+str(maxAltitudeHour+1)))
                                                         +':00')
-                                print('finalDir = <'+finalDir+'>')
-                                shutil.move(outDirName,finalDir)
-                            #   shutil.move(outDirName,os.path.join(finalDir,idPNMain))
-                            elif im.rfind('_Ha') > 0:
-                                tmp = im[:im.rfind('_Ha')]
-                                if not isGood:
-                                    shutil.rmtree(outDirName)
-                                    print('deleted outDirName = <'+outDirName+'>')
-                                #raise ValueError('IPHAS image set')
+                                print('moving outDirName = <'+outDirName+'> to finalDir = <'+finalDir+'>')
+    #                                    STOP
+                                #if os.path.exists(finalDir):
+                                #    shutil.rmtree(finalDir)
+                                #shutil.move(outDirName,finalDir)
+                                command = 'mv '+outDirName+'/* '+finalDir+'/'
+                                print('command = <'+command+'>')
+                                os.system(command)
+                                #STOP
                             else:
-                                print('could not identify image type')
-                                STOP
-                        else:
-                            raise ValueError('could not identify file type of <'+im+'>')
+                                print('isGood = False')
+                                #STOP
+                    #        print(csvAllTargets.getData(pos))
 
-                #        print(csvAllTargets.getData(pos))
+                    except Exception as e:
+                        print(e)
+                        shutil.rmtree(outDirName)
+                        nFailed += 1
+                        failedidPNMains.append(idPNMain)
+                        #STOP
+                        pass
 
-                except Exception as e:
-                    print(e)
-                    shutil.rmtree(outDirName)
-                    nFailed += 1
-                    #STOP
-                    pass
-#        STOP
-    print(nFailed,' objects failed to plot visibility plot')
+            command = 'rmdir '+outDirName
+            os.system(command)
+    print(nFailed,' objects failed to plot visibility plot: ',failedidPNMains)
+#    STOP
 
 def getDarkTimesUT():
     time = midnight - 8*u.hour
@@ -282,6 +322,7 @@ def getIDsFromDirList(inputList):
     dirs = []
     idPNs = []
     newDir = True
+    ids = []
     for line in lines:
         if line == '':
             newDir = True
@@ -295,8 +336,40 @@ def getIDsFromDirList(inputList):
     idPNs.append(ids)
     return [dirs,idPNs]
 
+def getIDsFromFindingChartsList(inputList):
+    print('getIDsFromFindingChartsList: inputList = ',inputList)
+    with open(inputList,'r') as f:
+        lines = f.readlines()
+    lines = [line.rstrip('\n') for line in lines]
+    print('lines = ',lines)
+
+    dirs = []
+    idPNs = []
+    newDir = True
+    for line in lines:
+        if line == '':
+            newDir = True
+            idPNs.append(ids)
+        elif newDir:
+            dirs.append(line[:-1])
+            ids = []
+            newDir = False
+        else:
+            idPNMain = line[line.find('_')+1:]
+            idPNMain = idPNMain[idPNMain.find('_')+1:]
+            idPNMain = idPNMain[:idPNMain.find('_')]
+            print('idPNMain = ',idPNMain)
+            if idPNMain not in ids:
+                ids.append(idPNMain)
+    idPNs.append(ids)
+    print('dirs = ',dirs)
+    print('idPNs = ',idPNs)
+    #STOP
+    return [dirs,idPNs]
+
+
 def findTargetsVisibleAt(inputList,outputPath):
-    dirs, idPNs = getIDsFromDirList(inputList)
+    dirs, idPNs = getIDsFromFindingChartsList(inputList)
 
     print('dirs = ',dirs)
     print('idPNs = ',idPNs)
@@ -326,12 +399,19 @@ def findTargetsVisibleAt(inputList,outputPath):
                 print('altitude at ',visTimes[iVis],' = ',altitude)
                 if altitude > minAltitude:
                     print('dirs[iDir] = <'+dirs[iDir]+'>')
-                    linkName = os.path.join(outDirs[iVis],'alt_%d_hashID_%s' % (altitude,id))
-                    targetPath = '../'+dirs[iDir][dirs[iDir].rfind('/')+1:]+'/'+id
+                    linkNameRoot = os.path.join(outDirs[iVis],'alt_%d_hashID_%s_' % (altitude,id))
+                    print('linkNameRoot = <'+linkNameRoot+'>')
+                    targetPath = '../'+dirs[iDir][dirs[iDir].rfind('/')+1:]
                     print('targetPath = <'+targetPath+'>')
-                    print('linkName = <'+linkName+'>')
-                    if not os.path.lexists(linkName):
-                        os.symlink(targetPath,linkName,target_is_directory=True)
+                    command = 'ls '+os.path.join(outDirs[iVis],targetPath)+'/*_'+id+'_* > '+goodTargetsDir+'/temp.list'
+                    os.system(command)
+                    with open(os.path.join(goodTargetsDir,'temp.list'),'r') as g:
+                        toLinks = g.readlines()
+                    for toLink in toLinks:
+                        toLink = toLink.strip()
+                        linkName = linkNameRoot+toLink[toLink.rfind('/')+1:]
+                        if not os.path.lexists(linkName):
+                            os.symlink(toLink,linkName,target_is_directory=False)
             #STOP
 
 def removeNotUsed():
@@ -702,12 +782,12 @@ if __name__ == '__main__':
             STOP
     #    for i in idPNMain_hash_no_spectrum:
     #        keepIDs.append(i)
-        removeIDs = get_IDs_of_objects_with_spectrum_in_literature()
-        for i in idPNMain_elcat_available:
-            removeIDs.append(i)
-        for i in idPNMain_literature_available:
-            removeIDs.append(i)
-        remove_objects_with_spectra_from_PNMain(keepIDs,removeIDs)
+        #removeIDs = get_IDs_of_objects_with_spectrum_in_literature()
+        #for i in idPNMain_elcat_available:
+        #    removeIDs.append(i)
+        #for i in idPNMain_literature_available:
+        #    removeIDs.append(i)
+        #remove_objects_with_spectra_from_PNMain(keepIDs,removeIDs)
         #remove_elcats(needBetterIDs)
         truesWithoutSpectra = pnMain.find('PNstat','T')
         print('truesWithoutSpectra = ',len(truesWithoutSpectra))
@@ -721,9 +801,9 @@ if __name__ == '__main__':
             print('INSERT INTO `needBetterSpectrum`(`idNBS`,`idPNMain`) VALUES ('+str(i)+','+idPNMain+');')
     if False:
         makeFindingCharts()
-    if False:
-        #subprocess.check_output(['ls', outDir+'/??\:*', '>', os.path.join(goodTargetsDir,'findingCharts.list')])
-        inputList = os.path.join(outDir[:outDir.rfind('/')],'findingCharts.list')
+    if True:
+#        subprocess.check_output(['ls', outDir+'/??\:*', '>', os.path.join(goodTargetsDir,'findingCharts.list')])
+        inputList = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_good','findingCharts.list')#os.path.join(outDir[:outDir.rfind('/')],'findingCharts.list')
         findTargetsVisibleAt(inputList,inputList[:inputList.rfind('.')])
     if False:
         dirs = os.listdir(outDir)
@@ -734,29 +814,30 @@ if __name__ == '__main__':
                 print('line = ',line,': subDirs = ',subDirs)
                 for subDir in subDirs:
                     if 'png' not in subDir:
-                        plots = os.listdir(os.path.join(os.path.join(outDir,line),subDir))
+                        plots = os.listdir(os.path.join(outDir,line,subDir))
                         print('subDir = ',subDir,': plots = ',plots)
                         if len(plots) > 6:
                             STOP
                         for plot in plots:
                             if ('findingChart' in plot) and ('quot' not in plot) and ('rgb' not in plot) and ('iphas3colour' not in plot):
-                                inputFile = os.path.join(os.path.join(os.path.join(outDir,line),subDir),plot)
-                                outputFile = os.path.join(os.path.join(outDir,line),plot)
+                                inputFile = os.path.join(outDir,line,subDir,plot)
+                                outputFile = os.path.join(outDir,line,plot)
                                 if os.path.exists(outputFile):
                                     os.remove(outputFile)
                                 command = 'cp '+inputFile+' '+outputFile
                                 print('command = ',command)
                                 #os.system(command)
-                                shutil.copyfile(os.path.join(os.path.join(os.path.join(outDir,line),subDir),plot),os.path.join(os.path.join(outDir,line),plot), follow_symlinks=True)
+                                shutil.copyfile(os.path.join(outDir,line,subDir,plot),os.path.join(os.path.join(outDir,line),plot), follow_symlinks=True)
                                 #os.symlink(os.path.join(os.path.join(os.path.join(outDir,line),subDir),plot),os.path.join(os.path.join(outDir,line),plot))
-    if True:
-        dbs_may2008 = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/hash_fitsFiles_DBS_May2008.csv')
+    if False:
+#        dbs_may2008 = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/hash_fitsFiles_DBS_May2008.csv')
         removeIDPNMains = []
-        for i in range(dbs_may2008.size()):
-            if dbs_may2008.getData('setname',i) == 'DBS_May2008':
-                removeIDPNMains.append(dbs_may2008.getData('idPNMain',i))
-        allFilesName = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/latest/allFindingCharts.list'
-        os.system('ls /Users/azuri/daten/uni/HKU/observing/targets_SAAO_2023-06-17/latest/targets_SAAO_2023-06-17_*/findingCharts/* > '+allFilesName)
+#        for i in range(dbs_may2008.size()):
+#            if dbs_may2008.getData('setname',i) == 'DBS_May2008':
+#                removeIDPNMains.append(dbs_may2008.getData('idPNMain',i))
+        allFilesName = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/allFindingCharts.list'
+        os.system('ls /Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/findingCharts/* > '+allFilesName)
+        #os.system('ls /Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/targets_SAAO_2024-06-05_*/findingCharts/* > '+allFilesName)
         with open(allFilesName,'r') as f:
             allFiles = f.readlines()
         print('allFiles = ',allFiles)

@@ -1514,6 +1514,17 @@ def getInsideRange(x,y,xRange):
     xInsideRange = xInsideRange[np.where(xInsideRange <= xRange[1])]
     return xInsideRange, yInsideRange
 
+# @brief: return x and y inside xRange
+def getInsideRanges(x,y,xRanges):
+    xInsideRange = []
+    yInsideRange = []
+    for xRange in xRanges:
+        idx = np.where((x >= xRange[0]) & (x <= xRange[1]))[0]
+        for id in idx:
+            xInsideRange.append(x[id])
+            yInsideRange.append(y[id])
+    return np.array(xInsideRange), np.array(yInsideRange)
+
 # @brief: Return interpolated y at xAt
 def getYAt(x,y,xAt):
 #    print('getYAt: x = ',x.shape,': ',x)
