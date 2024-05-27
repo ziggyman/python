@@ -4252,7 +4252,7 @@ def createFindingChartFromFits(fitsFileName,
     print('new width in pixels = ',newWidthInPixels)
     pixPerArcSec = newWidthInPixels / widthInArcSeconds
     print('pixPerArcSec = ',pixPerArcSec)
-    circleRadius = pnMajDiamInArcSeconds * pixPerArcSec / 2.
+    circleRadius = (pnMajDiamInArcSeconds * pixPerArcSec / 2.) if pnMajDiamInArcSeconds > 0 else (60. * pixPerArcSec / 2.)
     print('circleRadius = ',circleRadius,' pixels')
     if np.min([fitsDataShape[0],fitsDataShape[1]]) < newWidthInPixels:
         cutout = np.full((newWidthInPixels,newWidthInPixels),np.min(fitsData))

@@ -256,11 +256,10 @@ def main():
     for site in ['SAAO']:#,'SSO']:
         location = None
         for noDiameterPN in [False, True]:
-            for priority in [True]:#, False]:#
+            for priority in [True, False]:#
 
                 if priority:
-#                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/hash_LiParker1.csv'
-                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/Haoyang.csv'
+                    allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/hash_priority.csv'
                 else:
                     allPossibleTargets = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/hash_TLPc_no_spectrum_210524.csv'#pnMain_need_spectrum.csv'#all_targets_PLc_03052023.csv'#'/Users/azuri/daten/uni/HKU/observing/all_targets_noDFrew_noTrue_Jan2020.csv'#all_targets_with_catalogue_without_DFrew_noTrue.csv'
 

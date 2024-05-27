@@ -20,8 +20,8 @@ from drUtils import createFindingChartFromFits
 
 #goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good'
 goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06'
-outDir = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_priority_good/findingCharts')
-fileList = os.path.join(goodTargetsDir,'allFiles.list')
+outDir = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_MGE/findingCharts')
+fileList = os.path.join(goodTargetsDir,'allFiles_MGE.list')
 
 idPNMain_hash_no_spectrum = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_TLPc_no_spectrum_210524.csv')).getData('idPNMain')
 #idPNMain_literature_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'literature_spectrum_available.csv')).getData('idPNMain')
@@ -51,7 +51,7 @@ allPNe = csvFree.readCSVFile(allPossibleTargets)
 observatoryName = "SAAO"
 observatoryLocation = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
 utcoffset = 2*u.hour
-date = '2023-06-17'
+date = '2024-06-05'
 midnight = Time(date+' 00:00:00') - utcoffset
 minAltitude = 30.0
 
@@ -146,6 +146,7 @@ def makeFindingCharts():
 
         pos = csvAllTargets.find('idPNMain',idPNMain,0)[0]
         print('pos = ',pos)
+        print("csvAllTargets.getData('MajDiam',pos) = ",csvAllTargets.getData('MajDiam',pos))
         majDiam = float(csvAllTargets.getData('MajDiam',pos))
         name = csvAllTargets.getData('Name',pos)
         if (majDiam < 200) and ('Ritter' not in name) and ('Objet' not in name):
@@ -776,7 +777,7 @@ if __name__ == '__main__':
     #    fix_UsrComments()
         usrComments = csvFree.readCSVFile(usrCommentsFile)
     #    remove_HLA_from_fitsFiles()
-        remove_not_TLPc_from_PNMain()
+#        remove_not_TLPc_from_PNMain()
         keepIDs = get_IDs_of_objects_which_need_better_spectra()
         if '3103' in keepIDs:
             STOP
@@ -799,11 +800,11 @@ if __name__ == '__main__':
         for idPNMain in keepIDs:
             i += 1
             print('INSERT INTO `needBetterSpectrum`(`idNBS`,`idPNMain`) VALUES ('+str(i)+','+idPNMain+');')
-    if False:
-        makeFindingCharts()
     if True:
+        makeFindingCharts()
+    if False:
 #        subprocess.check_output(['ls', outDir+'/??\:*', '>', os.path.join(goodTargetsDir,'findingCharts.list')])
-        inputList = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_good','findingCharts.list')#os.path.join(outDir[:outDir.rfind('/')],'findingCharts.list')
+        inputList = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_MGE','findingCharts.list')#os.path.join(outDir[:outDir.rfind('/')],'findingCharts.list')
         findTargetsVisibleAt(inputList,inputList[:inputList.rfind('.')])
     if False:
         dirs = os.listdir(outDir)
