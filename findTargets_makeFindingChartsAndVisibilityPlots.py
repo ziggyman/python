@@ -20,8 +20,8 @@ from drUtils import createFindingChartFromFits
 
 #goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good'
 goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06'
-outDir = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_MGE/findingCharts')
-fileList = os.path.join(goodTargetsDir,'allFiles_MGE.list')
+outDir = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_priority_good/findingCharts')
+fileList = os.path.join(goodTargetsDir,'allFiles_priority.list')
 
 idPNMain_hash_no_spectrum = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_TLPc_no_spectrum_210524.csv')).getData('idPNMain')
 #idPNMain_literature_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'literature_spectrum_available.csv')).getData('idPNMain')
@@ -147,7 +147,10 @@ def makeFindingCharts():
         pos = csvAllTargets.find('idPNMain',idPNMain,0)[0]
         print('pos = ',pos)
         print("csvAllTargets.getData('MajDiam',pos) = ",csvAllTargets.getData('MajDiam',pos))
-        majDiam = float(csvAllTargets.getData('MajDiam',pos))
+        try:
+            majDiam = float(csvAllTargets.getData('MajDiam',pos))
+        except:
+            majDiam = 0.
         name = csvAllTargets.getData('Name',pos)
         if (majDiam < 200) and ('Ritter' not in name) and ('Objet' not in name):
             print('outDir = <'+outDir+'>')
@@ -586,7 +589,7 @@ def getIDfromName(inputFileName):
 
 def createRaDecDir(directory,prior=False):
     alreadyObserved = '/Users/azuri//daten/uni/HKU/observing/already_observed_May062020.list'
-    alreadyObservedIDs = getIDfromName(alreadyObserved)
+    alreadyObservedIDs = []#getIDfromName(alreadyObserved)
     alreadyDone = []
     if prior:
         priorities = ['top','middle','low']
@@ -598,21 +601,25 @@ def createRaDecDir(directory,prior=False):
         else:
             pdir = os.path.join(directory,priority)
         command = 'ls '+pdir+'/*??:00-??:00 > '+os.path.join(pdir,'allTargetDirs.list')
+        print('command = <'+command+'>')
         os.system(command)
         with open(os.path.join(pdir,'allTargetDirs.list'),'r') as f:
             lines = f.readlines()
         lines = [line.rstrip('\n') for line in lines]
         print('lines = ',lines)
-        dirs, idPNs = getIDsFromDirList(os.path.join(pdir,'allTargetDirs.list'))
+#        dirs, idPNs = getIDsFromDirList(os.path.join(pdir,'allTargetDirs.list'))
+        dirs, idPNs = getIDsFromFindingChartsList(os.path.join(pdir,'allTargetDirs.list'))
         for iDir in range(len(dirs)):
             print('dir = ',dirs[iDir],': ids = ',idPNs[iDir])
             for id in idPNs[iDir]:
+                print('id = ',id)
+                #STOP
                 done = False
                 if id in alreadyObservedIDs:
                     alreadyDone.append(id)
                     done = True
                 else:
-                    command = 'ls '+os.path.join(dirs[iDir],id)+' > tmpDir'
+                    command = 'ls '+dirs[iDir]+'/*'+id+'* > tmpDir'
                     print('command = <'+command+'>')
                     os.system(command)
                     with open('tmpDir','r') as f:
@@ -620,7 +627,10 @@ def createRaDecDir(directory,prior=False):
                     fNames = [f.rstrip('\n') for f in fNames]
                     print('fNames = ',fNames)
                     for fName in fNames:
-                        tmp = dirs[iDir][dirs[iDir].find('harts/')+6:]+'/'+id+'/'+fName
+                        print('fName = <'+fName+'>')
+                        print('dirs[',iDir,'] = ',dirs[iDir])
+                        tmp = fName[fName.rfind('/')+1:]
+                        #tmp = dirs[iDir][dirs[iDir].find('harts/')+6:]+'/'+id+'/'+fName
                         print('tmp = '+tmp)
                         if priority == '':
                             target = tmp
@@ -631,28 +641,32 @@ def createRaDecDir(directory,prior=False):
                         tmp = tmp[tmp.find('_')+1:]
                         tmp = tmp[:tmp.find('_')]
                         print('tmp = '+tmp)
-                        tmpA = dirs[iDir][:dirs[iDir].rfind('/')]
-                        tmpA = tmpA[:tmpA.rfind('/')]
+#                        tmpA = dirs[iDir][:dirs[iDir].rfind('/')]
+#                        tmpA = tmpA[:tmpA.rfind('/')]
                         pos = allPNe.find('idPNMain',id)
                         print('found id '+id+' in allPNe at pos = ',pos)
                         ra = allPNe.getData('RAJ2000',pos[0])
                         dec = allPNe.getData('DECJ2000',pos[0])
                         print('ra = '+ra)
                         print('dec = '+dec)
-                        tmpB = fName[fName.find('_')+1:]
-                        tmpB = tmpB[tmpB.find('_')+1:]
-                        linkName = os.path.join(directory,'RAJ2000='+ra+'_DECJ2000='+dec+'_'+priority+'_HASH-ID='+tmpB)
+                        #STOP
+#                        tmpB = fName[fName.find('_')+1:]
+#                        tmpB = tmpB[tmpB.find('_')+1:]
+                        linkName = os.path.join(directory,'RAJ2000='+ra+'_DECJ2000='+dec+'_'+priority+'_HASH-ID='+id+'_'+target)
                         print('fName = '+fName+': linkName = '+linkName)
+                        if not os.path.exists(fName):
+                            print('could not create link to <'+fName+'>')
+                            STOP
                         if not os.path.lexists(linkName):
-                            os.symlink(target,linkName)
-                        print('dir = <'+dirs[iDir]+'>')
-                        print('target = ',target)
-                        command = 'cp '+os.path.join(directory,target)+' '+linkName
-                        print('command = ',command)
+                            os.symlink(fName,linkName)
+#                        print('dir = <'+dirs[iDir]+'>')
+#                        print('target = ',target,', linkName = <'+linkName+'>')
+#                        command = 'ln -s '++' '+linkName
+#                        print('command = ',command)
 #                        STOP
-                        os.system('rm '+linkName)
-                        if 'visibility' not in linkName:
-                            os.system(command)
+#                        os.system('rm '+linkName)
+#                        if 'visibility' not in linkName:
+#                            os.system(command)
         #                    STOP
     print('alreadyDone = ',len(alreadyDone),': ',alreadyDone)
 
@@ -800,7 +814,7 @@ if __name__ == '__main__':
         for idPNMain in keepIDs:
             i += 1
             print('INSERT INTO `needBetterSpectrum`(`idNBS`,`idPNMain`) VALUES ('+str(i)+','+idPNMain+');')
-    if True:
+    if False:
         makeFindingCharts()
     if False:
 #        subprocess.check_output(['ls', outDir+'/??\:*', '>', os.path.join(goodTargetsDir,'findingCharts.list')])
@@ -901,4 +915,4 @@ if __name__ == '__main__':
                             '23:00-24:00',]:
                     removeContentInDirAFromDirB(os.path.join(goodTargetsDir,'charts/'+priority+'/maximumAltitudeAt_'+time),
                                                 os.path.join(goodTargetsDir,'findingCharts/'+time))
-        #createRaDecDir(os.path.join(goodTargetsDir,'findingCharts'))
+    createRaDecDir(outDir)

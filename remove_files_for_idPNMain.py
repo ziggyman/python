@@ -2,8 +2,8 @@ import os
 import sys
 
 if __name__ == '__main__':
-    allFilesName = 'allFindingCharts.list'
-    os.system('ls */*/ > '+allFilesName)
+    allFilesName = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/allFindingCharts.list'
+    os.system('ls /Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06/*/*/*/ > '+allFilesName)
     with open(allFilesName,'r') as f:
         allFiles = f.readlines()
 
@@ -17,20 +17,32 @@ if __name__ == '__main__':
             else:
                 allFullPaths.append(os.path.join(path,line))
     for fName in allFullPaths:
+        tmp = fName[fName.rfind('/')+1:]
         if ('alt' in fName) and ('hashID' in fName):
-            idPNMain = fName[fName.rfind('_')+1:]
+            idPNMain = tmp[tmp.find('_hashID_')+8:]
+            idPNMain = idPNMain[:idPNMain.find('_')]
+            #print('fName = ',fName,': idPNMain = ',idPNMain)
+            #STOP
         elif ('moonDist' in fName):
-            tmp = fName[:fName.rfind('_')]
-            idPNMain = tmp[tmp.rfind('_')+1:]
-        elif len(fName[fName.rfind('/')+1]) < 6:
-            idPNMain = fName[fName.rfind('/')+1:]
+            tmp = tmp[tmp.find('_')+1:]
+            tmp = tmp[tmp.find('_')+1:]
+            idPNMain = tmp[:tmp.find('_')]
+            #print('fName = ',fName,': idPNMain = ',idPNMain)
+            #STOP
+#        elif len(tmp[tmp.rfind('/')+1]) < 6:
+#            idPNMain = tmp[tmp.rfind('/')+1:]
+#            print('fName = ',fName,': idPNMain = ',idPNMain)
+#            STOP
         else:
-            print('fName = ',fName)
-            STOP
+            idPNMain = '0'
+#            STOP
         if idPNMain == sys.argv[1]:
             print('removing file '+fName)
-            if os.path.exists(fName):
-                os.system('rm -r '+fName)
-            if os.path.islink(fName):
-#                print('still exists, trying again')
-                os.unlink(fName)
+            if False:
+                if os.path.exists(fName):
+                    print('removing '+fName)
+                    os.system('rm -r '+fName)
+                if os.path.islink(fName):
+    #                print('still exists, trying again')
+                    print('removing '+fName)
+                    os.unlink(fName)

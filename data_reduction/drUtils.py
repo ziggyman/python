@@ -3283,6 +3283,7 @@ def calcResponse(fNameList,
             stdName = fName[fName.rfind('FLUXSTDS_')+9:]
         stdName = stdName[:stdName.find(stdStarNameEndsBefore)].replace('_','').replace('-','')
         print('calcResponse: stdName = <'+stdName+'>')
+        #STOP
 #        wLenStd = getWavelengthArr(fName[:fName.rfind('.')]+'Ecd.fits',0)
 #        wLenStd = getWavelengthArr(fName,0)
 
@@ -3290,6 +3291,7 @@ def calcResponse(fNameList,
         print('calcResponse: indices = ',indices)
         print('calcResponse: Flux standard star '+stdName+' found in ',fluxStandardDirs[indices])
         print('calcResponse: Flux standard star '+stdName+' found in ',fluxStandardFileNames[indices])
+        #STOP
         done = False
         for prior in fluxStdDirsByPriority:
             print('calcResponse: prior = <'+prior+'>')
