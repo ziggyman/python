@@ -228,9 +228,9 @@ def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=
     newImageData = np.ndarray(imageData.shape, dtype=dtype)
     skyData = np.ndarray(imageData.shape, dtype=dtype)
     if skyLeftArea is None:
-        xSky = np.arange(skyRightArea[0],skyRightArea[1],1.0)
+        xSky = np.arange(skyRightArea[0],skyRightArea[1]+1,1.0)
     elif skyRightArea is None:
-        xSky = np.arange(skyLeftArea[0],skyLeftArea[1],1.0)
+        xSky = np.arange(skyLeftArea[0],skyLeftArea[1]+1,1.0)
     else:
         xSky = np.concatenate([np.arange(skyLeftArea[0],skyLeftArea[1],1.0),np.arange(skyRightArea[0],skyRightArea[1],1.0)])
 #    print 'subtractSky: xSky = ',xSky

@@ -20,7 +20,7 @@ import csvFree, csvData
 
 """SPUPNIC grating #7, 16.3 deg grating angle"""
 observatoryLocation = EarthLocation.of_site('SAAO')
-workPaths = ['/Users/azuri/spectra/SAAO_June2024/290524/',]
+workPaths = ['/Users/azuri/spectra/SAAO_June2024/310524/',]
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 
 overscanSection = '[1983:,:]'
@@ -213,6 +213,8 @@ def fixHeadersSAAO():
     obslog = csvFree.readCSVFile(obsLogName)
     for i in range(obslog.size()):
         obslog.setData('FRAME',i,str(1000+i+1))
+        if obslog.getData('EXPTYPE',i) == 'ARC':
+            obslog.setData('OBJECT',i,'CuAr')
     frameIDs = np.array(obslog.getData('FRAME'))
     print('frameIDs = ',frameIDs)
     csvFree.writeCSVFile(obslog,obsLogName)
@@ -500,15 +502,16 @@ if __name__ == '__main__':
                                                 dispAxis = 'row',
                                                 display = False,
                                                 areasFileOut = areasFileName if not areasFileExists else None)
-                    extractObjectAndSubtractSky(os.path.join(workPath,extractList.getData('fName',i)) if '/' not in extractList.getData('fName',i) else extractList.getData('fName',i),
-                                                os.path.join(workPath,extractList.getData('fName',i)[:-5]+'Ec.fits'),
-                                                obsArea,
-                                                skyAbove = None,
-                                                skyBelow = None,
-                                                extractionMethod = extractionMethod,
-                                                dispAxis = 'row',
-                                                display = False,
-                                                areasFileOut = areasFileName if not areasFileExists else None)
+                    if False:
+                        extractObjectAndSubtractSky(os.path.join(workPath,extractList.getData('fName',i)) if '/' not in extractList.getData('fName',i) else extractList.getData('fName',i),
+                                                    os.path.join(workPath,extractList.getData('fName',i)[:-5]+'Ec.fits'),
+                                                    obsArea,
+                                                    skyAbove = None,
+                                                    skyBelow = None,
+                                                    extractionMethod = extractionMethod,
+                                                    dispAxis = 'row',
+                                                    display = False,
+                                                    areasFileOut = areasFileName if not areasFileExists else None)
         if True:
             inputList = objectListsStartWith
             doHelioCor = True# if inputList == objectListsStartWith else False
@@ -552,8 +555,8 @@ if __name__ == '__main__':
                     if os.path.exists(tmpFileName):
                         skydFiles.append(tmpFileName)
                     tmpFileName = fileName[:fileName.rfind('.')]+'EcdF.fits'
-                    if os.path.exists(tmpFileName):
-                        ecdfFiles.append(tmpFileName)
+#                    if os.path.exists(tmpFileName):
+                    ecdfFiles.append(tmpFileName)
 #                    else:
 #                        print('did not find ',tmpFileName)
 #                        STOP
@@ -630,10 +633,11 @@ if __name__ == '__main__':
                                     stdStarNameEndsBefore='_a567',
                                     display=False)
             print('sensFuncs = ',sensFuncs)
-            if len(ecdFiles) > 0:
-                applySensFuncs(ecdFiles,
-                            ecdfFiles,
-                            sensFuncs)
+            if False:
+                if len(ecdFiles) > 0:
+                    applySensFuncs(ecdFiles,
+                                ecdfFiles,
+                                sensFuncs)
             if len(secdFiles) > 0:
                 applySensFuncs(secdFiles,
                             secdfFiles,

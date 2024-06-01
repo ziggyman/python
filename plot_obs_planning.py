@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from myUtils import hmsToDeg,dmsToDeg
 """
 ===================================================================
 Determining and plotting the altitude/azimuth of a celestial object
@@ -67,14 +68,13 @@ from localTimeToLST import ltToLST
 
 def plot_target(target,
                 observatoryLocation,
-                observatoryName,
                 utcoffset,
                 date,
                 plotAirmass=False,
                 outFileName=None):
     midnight = Time(date+' 00:00:00') - utcoffset
     observatory = observatoryLocation
-    observer = Observer(location=observatoryLocation, name='Calar Alto')#, timezone='')
+    observer = Observer(location=observatoryLocation, name='SAAO')#, timezone='')
     #obs = Observer.at_site(observatoryName)#, timezone='Eastern Standard Time')
     print('observatory = ',observatory)
     #print('obs = ',obs)
@@ -318,12 +318,17 @@ def plot_target(target,
     return maxAltTime
 
 if __name__ == '__main__':
+    from findTargets import getDistanceToMoon
     #observatoryName = "Siding Spring Observatory"
     #observatoryLocation = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
-    observatoryName = "SAAO"
     observatoryLocation = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
     utcoffset = 2*u.hour
-    date = '2019-09-05'
-    targetCoord = SkyCoord(ra=130.74928*u.deg, dec=-46.69036*u.deg, frame='icrs')
+    date = '2024-06-02'
+    midnight = Time(date+' 0:00:00')
+    RA = '08:21:56.60'
+    DEC = '-42:53:05.00'
+    targetCoord = SkyCoord(ra=hmsToDeg(RA)*u.deg, dec=dmsToDeg(DEC)*u.deg, frame='icrs')
 
-    plot_target(targetCoord, observatoryLocation, observatoryName, utcoffset, date, False)
+    plot_target(targetCoord, observatoryLocation, utcoffset, date, False)
+    moonDistance = getDistanceToMoon(observatoryLocation, SkyCoord(ra=hmsToDeg(RA)*u.deg, dec=dmsToDeg(DEC)*u.deg, frame='icrs'), midnight)
+    print('distance to Moon = ',int(moonDistance),' degrees')

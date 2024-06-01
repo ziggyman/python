@@ -3278,9 +3278,14 @@ def calcResponse(fNameList,
     for fName in fNames:
         print("calcResponse: fName.rfind('SCIENCE_') = ",fName.rfind('SCIENCE_'))
         if fName.rfind('SCIENCE_') >= 0:
+            print('found SCIENCE')
             stdName = fName[fName.rfind('SCIENCE_')+8:]
-        else:
+        elif fName.rfind('FLUXSTDS_') >= 0:
+            print('found FLUXSTDS')
             stdName = fName[fName.rfind('FLUXSTDS_')+9:]
+        else:
+            print('found FLUXSTD')
+            stdName = fName[fName.rfind('FLUXSTD_')+8:]
         stdName = stdName[:stdName.find(stdStarNameEndsBefore)].replace('_','').replace('-','')
         print('calcResponse: stdName = <'+stdName+'>')
         #STOP
@@ -3316,7 +3321,7 @@ def calcResponse(fNameList,
             print('calcResponse: priorInFluxStandardDirs = ',priorInFluxStandardDirs)
             if (not done) and (priorInFluxStandardDirs):
                 print('calcResponse: dir = '+prior)
-                img = CCDData.read(fName[:fName.rfind('.')]+'Ec.fits', unit=u.adu)
+                img = CCDData.read(fName[:fName.rfind('.')]+'-skyEc.fits', unit=u.adu)
                 #print('calcResponse: dir(img.header) = ',dir(img.header))
                 #for key in img.header.keys():
                 #    print(key,': ',img.header[key])
@@ -3338,7 +3343,7 @@ def calcResponse(fNameList,
 #                for i in range(areas.size()):
 #                    print('')
 #                    if areas.getData('fName',i) == fName:
-                extractedFileName = fName[:-5]+'Ecd.fits'
+                extractedFileName = fName[:-5]+'-skyEcd.fits'
 #                        print('calcResponse: reading extractedFileName = <'+extractedFileName+'>')
                 wapprox = getWavelengthArr(extractedFileName)
 #                        foundEx = True
