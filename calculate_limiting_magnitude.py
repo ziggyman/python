@@ -1,8 +1,8 @@
 import math
 
 def calculate_limiting_magnitude1(aperture_diameter, pixel_size, quantum_efficiency, read_noise, dark_current, gain):
-    h = 6.62607015 * 10**-34  # Planck's constant (Js)
-    c = 299792458  # Speed of light (m/s)
+    #h = 6.62607015 * 10**-34  # Planck's constant (Js)
+    #c = 299792458  # Speed of light (m/s)
     exposure_time = 100  # Exposure time in seconds
 
     # Calculate the total number of photons collected

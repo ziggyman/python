@@ -20,13 +20,13 @@ import csvFree, csvData
 
 """SPUPNIC grating #7, 16.3 deg grating angle"""
 observatoryLocation = EarthLocation.of_site('SAAO')
-workPaths = ['/Users/azuri/spectra/SAAO_June2024/310524/',]
+workPaths = ['/Users/azuri/spectra/SAAO_June2024/020624/',]
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 
 overscanSection = '[1983:,:]'
 trimSection = '[16:1981,41:100]'
 
-refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3')
+refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3_2024_otzf')#refVerticalTrace_spupnic_gr7_16_3')
 refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
 refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')#refProfApDef_spupnic_gr7_16_3_may2020')
 lineList = os.path.join(refPath,'refArc_spupnic_gr7_16_30_otzxfifEcd_lines_identified.dat')#saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
@@ -266,7 +266,7 @@ if __name__ == '__main__':
         if False:
             fixHeadersSAAO()# and rename file
 
-        if True:
+        if False:
             with open(inList,'r') as f:
                 fitsFiles = f.readlines()
             fitsFiles = [f.strip() for f in fitsFiles]
@@ -368,7 +368,7 @@ if __name__ == '__main__':
                             masterFlat,
                             norm_value = 1.,
                             fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')))
-
+        if False:
             # interpolate images to get straight dispersion and spectral features
             for inputList in ['arc', 'science','fluxstds']:
                 interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')),
@@ -426,7 +426,7 @@ if __name__ == '__main__':
                     subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
                 subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-        if False:
+        if True:
             # extract and reidentify ARCs
             # arc_otzxfif.list or arc_otzxf.list???
             arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
@@ -461,7 +461,7 @@ if __name__ == '__main__':
                     for wLen in wavelengthsOrig[i]:
                         f.write('%.8f\n' % (wLen))
             #STOP
-        if False:
+        if True:
             extractInputList = os.path.join(workPath,'to_extract.csv')
             areasFileName = os.path.join(workPath,'areas.csv')
             print('reduce: areasFileName = '+areasFileName)
@@ -480,7 +480,7 @@ if __name__ == '__main__':
                 extractList = csvFree.readCSVFile(extractInputList)
                 with open(areasFileExists,'w') as fAreas:
                     fAreas.write('fName,object,skyBelow,skyAbove,method,notes\n')
-        if False:
+        if True:
             for i in range(extractList.size()):
                 if extractList.getData('fName',i)[0] != '#':
                     skyAbove = None
@@ -583,7 +583,7 @@ if __name__ == '__main__':
                 wavelengthsOrig.append(np.asarray(wLens))
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
-        if False:
+        if True:
             print('len(skyFilesEc) = ',len(skyFilesEc))
             if len(skyFilesEc) > 0:
                 dispCor(skyFilesEc,
@@ -630,7 +630,7 @@ if __name__ == '__main__':
                                     #getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                                     #wavelengthsOrig,
                                     areas,
-                                    stdStarNameEndsBefore='_a567',
+                                    stdStarNameEndsBefore='_a',
                                     display=False)
             print('sensFuncs = ',sensFuncs)
             if False:
@@ -638,6 +638,7 @@ if __name__ == '__main__':
                     applySensFuncs(ecdFiles,
                                 ecdfFiles,
                                 sensFuncs)
+        if True:
             if len(secdFiles) > 0:
                 applySensFuncs(secdFiles,
                             secdfFiles,

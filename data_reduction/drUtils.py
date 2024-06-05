@@ -5522,3 +5522,173 @@ def fitLines(inputSpec1D,outputSpec):
     plt.title(inputSpec1D[inputSpec1D.rfind('/')+1:])
     plt.show()
 #    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+
+# trace multi aperture images
+# NOTE: traces must be horizontal
+def traceMultiApertureImage(im,
+                            peakHeight = 20000.,
+                            peakWidth = 1.8,
+                            threshold = 100.,
+                            nPeaksShould = 184,
+                            step = 10,
+                            nSum = 10,
+                            Display = True):
+    ccdIm = getImageData(im,0)
+    print('traceMultiApertureImage: ccdIm.shape = ',ccdIm.shape)
+
+    """ identify center column to use as x values for finding peaks """
+    centerCol = np.sum(ccdIm[:,int(ccdIm.shape[1]/2. - nSum/2.):int(ccdIm.shape[1]/2. + nSum/2.)],1)
+    #plt.plot(centerCol)
+    #plt.show()
+
+    """ find peaks in conter column """
+    print('traceMultiApertureImage: peakHeight = ',peakHeight,', peakWidth = ',peakWidth,', threshold = ',threshold)
+    peaks,properties = find_peaks(centerCol,
+                                  height = None,#peakHeight,
+                                  width = peakWidth,
+                                  threshold = threshold,
+                                  plateau_size = [1,3])#
+    print('traceMultiApertureImage: found ',len(peaks),' peaks')
+    print('traceMultiApertureImage: properties = ',properties)
+    if Display:
+        plt.plot(centerCol)
+        plt.scatter(peaks,centerCol[peaks])
+        plt.title('peaks')
+        plt.show()
+    if len(peaks) != nPeaksShould:
+        print('Found ',len(peaks),' instead of ',nPeaksShould)
+        STOP
+
+    """ for each peak in center column fit a Gaussian and then trace the aperture """
+    """ xPositions will be an array containing all the x values of the traces [nPeaks,nFittingPositions per trace] """
+    xPositions = np.array([])#array length = len(peaks)
+
+    """ centerPositions will be the array containing all the fitted positions for each trace [nPeaks,nFittingPositions per trace] """
+    centerPositions = np.array([])#array length = len(peaks)
+
+    """ for each peak (aperture) trace the aperture"""
+    for i in range(len(peaks)):
+
+        """ fit a Gaussian to the peak """
+        x0 = peaks[i]-int(2. * peakWidth) + 1
+        x1 = peaks[i]+int(2. * peakWidth)
+        x = np.arange(x0,x1)
+        print('traceMultiApertureImage: x = ',x)
+
+        """ set best guess for Gaussian fit """
+        p0 = [properties['prominences'][i],#amplitude
+              peaks[i],#position
+              properties['widths'][i]/2.,#sigma
+              np.min(centerCol[x0:]),#background
+             ]
+        print('traceMultiApertureImage: peak ',i,': p0 = ',p0)
+        for p in p0:
+            print('type(',p,') = ',type(p))
+
+        """ fit the peak with a Gaussian """
+        popt,pcov = curve_fit(gauss,
+                              x,
+                              centerCol[x0:x1],
+                              p0=p0,
+                              maxfev=1000)
+
+        popts = np.empty((0,4), float)
+
+        goodFits = np.array([1])
+
+        popts = np.append(popts,np.array([popt]),axis=0)
+        print('traceMultiApertureImage: peak ',i,': popts = ',popts)
+        #STOP
+        if Display:
+            plt.plot(x,
+                     centerCol[x0:x1])
+            plt.plot(x,
+                     gauss(x,popt[0],popt[1],popt[2],popt[3]))
+            plt.show()
+
+        xPositionsThisAp = np.array([int(ccdIm.shape[1]/2.)])
+        centerPositionsThisAp = np.array([popt[1]])
+        poptsThisAp = np.array
+
+        """ now trace the aperture first from center column towards x=0 then from center column towards x=ccdIm.shape[1], sort by x afterwards """
+        """ keep in mind ndarrays shape is [y(row),x(col)] """
+        xPos = int(ccdIm.shape[1]/2.)
+
+        xCentersBelow = np.arange(xPos - step, int(step/2), -step)
+        print('xCentersBelow = ',xCentersBelow.shape,': ',xCentersBelow)
+
+        xCentersAbove = np.arange(xPos + step, ccdIm.shape[1] - int(step/2), step)
+        print('xCentersAbove = ',xCentersAbove.shape,': ',xCentersAbove)
+
+        doStop = False
+        for xCenters in [xCentersBelow,xCentersAbove]:
+            for xCen in xCenters:
+                xStart = xCen - int(nSum / 2.)
+                xEnd = xCen + int(nSum / 2.)
+                print('centerPositionsThisAp.shape = ',centerPositionsThisAp.shape)
+                yStart = int(centerPositionsThisAp[centerPositionsThisAp.shape[0]-1] - int(2. * peakWidth) + 1)
+                yEnd = int(centerPositionsThisAp[centerPositionsThisAp.shape[0]-1] + int(2. * peakWidth))
+                print('xStart = ',xStart,', xEnd = ',xEnd,', yStart = ',yStart,', yEnd = ',yEnd)
+                ccdArea = ccdIm[yStart:yEnd,xStart:xEnd]
+                print('ccdArea = ',ccdArea)
+                y = np.sum(ccdArea,1)
+                print('xCen = ',xCen,': y = ',len(y),': ',y)
+
+                """ set best guess for Gaussian fit """
+                p0 = popts[popts.shape[0]-1]
+                print('p0 = ',p0)
+                print('traceMultiApertureImage: xCen ',xCen,': p0 = ',p0)
+                #for p in p0:
+                #    print('type(',p,') = ',type(p))
+
+                """ fit the peak with a Gaussian """
+                try:
+                    popt,pcov = curve_fit(gauss,
+                                        np.arange(yStart,yEnd,1),
+                                        y,
+                                        p0=p0,
+                                        maxfev=1000)
+                    print('traceMultiApertureImage: xCen ',xCen,': popt = ',popt)
+                    print('xPositionsThisAp = ',xPositionsThisAp.shape[0],': ',xPositionsThisAp)
+                    xPositionsThisAp = np.append(xPositionsThisAp,xCen)
+                    print('xPositionsThisAp = ',xPositionsThisAp.shape[0],': ',xPositionsThisAp)
+                    if (np.abs(popt[1] - p0[1]) > 1.):
+                        print('ERROR: fitted center position (=',popt[1],') outside range = [',yStart,',',yEnd,']')
+                        centerPositionsThisAp = np.append(centerPositionsThisAp,centerPositionsThisAp[centerPositionsThisAp.shape[0]-1])
+                        popts = np.append(popts,np.array([popts[popts.shape[0]-1]]),axis=0)
+                        goodFits = np.append(goodFits,0)
+                    else:
+                        centerPositionsThisAp = np.append(centerPositionsThisAp,popt[1])
+                        popts = np.append(popts,np.array([popt]),axis=0)
+                        goodFits = np.append(goodFits,1)
+                except:
+                    xPositionsThisAp = np.append(xPositionsThisAp,xCen)
+                    centerPositionsThisAp = np.append(centerPositionsThisAp,centerPositionsThisAp[centerPositionsThisAp.shape[0]-1])
+                    popts = np.append(popts,np.array([popts[popts.shape[0]-1]]),axis=0)
+                    goodFits = np.append(goodFits,0)
+                print('xPositionsThisAp = ',xPositionsThisAp.shape,': ',xPositionsThisAp)
+                print('centerPositionsThisAp = ',centerPositionsThisAp.shape,': ',centerPositionsThisAp)
+                #if doStop:
+                #    STOP
+            sortedIndices = np.argsort(xPositionsThisAp)
+            xPositionsThisAp = xPositionsThisAp[sortedIndices]
+            print('xPositionsThisAp = ',xPositionsThisAp.shape,': ',xPositionsThisAp)
+
+            centerPositionsThisAp = centerPositionsThisAp[sortedIndices]
+            print('centerPositionsThisAp = ',centerPositionsThisAp.shape,': ',centerPositionsThisAp)
+
+            popts = popts[sortedIndices]
+            goodFits = goodFits[sortedIndices]
+            doStop = True
+        idx = np.where(goodFits == 1)[0]
+        xPositions = np.append(xPositions,xPositionsThisAp[goodFits])
+        centerPositions = np.append(centerPositions,centerPositionsThisAp[goodFits])
+        print('goodFits = ',goodFits)
+        print('idx = ',idx)
+        print('xPositionsThisAp[idx] = ',xPositionsThisAp[idx])
+        print('centerPositionsThisAp[idx] = ',centerPositionsThisAp[idx])
+        plt.plot(xPositionsThisAp[idx],centerPositionsThisAp[idx])
+        plt.show()
+        #STOP
+    print('traceMultiApertureImage: xPositions = ',xPositions.shape,': ',xPositions)
+    print('traceMultiApertureImage: centerPositions = ',centerPositions.shape,': ',centerPositions)
