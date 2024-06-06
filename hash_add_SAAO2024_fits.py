@@ -4,10 +4,10 @@ import csvFree,csvData
 from drUtils import getHeaderValue
 from myUtils import hmsToDeg,dmsToDeg
 
-fitsFiles = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_FitsFiles_010624.csv')
+fitsFiles = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_FitsFiles_050624.csv')
 CNames = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_tbCNames_010624.csv')
 
-fitsDir = '/Users/azuri/spectra/SAAO_June2024/hash/'
+fitsDir = '/Users/azuri/spectra/SAAO_June2024/020624/hash/'
 fileListName = os.path.join(fitsDir,'files.list')
 
 sqlFile = os.path.join(fitsDir,'addDataToFitsFiles.sql')
@@ -34,6 +34,15 @@ with open(sqlFile,'w') as f:
             objName = 'Mz3'
         elif objName == 'YP0821-4253-right':
             objName = 'YP0821-4253'
+        elif objName == 'YP0821-4253-East':
+            objName = 'YP0821-4253b'
+        elif objName == 'YP0821-4253-South':
+            objName = 'YP0821-4253b'
+        elif objName == 'YP0821-4253-Center':
+            objName = 'YP0821-4253b'
+        elif objName == 'YP0821-4253-West':
+            objName = 'YP0821-4253b'
+
         idx = np.where(objNames == objName.lower())[0]
         print('objName = ',objName,': idx = ',idx)
         idPNMain = CNames.getData('idPNMain',idx)

@@ -86,5 +86,12 @@ if False:
 
 #trace flats
 im = getListOfFiles(os.path.join(workPath,'cont.list'))[1].replace('_ot.fits','_otz.fits')
+outFileName = os.path.join(workPath,'database')
+if not os.path.exists(outFileName):
+    command = 'mkdir '+outFileName
+    os.system(command)
+outFileName = os.path.join(outFileName,'ap'+im[im.rfind('/')+1:].replace('.fits',''))
 traceMultiApertureImage(im,
-                        )
+                        outFileName,
+                        redoApertureNumber=70,
+                        startAtApertureNumber=None)

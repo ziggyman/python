@@ -3602,7 +3602,8 @@ def continuum(spectrumFileNameIn,
             type='difference',
             adjustSigLevels=False,
             useMean=False,
-            display = False):
+            display = False,
+            returnCoeffs = False):
     if isinstance(spectrumFileNameIn,str):
         print('continuum: reading file '+spectrumFileNameIn)
         specOrig = getImageData(spectrumFileNameIn,0)
@@ -3640,7 +3641,7 @@ def continuum(spectrumFileNameIn,
                         spectrum.append(specFit[i])
     else:
         wave = wLen
-        spectrum = spec
+        spectrum = specOrig
 
 #    if wLen is not None:
 #        range = wLen
@@ -3682,12 +3683,12 @@ def continuum(spectrumFileNameIn,
         plt.legend()
         xRange = [wLen[0],wLen[len(wLen)-1]]
         yRange = [np.min([np.min(specOrig), np.min(specDone)]),np.max([np.max(specOrig), np.max(specDone)])]
-        if spectrumFileNameOut is not None:
+        if (spectrumFileNameOut is not None) and (isinstance(spectrumFileNameOut,str)):
             plt.text(xRange[1],yRange[0],spectrumFileNameOut[spectrumFileNameOut.rfind('/')+1:spectrumFileNameOut.rfind('.')],rotation='vertical')
         markEmissionLines(xRange, yRange)
         plt.show()
 
-    if spectrumFileNameOut is not None:
+    if (spectrumFileNameOut is not None) and isinstance(spectrumFileNameOut,str):
         writeFits1D(specDone,
                     spectrumFileNameOut,
                     wavelength=None,
@@ -3696,8 +3697,12 @@ def continuum(spectrumFileNameIn,
                     CRPIX1=getHeaderValue(spectrumFileNameIn,'CRPIX1'),
                     CDELT1=getHeaderValue(spectrumFileNameIn,'CDELT1'),
                 )
+    elif spectrumFileNameOut is not None:
+        spectrumFileNameOut = specDone
     for i in range(len(specOrig)-1):
         print('specOrig[',i,'] = ',specOrig[i],', specDone[',i,'] = ',specDone[i])
+    if returnCoeffs:
+        return coeffs
     return specDone
 
 def merge(fileNameA,
@@ -5526,32 +5531,80 @@ def fitLines(inputSpec1D,outputSpec):
 # trace multi aperture images
 # NOTE: traces must be horizontal
 def traceMultiApertureImage(im,
+                            outFileName,
+                            redoApertureNumber = None,
+                            startAtApertureNumber = None,
                             peakHeight = 20000.,
                             peakWidth = 1.8,
                             threshold = 100.,
                             nPeaksShould = 184,
                             step = 10,
                             nSum = 10,
+                            nLost = 3,
+                            fittingFunction = np.polynomial.legendre.legfit,
+                            evalFunction = np.polynomial.legendre.legval,
                             Display = True):
     ccdIm = getImageData(im,0)
     print('traceMultiApertureImage: ccdIm.shape = ',ccdIm.shape)
 
     """ identify center column to use as x values for finding peaks """
     centerCol = np.sum(ccdIm[:,int(ccdIm.shape[1]/2. - nSum/2.):int(ccdIm.shape[1]/2. + nSum/2.)],1)
-    #plt.plot(centerCol)
-    #plt.show()
 
-    """ find peaks in conter column """
-    print('traceMultiApertureImage: peakHeight = ',peakHeight,', peakWidth = ',peakWidth,', threshold = ',threshold)
-    peaks,properties = find_peaks(centerCol,
-                                  height = None,#peakHeight,
-                                  width = peakWidth,
-                                  threshold = threshold,
-                                  plateau_size = [1,3])#
-    print('traceMultiApertureImage: found ',len(peaks),' peaks')
-    print('traceMultiApertureImage: properties = ',properties)
+    coeffs = [[0]]
+    properties = None
+    if (redoApertureNumber is None) and (startAtApertureNumber is None):
+        """ find peaks in conter column """
+        print('traceMultiApertureImage: peakHeight = ',peakHeight,', peakWidth = ',peakWidth,', threshold = ',threshold)
+        peaks,properties = find_peaks(centerCol,
+                                    height = None,#peakHeight,
+                                    width = peakWidth,
+                                    threshold = threshold,
+                                    plateau_size = [1,3])#
+        print('traceMultiApertureImage: found ',len(peaks),' peaks')
+        print('traceMultiApertureImage: properties = ',properties)
+
+        """ fitted trace positions coeffs """
+        coeffs = [[0]] * len(peaks)
+    else:
+        with open(outFileName,'r') as f:
+            lines = f.readlines()
+        for line in lines:
+            if line.startswith('peaks center column'):
+                line = line[line.find(": ")+2:]
+                iCenterCol = int(line)
+                print('iCenterCol set to ',iCenterCol)
+            elif line.startswith('peaks:'):
+                peaks = [int(float(peak)) for peak in line.strip()[line.find(' ')+1:].split(',')]
+                print('found ',len(peaks),' in aperture definition file')
+                print('peaks = ',peaks)
+                if len(peaks) != nPeaksShould:
+                    print('did not find the correct number of peaks in aperture definition file')
+                """ fitted trace positions coeffs """
+                coeffs = [None] * len(peaks)
+            elif line.startswith('aperture '):
+                iAp = int(line[line.find(' ')+1:line.find(':')])
+                line = line[line.find(':')+2:].strip()
+                if line[:line.find(':')] == 'legval':
+                    evalFunction = np.polynomial.legendre.legval
+                else:
+                    print('could not identify evalFunction <'+line[:line.find(' ')-1]+'>')
+                print('line = <'+line+'>')
+                print('line.find( ) = ',line.find(' '))
+                if line.find(' ') == -1:
+                    coeffs[iAp] = [0.]
+                else:
+                    line = line[line.find(' ')+1:]
+                    print('line = ',line)
+                    lineSplit = line.split(',')
+                    print('lineSplit = ',lineSplit)
+                    coeffsThisAperture = [float(c) for c in lineSplit]
+                    print('coeffsThisAperture = ',coeffsThisAperture)
+                    coeffs[iAp] = coeffsThisAperture
+        print('read coeffs = ',len(coeffs),': ',coeffs)
+        #STOP
     if Display:
         plt.plot(centerCol)
+
         plt.scatter(peaks,centerCol[peaks])
         plt.title('peaks')
         plt.show()
@@ -5567,7 +5620,12 @@ def traceMultiApertureImage(im,
     centerPositions = np.array([])#array length = len(peaks)
 
     """ for each peak (aperture) trace the aperture"""
-    for i in range(len(peaks)):
+    apRange = range(5)#len(peaks))
+    if not startAtApertureNumber is None:
+        apRange = np.arange(startAtApertureNumber,len(peaks),1)
+    if not redoApertureNumber is None:
+        apRange = [redoApertureNumber]
+    for i in apRange:
 
         """ fit a Gaussian to the peak """
         x0 = peaks[i]-int(2. * peakWidth) + 1
@@ -5576,9 +5634,9 @@ def traceMultiApertureImage(im,
         print('traceMultiApertureImage: x = ',x)
 
         """ set best guess for Gaussian fit """
-        p0 = [properties['prominences'][i],#amplitude
+        p0 = [properties['prominences'][i] if not properties is None else np.max(centerCol[x0:x1]),#amplitude
               peaks[i],#position
-              properties['widths'][i]/2.,#sigma
+              properties['widths'][i]/2. if not properties is None else peakWidth,#sigma
               np.min(centerCol[x0:]),#background
              ]
         print('traceMultiApertureImage: peak ',i,': p0 = ',p0)
@@ -5622,6 +5680,7 @@ def traceMultiApertureImage(im,
 
         doStop = False
         for xCenters in [xCentersBelow,xCentersAbove]:
+            iLost = 0
             for xCen in xCenters:
                 xStart = xCen - int(nSum / 2.)
                 xEnd = xCen + int(nSum / 2.)
@@ -5650,18 +5709,32 @@ def traceMultiApertureImage(im,
                                         maxfev=1000)
                     print('traceMultiApertureImage: xCen ',xCen,': popt = ',popt)
                     print('xPositionsThisAp = ',xPositionsThisAp.shape[0],': ',xPositionsThisAp)
-                    xPositionsThisAp = np.append(xPositionsThisAp,xCen)
-                    print('xPositionsThisAp = ',xPositionsThisAp.shape[0],': ',xPositionsThisAp)
-                    if (np.abs(popt[1] - p0[1]) > 1.):
+                    print('centerPositionsThisAp.shape[0] = ',centerPositionsThisAp.shape[0])
+                    print('np.abs(popt[1](=',popt[1],') - centerPositionsThisAp[centerPositionsThisAp.shape[0]-1](=',centerPositionsThisAp[centerPositionsThisAp.shape[0]-1],')) = ',np.abs(popt[1] - centerPositionsThisAp[centerPositionsThisAp.shape[0]-1]))
+                    print('np.abs(centerPositionsThisAp[centerPositionsThisAp.shape[0]-1](=',centerPositionsThisAp[centerPositionsThisAp.shape[0]-1],') - centerPositionsThisAp[centerPositionsThisAp.shape[0]-2](=',centerPositionsThisAp[centerPositionsThisAp.shape[0]-2],')) = ',np.abs(centerPositionsThisAp[centerPositionsThisAp.shape[0]-1] - centerPositionsThisAp[centerPositionsThisAp.shape[0]-2]))
+
+                    if ((centerPositionsThisAp.shape[0] > 1) and
+                        (np.abs(popt[1] - centerPositionsThisAp[centerPositionsThisAp.shape[0]-1]) > (2. * (np.abs(centerPositionsThisAp[centerPositionsThisAp.shape[0]-1] - centerPositionsThisAp[centerPositionsThisAp.shape[0]-2]) + 0.2)))
+                        ) or ((centerPositionsThisAp.shape[0] < 2) and
+                              (np.abs(popt[1] - centerPositionsThisAp[centerPositionsThisAp.shape[0]-1]) > 0.3)):
                         print('ERROR: fitted center position (=',popt[1],') outside range = [',yStart,',',yEnd,']')
+                        iLost += 1
+                        if iLost >= nLost:
+                            break
+                        xPositionsThisAp = np.append(xPositionsThisAp,xCen)
                         centerPositionsThisAp = np.append(centerPositionsThisAp,centerPositionsThisAp[centerPositionsThisAp.shape[0]-1])
                         popts = np.append(popts,np.array([popts[popts.shape[0]-1]]),axis=0)
                         goodFits = np.append(goodFits,0)
                     else:
+                        xPositionsThisAp = np.append(xPositionsThisAp,xCen)
                         centerPositionsThisAp = np.append(centerPositionsThisAp,popt[1])
                         popts = np.append(popts,np.array([popt]),axis=0)
                         goodFits = np.append(goodFits,1)
+                        iLost = 0
                 except:
+                    iLost += 1
+                    if iLost >= nLost:
+                        break
                     xPositionsThisAp = np.append(xPositionsThisAp,xCen)
                     centerPositionsThisAp = np.append(centerPositionsThisAp,centerPositionsThisAp[centerPositionsThisAp.shape[0]-1])
                     popts = np.append(popts,np.array([popts[popts.shape[0]-1]]),axis=0)
@@ -5670,6 +5743,7 @@ def traceMultiApertureImage(im,
                 print('centerPositionsThisAp = ',centerPositionsThisAp.shape,': ',centerPositionsThisAp)
                 #if doStop:
                 #    STOP
+                print('iLost = ',iLost)
             sortedIndices = np.argsort(xPositionsThisAp)
             xPositionsThisAp = xPositionsThisAp[sortedIndices]
             print('xPositionsThisAp = ',xPositionsThisAp.shape,': ',xPositionsThisAp)
@@ -5687,8 +5761,217 @@ def traceMultiApertureImage(im,
         print('idx = ',idx)
         print('xPositionsThisAp[idx] = ',xPositionsThisAp[idx])
         print('centerPositionsThisAp[idx] = ',centerPositionsThisAp[idx])
-        plt.plot(xPositionsThisAp[idx],centerPositionsThisAp[idx])
-        plt.show()
-        #STOP
+        #plt.plot(xPositionsThisAp[idx],centerPositionsThisAp[idx])
+        #plt.show()
+
+        traceCoeffs = tracePlot(xPositionsThisAp[idx],
+                                centerPositionsThisAp[idx],
+                                fittingFunction = fittingFunction,
+                                evalFunction = evalFunction,
+                                )
+        print('traceCoeffs = ',traceCoeffs)
+        coeffs[i] = traceCoeffs
     print('traceMultiApertureImage: xPositions = ',xPositions.shape,': ',xPositions)
     print('traceMultiApertureImage: centerPositions = ',centerPositions.shape,': ',centerPositions)
+    print('coeffs = ',coeffs)
+    with open(outFileName,'w') as f:
+        f.write('peaks center column: %d\n' % (int(ccdIm.shape[1]/2)))
+        f.write('peaks: %d' % peaks[0])
+        if len(peaks) > 0:
+            for peak in peaks[1:]:
+                f.write(',%d' % (peak))
+        f.write('\n')
+        for i in range(len(coeffs)):
+            f.write('aperture '+str(i)+': ')
+            f.write(evalFunction.__name__)
+            f.write(': ')
+            if len(coeffs[i]) > 0:
+                f.write('%.10f' % (coeffs[i][0]))
+            if len(coeffs[i]) > 1:
+                for cf in coeffs[i][1:]:
+                    f.write(',')
+                    f.write('%.10f' % (cf))
+            f.write('\n')
+
+def tracePlot(tracePositionsX,
+              tracePositionsY,
+              fittingFunction = np.polynomial.legendre.legfit,
+              evalFunction = np.polynomial.legendre.legval,
+              ):
+    from matplotlib.widgets import AxesWidget, RadioButtons, Slider, TextBox, Button
+    import matplotlib.colors as colors
+
+    global cleanType
+    global traceX
+    global traceY
+    global xRange
+    global fitting_order
+    global fitting_high_reject
+    global fitting_low_reject
+    global fitting_nIterReject
+    global traceX_bak
+    global traceY_bak
+    global coeffsOut
+    coeffsOut = np.array([])
+    traceX = tracePositionsX
+    traceY = tracePositionsY
+    traceX_bak = None
+    traceY_bak = None
+
+    def submit_fitting_order(text):
+        global fitting_order
+        fitting_order = int(text)
+
+    def submit_fitting_low_reject(text):
+        global fitting_low_reject
+        fitting_low_reject = float(text)
+
+    def submit_fitting_high_reject(text):
+        global fitting_high_reject
+        fitting_high_reject = float(text)
+
+    def submit_fitting_nIterReject(text):
+        global fitting_nIterReject
+        fitting_nIterReject = int(text)
+
+    def submit_fitting_nIterFit(text):
+        global fitting_nIterFit
+        fitting_nIterFit = int(text)
+
+    def fit_trace(event):
+        global traceX
+        global traceY
+        global coeffsOut
+#        writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+        order = fitting_order
+        nIterReject = fitting_nIterReject
+        nIterFit = nIterReject
+        lowReject = fitting_low_reject
+        highReject = fitting_high_reject
+        useMean = True
+        coeffsOut = continuum(traceY,
+                            traceY,
+                            fittingFunction,
+                            evalFunction,
+                            order,
+                            nIterReject,
+                            nIterFit,
+                            lowReject,
+                            highReject,
+                            wLen=traceX,
+                            type='fit',
+                            adjustSigLevels=False,
+                            useMean=useMean,
+                            display=False,
+                            returnCoeffs=True)
+        #traceY = getImageData(outputSpec,0)
+        axMain.plot(traceX,traceY)
+        fig.canvas.draw_idle()
+
+    def undo(event):
+        global traceY_bak
+        global traceX_bak
+        global traceX
+        global traceY
+        if traceY_bak is not None:
+            traceY = traceY_bak.copy()
+        if traceX_bak is not None:
+            traceX = traceX_bak.copy()
+        plt.sca(axMain)
+        plt.cla()
+        axMain.plot(traceX,traceY)
+        fig.canvas.draw_idle()
+
+
+    fig = plt.figure(figsize=(15,9))
+    axMainRect = [0.04,0.26,0.95,0.7]
+    axMain = plt.axes(axMainRect)
+    axTrimClean = plt.axes([0.01,0.01,0.08,0.15])
+    do_fitting_axbox = plt.axes([0.01,0.155,0.1,0.05])
+    undo_axbox = plt.axes([0.9,0.11,0.1,0.05])
+    fitting_nIterReject_axbox = plt.axes([0.3,0.1,0.1,0.05])
+    fitting_order_axbox = plt.axes([0.44,0.11,0.1,0.05])
+    fitting_high_reject_axbox = plt.axes([0.6,0.11,0.1,0.05])
+    fitting_low_reject_axbox = plt.axes([0.76,0.11,0.1,0.05])
+
+    do_fitting_box = Button(do_fitting_axbox, 'fit trace')
+    do_fitting_box.on_clicked(fit_trace)
+
+    undo_box = Button(undo_axbox, "undo")
+    undo_box.on_clicked(undo)
+
+    fitting_nIterReject = 3
+    fitting_nIterReject_box = TextBox(fitting_nIterReject_axbox, 'nIterReject', initial=fitting_nIterReject)
+    fitting_nIterReject_box.on_submit(submit_fitting_nIterReject)
+
+    fitting_order = 9
+    fitting_order_box = TextBox(fitting_order_axbox, 'order', initial=fitting_order)
+    fitting_order_box.on_submit(submit_fitting_order)
+
+    fitting_low_reject = 3.
+    fitting_low_reject_box = TextBox(fitting_low_reject_axbox, 'low reject', initial=fitting_low_reject)
+    fitting_low_reject_box.on_submit(submit_fitting_low_reject)
+
+    fitting_high_reject = 3.
+    fitting_high_reject_box = TextBox(fitting_high_reject_axbox, 'high reject', initial=fitting_high_reject)
+    fitting_high_reject_box.on_submit(submit_fitting_high_reject)
+
+    traceY_bak = np.array(traceY).copy()
+    traceX_bak = np.array(traceX).copy()
+    xRange = []
+    cleanType = 'trim'
+
+    radio = RadioButtons(axTrimClean, ('trim', 'clean', 'add'), active=0)
+    def setCleanType(label):
+        global cleanType
+        cleanType = label
+
+    radio.on_clicked(setCleanType)
+
+    def onClick(event):
+        global traceX
+        global traceY
+        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+            ('double' if event.dblclick else 'single', event.button,
+            event.x, event.y, event.xdata, event.ydata))
+        if event.inaxes is axMain:
+            print('fig.canvas.toolbar.mode = ',fig.canvas.toolbar.mode)
+            if fig.canvas.toolbar.mode == '':
+
+                if cleanType == 'trim':
+                    if event.xdata < traceX[int(len(traceX)/2.)]:
+                        idx = np.where(traceX > event.xdata)
+                    else:
+                        idx = np.where(traceX < event.xdata)
+                    traceX = traceX[idx]
+                    traceY = traceY[idx]
+                    axMain.plot(traceX,traceY)
+                    fig.canvas.draw_idle()
+                elif cleanType == 'clean':
+                    print('event.xdata = ',event.xdata)
+                    print('traceX = ',traceX)
+                    diff = np.abs(np.array(traceX) - event.xdata)
+                    print('diff = ',diff)
+                    print('np.min(diff) = ',np.min(diff))
+                    idx = np.where(diff == np.min(diff))[0]
+                    print('idx = ',idx)
+                    traceX = np.delete(traceX,idx)
+                    traceY = np.delete(traceY,idx)
+                    axMain.plot(traceX,traceY)
+                    fig.canvas.draw_idle()
+                elif cleanType == 'add':
+                    traceX = np.append(traceX,event.xdata)
+                    traceY = np.append(traceY,event.ydata)
+                    idx = np.argsort(traceX)
+                    traceX = traceX[idx]
+                    traceY = traceY[idx]
+                    axMain.plot(traceX,traceY)
+                    fig.canvas.draw_idle()
+                else:
+                    print('ERROR: cleanType <'+cleanType+'> not supported')
+
+    cid = fig.canvas.mpl_connect('button_press_event', onClick)
+
+    axMain.plot(traceX,traceY)
+    plt.show()
+    return coeffsOut
