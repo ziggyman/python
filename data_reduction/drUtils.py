@@ -3597,7 +3597,7 @@ def continuum(spectrumFileNameIn,
             lowReject,
             highReject,
             wLen = None,
-            xLim=None,
+            xLim=None,#limits are both included
             regions=None,
             type='difference',
             adjustSigLevels=False,
@@ -3631,8 +3631,8 @@ def continuum(spectrumFileNameIn,
     if regions is not None:
         wave = []
         spectrum = []
-        print('cotinuum: wLenFit = ',wLenFit)
-        print('cotinuum: wLenFit.shape = ',wLenFit.shape)
+        #print('cotinuum: wLenFit = ',wLenFit)
+        #print('cotinuum: wLenFit.shape = ',wLenFit.shape)
         for i in range(wLenFit.shape[0]):
             for region in regions:
                 if (wLenFit[i] >= xLim[0]) & (wLenFit[i] <= xLim[1]):
@@ -3645,9 +3645,20 @@ def continuum(spectrumFileNameIn,
 
 #    if wLen is not None:
 #        range = wLen
+    #print('continuum: wave = ',len(wave),': ',wave)
+    #print('continuum: spectrum = ',len(spectrum),': ',spectrum)
 
-    xNorm = normalizeX(wave)
-    print('continuum: xNorm = ',xNorm)
+    xToNorm = [xLim[0]]
+    for wav in wave:
+        xToNorm.append(wav)
+    xToNorm.append(xLim[1])
+    #print('continuum: xToNorm = ',len(xToNorm),': ',xToNorm)
+    xNorm = normalizeX(np.array(xToNorm))
+    xNorm = xNorm[1:]
+    xNorm = xNorm[:len(xNorm)-1]
+    #print('continuum: xNorm = ',len(xNorm),': ',xNorm)
+    #print('continuum: spectrum = ',len(spectrum),': ',spectrum)
+    #STOP
     #sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, lowReject, highReject, adjustSigLevels=False, useMean=False, display=False)
     coeffs, resultFit = sfit(np.asarray(xNorm),
                              np.asarray(spectrum),
@@ -3679,6 +3690,9 @@ def continuum(spectrumFileNameIn,
         print('len(wLen) = ',len(wLen),', len(specOrig) = ',len(specOrig))
         plt.plot(wLen, specOrig, label='original')
         print('len(wLen) = ',len(wLen),', len(specDone) = ',len(specDone))
+        x = np.arange(xLim[0],xLim[1]+1,1)
+        fit = evalFunction(normalizeX(x),coeffs)
+        plt.plot(x,fit,label='fit')
         plt.plot(wLen, specDone, label = 'continuum corrected')
         plt.legend()
         xRange = [wLen[0],wLen[len(wLen)-1]]
@@ -5566,42 +5580,10 @@ def traceMultiApertureImage(im,
         """ fitted trace positions coeffs """
         coeffs = [[0]] * len(peaks)
     else:
-        with open(outFileName,'r') as f:
-            lines = f.readlines()
-        for line in lines:
-            if line.startswith('peaks center column'):
-                line = line[line.find(": ")+2:]
-                iCenterCol = int(line)
-                print('iCenterCol set to ',iCenterCol)
-            elif line.startswith('peaks:'):
-                peaks = [int(float(peak)) for peak in line.strip()[line.find(' ')+1:].split(',')]
-                print('found ',len(peaks),' in aperture definition file')
-                print('peaks = ',peaks)
-                if len(peaks) != nPeaksShould:
-                    print('did not find the correct number of peaks in aperture definition file')
-                """ fitted trace positions coeffs """
-                coeffs = [None] * len(peaks)
-            elif line.startswith('aperture '):
-                iAp = int(line[line.find(' ')+1:line.find(':')])
-                line = line[line.find(':')+2:].strip()
-                if line[:line.find(':')] == 'legval':
-                    evalFunction = np.polynomial.legendre.legval
-                else:
-                    print('could not identify evalFunction <'+line[:line.find(' ')-1]+'>')
-                print('line = <'+line+'>')
-                print('line.find( ) = ',line.find(' '))
-                if line.find(' ') == -1:
-                    coeffs[iAp] = [0.]
-                else:
-                    line = line[line.find(' ')+1:]
-                    print('line = ',line)
-                    lineSplit = line.split(',')
-                    print('lineSplit = ',lineSplit)
-                    coeffsThisAperture = [float(c) for c in lineSplit]
-                    print('coeffsThisAperture = ',coeffsThisAperture)
-                    coeffs[iAp] = coeffsThisAperture
-        print('read coeffs = ',len(coeffs),': ',coeffs)
-        #STOP
+        nColumns,peaks,coeffs,evalFunction = readApertureDefinitionFile(outFileName)
+        if len(peaks) != nPeaksShould:
+            print('did not find the correct number of peaks in aperture definition file')
+            STOP
     if Display:
         plt.plot(centerCol)
 
@@ -5620,7 +5602,7 @@ def traceMultiApertureImage(im,
     centerPositions = np.array([])#array length = len(peaks)
 
     """ for each peak (aperture) trace the aperture"""
-    apRange = range(5)#len(peaks))
+    apRange = range(len(peaks))
     if not startAtApertureNumber is None:
         apRange = np.arange(startAtApertureNumber,len(peaks),1)
     if not redoApertureNumber is None:
@@ -5766,6 +5748,7 @@ def traceMultiApertureImage(im,
 
         traceCoeffs = tracePlot(xPositionsThisAp[idx],
                                 centerPositionsThisAp[idx],
+                                xLim = [0,ccdIm.shape[1]-1],
                                 fittingFunction = fittingFunction,
                                 evalFunction = evalFunction,
                                 )
@@ -5775,6 +5758,7 @@ def traceMultiApertureImage(im,
     print('traceMultiApertureImage: centerPositions = ',centerPositions.shape,': ',centerPositions)
     print('coeffs = ',coeffs)
     with open(outFileName,'w') as f:
+        f.write('nColumns: %d\n' % (ccdIm.shape[1]))
         f.write('peaks center column: %d\n' % (int(ccdIm.shape[1]/2)))
         f.write('peaks: %d' % peaks[0])
         if len(peaks) > 0:
@@ -5793,10 +5777,16 @@ def traceMultiApertureImage(im,
                     f.write('%.10f' % (cf))
             f.write('\n')
 
+"""NOTE: center of pixel is set to [0,0]"""
 def tracePlot(tracePositionsX,
               tracePositionsY,
+              xLim,
               fittingFunction = np.polynomial.legendre.legfit,
               evalFunction = np.polynomial.legendre.legval,
+              order = 9,
+              nReject = 1,
+              lowReject = 3.,
+              highReject = 3.,
               ):
     from matplotlib.widgets import AxesWidget, RadioButtons, Slider, TextBox, Button
     import matplotlib.colors as colors
@@ -5817,6 +5807,10 @@ def tracePlot(tracePositionsX,
     traceY = tracePositionsY
     traceX_bak = None
     traceY_bak = None
+    fitting_order = order
+    fitting_low_reject = lowReject
+    fitting_high_reject = highReject
+    fitting_nIterReject = nReject
 
     def submit_fitting_order(text):
         global fitting_order
@@ -5859,13 +5853,17 @@ def tracePlot(tracePositionsX,
                             lowReject,
                             highReject,
                             wLen=traceX,
+                            xLim = xLim,
                             type='fit',
                             adjustSigLevels=False,
                             useMean=useMean,
                             display=False,
                             returnCoeffs=True)
         #traceY = getImageData(outputSpec,0)
-        axMain.plot(traceX,traceY)
+        xPlot = np.arange(xLim[0],xLim[1]+1,1)
+        yPlot = evalFunction(normalizeX(xPlot),coeffsOut)
+        axMain.plot(xPlot,yPlot)
+#        axMain.plot(traceX,traceY)
         fig.canvas.draw_idle()
 
     def undo(event):
@@ -5900,19 +5898,19 @@ def tracePlot(tracePositionsX,
     undo_box = Button(undo_axbox, "undo")
     undo_box.on_clicked(undo)
 
-    fitting_nIterReject = 3
+    #fitting_nIterReject = n
     fitting_nIterReject_box = TextBox(fitting_nIterReject_axbox, 'nIterReject', initial=fitting_nIterReject)
     fitting_nIterReject_box.on_submit(submit_fitting_nIterReject)
 
-    fitting_order = 9
+    #fitting_order = order
     fitting_order_box = TextBox(fitting_order_axbox, 'order', initial=fitting_order)
     fitting_order_box.on_submit(submit_fitting_order)
 
-    fitting_low_reject = 3.
+    #fitting_low_reject = 3.
     fitting_low_reject_box = TextBox(fitting_low_reject_axbox, 'low reject', initial=fitting_low_reject)
     fitting_low_reject_box.on_submit(submit_fitting_low_reject)
 
-    fitting_high_reject = 3.
+    #fitting_high_reject = 3.
     fitting_high_reject_box = TextBox(fitting_high_reject_axbox, 'high reject', initial=fitting_high_reject)
     fitting_high_reject_box.on_submit(submit_fitting_high_reject)
 
@@ -5975,3 +5973,139 @@ def tracePlot(tracePositionsX,
     axMain.plot(traceX,traceY)
     plt.show()
     return coeffsOut
+
+def readApertureDefinitionFile(fName):
+    with open(fName,'r') as f:
+        lines = f.readlines()
+    for line in lines:
+        if line.startswith('nColumns: '):
+            nColumns = int(line[line.strip().find(':')+2:])
+        if line.startswith('peaks center column'):
+            line = line[line.find(": ")+2:]
+            iCenterCol = int(line)
+            print('iCenterCol set to ',iCenterCol)
+        elif line.startswith('peaks:'):
+            peaks = [int(float(peak)) for peak in line.strip()[line.find(' ')+1:].split(',')]
+            print('found ',len(peaks),' in aperture definition file')
+            print('peaks = ',peaks)
+            """ fitted trace positions coeffs """
+            coeffs = [None] * len(peaks)
+        elif line.startswith('aperture '):
+            iAp = int(line[line.find(' ')+1:line.find(':')])
+            line = line[line.find(':')+2:].strip()
+            if line[:line.find(':')] == 'legval':
+                evalFunction = np.polynomial.legendre.legval
+            else:
+                print('could not identify evalFunction <'+line[:line.find(' ')-1]+'>')
+            print('line = <'+line+'>')
+            print('line.find( ) = ',line.find(' '))
+            if line.find(' ') == -1:
+                coeffs[iAp] = [0.]
+            else:
+                line = line[line.find(' ')+1:]
+                print('line = ',line)
+                lineSplit = line.split(',')
+                print('lineSplit = ',lineSplit)
+                coeffsThisAperture = [float(c) for c in lineSplit]
+                print('coeffsThisAperture = ',coeffsThisAperture)
+                coeffs[iAp] = coeffsThisAperture
+    print('read coeffs = ',len(coeffs),': ',coeffs)
+    return [nColumns,peaks,coeffs,evalFunction]
+    #STOP
+
+""" calculate profiles for each aperture for flat fielding and optimal extraction """
+def calcProfile(im,
+                dbIm,
+                profWidth,
+                swathWidth):
+    nColumns, peaks, coeffs, evalFunction = readApertureDefinitionFile(dbIm)
+    image = getImageData(im,0)
+    print('image.shape = ',image.shape)
+    columns = np.arange(0,image.shape[1],1)
+    print('columns = ',columns)
+
+    nSwaths = int(image.shape[1] / swathWidth) + 1
+    print('calcProfile: image.shape[1] = ',image.shape[1],': nSwaths = ',nSwaths)
+
+    swathCenters = np.arange(int(swathWidth/2.),image.shape[1],swathWidth)
+    swathCenters[len(swathCenters)-1] = image.shape[1] - int(swathWidth/2.)
+    print('calcProfile: swathCenters = ',swathCenters)
+
+    swathRanges = [[swathCenter - int(swathWidth/2.), swathCenter + int(swathWidth/2.)] for swathCenter in swathCenters]
+    swathRanges[len(swathRanges)-1][1] = image.shape[1]-1
+    print('calcProfile: swathRanges = ',swathRanges)
+
+    for ap in range(1):#len(coeffs)):
+        apCoeffs = coeffs[ap]
+        apCenterPositions = evalFunction(normalizeX(columns),apCoeffs)+0.5
+        plt.plot(columns,apCenterPositions)
+        plt.show()
+        print('apCenterPositions = ',apCenterPositions)
+        for iSwath in range(len(swathCenters)):
+            xProf = np.array([])
+            yProf = np.array([])
+            ySwath = np.array([])
+            for col in np.arange(swathRanges[iSwath][0],swathRanges[iSwath][1]+1,1):
+                xRange = np.arange(apCenterPositions[col] - profWidth, apCenterPositions[col] + profWidth + 1, 1)
+                xRange = xRange[np.where(xRange < apCenterPositions[col] + profWidth + 1)[0]]
+                idx = [int(x) for x in xRange]#[0]):int(xRange[len(xRange)-1])+1
+                print('col = ',col,': apCenterPositions[col] = ',apCenterPositions[col],', xRange = ',xRange,', idx = ',idx)
+                yData = image[idx,col]
+                if np.max(yData) > 2. * np.min(yData):
+                    xRange = [int(x) for x in xRange] - apCenterPositions[col] + 0.5
+                    goodData = np.where(xRange <= profWidth)[0]
+                    xRange = xRange[goodData]
+                    yData = yData[goodData]
+#                    print('xRange = ',xRange)
+                    #xRange = [int(x) + (1 - (x - int(x))) for x in xRange]
+                    #print('xRange = ',xRange)
+                    p0 = [np.max(yData),
+                          0.,
+                          profWidth,
+                          0.]
+                    try:
+                        popt,pcov = curve_fit(gauss,
+                                            xRange,
+                                            yData,
+                                            p0=p0,
+                                            maxfev=10000)
+                        if np.abs(popt[1]) < profWidth / 4:
+                            xFit = np.arange(-profWidth,profWidth,0.01)
+                            fittedGauss = gauss(xFit,popt[0],popt[1],popt[2],popt[3])
+                            xProf = np.append(xProf,xRange)
+                            ySwath = np.append(ySwath,yData)
+                            yProf = np.append(yProf,yData / popt[0])
+                            plt.plot(xRange,yData)
+                            plt.plot(xFit,fittedGauss)
+                            plt.show()
+#                            print('xProf = ',xProf)
+#                            print('yProf = ',yProf)
+                        else:
+                            print('fitted center outside of range: dC = ',popt[1])
+                    except:
+                        plt.plot(xRange,yData)
+                        plt.title('fit failed')
+                        plt.show()
+                        print('fit failed')
+                        pass
+                if xProf.shape != yProf.shape:
+                    print('xProf.shape = ',xProf.shape,' != yProf.shape = ',yProf.shape)
+                    STOP
+            plt.scatter(xProf,ySwath)
+            plt.title('yData vs xProf')
+            plt.show()
+            plt.scatter(xProf,yProf)
+            plt.title('yProf vs xProf')
+            plt.show()
+            idx = np.where(xProf >= 0.-profWidth)[0]
+            xProf = xProf[idx]
+            yProf = yProf[idx]
+            idx = np.where(xProf <= 0.+profWidth)[0]
+            xProf = xProf[idx]
+            yProf = yProf[idx]
+            plt.scatter(xProf,yProf)
+            print('xProf = ',len(xProf),': ',xProf)
+            print('yProf = ',len(yProf),': ',yProf)
+            plt.title('yProf vs xProf')
+            plt.show()
+        #STOP

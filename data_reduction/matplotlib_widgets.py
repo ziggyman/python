@@ -43,6 +43,7 @@ def defineRegions(folderName):
     toExtract = f.readlines()
     toExtract = toExtract[1:]
     fNameOut = os.path.join(folderName,'areas.csv')
+
 #    if os.path.exists(fNameOut):
 #        os.remove(fNameOut)
 

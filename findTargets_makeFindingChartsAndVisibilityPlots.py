@@ -9,10 +9,9 @@ from PIL import Image
 import shutil
 import subprocess
 
-
 from plot_obs_planning import plot_target
 import csvFree,csvData
-from myUtils import angularDistancePyAsl,hmsToDeg,dmsToDeg
+from myUtils import angularDistancePyAsl,hmsToDeg,dmsToDeg,fix_UsrComments
 from drUtils import createFindingChartFromFits
 
 #from astroplan import download_IERS_A
@@ -20,8 +19,8 @@ from drUtils import createFindingChartFromFits
 
 #goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2020-05-15_good/good'
 goodTargetsDir = '/Users/azuri/daten/uni/HKU/observing/targets_SAAO_2024-05-06'
-outDir = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_priority_good/findingCharts')
-fileList = os.path.join(goodTargetsDir,'allFiles_priority.list')
+outDir = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_noDiamGiven_good/findingCharts')
+fileList = os.path.join(goodTargetsDir,'allFiles_noDiam.list')
 
 idPNMain_hash_no_spectrum = csvFree.readCSVFile(os.path.join(goodTargetsDir,'hash_TLPc_no_spectrum_210524.csv')).getData('idPNMain')
 #idPNMain_literature_available = csvFree.readCSVFile(os.path.join(goodTargetsDir,'literature_spectrum_available.csv')).getData('idPNMain')
@@ -230,18 +229,21 @@ def makeFindingCharts():
                                 visName = im[im.rfind('/')+1:im.rfind('_')]
 #                                visName = visName[:visName.rfind('_')]
                                 visName = os.path.join(os.path.join(outDir,idPNMain),visName+'_visibility.png')#.replace('.0','')
-                                print('creating ',visName)
+                                print('creating <'+visName+'>')
+                                print('type(visName) = ',type(visName))
                                 #STOP
                                 targetCoord = SkyCoord(ra=float(csvAllTargets.getData('DRAJ2000',pos))*u.deg,
                                                     dec=float(csvAllTargets.getData('DDECJ2000',pos))*u.deg,
                                                     frame='icrs')
                                 maxAltitudeTime = plot_target(targetCoord,
                                                             observatoryLocation,
-                                                            observatoryName,
                                                             utcoffset,
                                                             date,
                                                             False,
                                                             outFileName=visName)
+                                if not os.path.isfile(visName):
+                                    print('could not find plot_target outFileName(visName) <'+visName+'>')
+                                    STOP
                                 maxAltitudeHour = maxAltitudeTime.hour
                                 print('maxAltitudeHour = ',maxAltitudeHour)
                                 if maxAltitudeHour < 12:
@@ -270,6 +272,7 @@ def makeFindingCharts():
                     #        print(csvAllTargets.getData(pos))
 
                     except Exception as e:
+                        STOP
                         print(e)
                         shutil.rmtree(outDirName)
                         nFailed += 1
@@ -683,37 +686,6 @@ def removeContentInDirAFromDirB(dirA,dirB):
         print('command = <'+command+'>')
         os.system(command)
 
-def fix_UsrComments():
-    with open(usrCommentsFile,'r') as f:
-        lines = f.readlines()
-    newLines = []
-    try:
-        plus = 0
-        for i in range(len(lines)):
-            if (i+plus) < len(lines):
-                if (lines[i+plus].count('"') % 2) == 0:
-                    newLines.append(lines[i+plus])
-                else:
-                    newLine = lines[i+plus].strip('\n')
-                    print('i = ',i,', plus = ',plus,': newLine = <'+newLine+'>: newLine.count(") = ',newLine.count('"'))
-                    while newLine.count('"') % 2 != 0:
-                        plus += 1
-                        newLine += ' '+lines[i+plus]
-                        print('newLine = ',newLine)
-                    newLine = newLine.replace('\n','')
-                    newLine = newLine+'\n'
-                    newLines.append(newLine)
-    except:
-        print('newLines = ',len(newLines),': ',newLines)
-        print('i = ',i,', plus = ',plus,', len(lines) = ',len(lines))
-        print('newLine = <'+newLine+'>')
-        STOP
-    print('len(lines) = ',len(lines))
-    print('newLines = ',len(newLines),': ',newLines)
-    with open(usrCommentsFile,'w') as f:
-        for line in newLines:
-            f.write(line)
-
 def remove_HLA_from_fitsFiles():
     nRemoved = 0
     for i in np.arange(fitsFiles.size()-1,-1,-1):
@@ -788,7 +760,7 @@ def addNames():
 
 if __name__ == '__main__':
     if False:
-    #    fix_UsrComments()
+    #    fix_UsrComments(usrCommentsFile)
         usrComments = csvFree.readCSVFile(usrCommentsFile)
     #    remove_HLA_from_fitsFiles()
 #        remove_not_TLPc_from_PNMain()
@@ -816,15 +788,15 @@ if __name__ == '__main__':
             print('INSERT INTO `needBetterSpectrum`(`idNBS`,`idPNMain`) VALUES ('+str(i)+','+idPNMain+');')
     if False:
         makeFindingCharts()
-    if False:
+    if True:
 #        subprocess.check_output(['ls', outDir+'/??\:*', '>', os.path.join(goodTargetsDir,'findingCharts.list')])
-        inputList = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_MGE','findingCharts.list')#os.path.join(outDir[:outDir.rfind('/')],'findingCharts.list')
+        inputList = os.path.join(goodTargetsDir,'targets_SAAO_2024-06-05_DeGaPe','findingCharts.list')#os.path.join(outDir[:outDir.rfind('/')],'findingCharts.list')
         findTargetsVisibleAt(inputList,inputList[:inputList.rfind('.')])
-    if False:
+    if True:
         dirs = os.listdir(outDir)
         print('dirs = ',dirs)
         for line in dirs:
-            if 'png' not in line:
+            if ('png' not in line) and ('Store' not in line) and ('allTargetDirs' not in line):
                 subDirs = os.listdir(os.path.join(outDir,line.strip()))
                 print('line = ',line,': subDirs = ',subDirs)
                 for subDir in subDirs:

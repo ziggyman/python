@@ -8,25 +8,25 @@ from drUtils import getHeaderValue, getWavelengthArr
 
 import csvFree,csvData
 
-pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_110422.csv'
-fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_FitsFiles_110422.csv'
-namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_110422.csv'
+pnMainFile = '/Users/azuri/daten/uni/HKU/HASH/hash_PNMain_270624.csv'
+fitsFile = '/Users/azuri/daten/uni/HKU/HASH/hash_FitsFiles_270624.csv'
+namesFile = '/Users/azuri/daten/uni/HKU/HASH/hash_tbCNames_270624.csv'
 
-inputSpectraDir = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'#/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
+inputSpectraDir = '/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/reduced 2/hash/'#/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Nov2021/hash/'#'/Users/azuri/daten/uni/HKU/HASH/FrenchAmateurs/new/Jan2021a/hash/'#
 fibreFile = None#'556Rcomb.fibres.lis'
-doneFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/spectra_done.txt'#None
-searchFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/hash_search.csv'
-searchFileOut = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/hash_found.csv'
+doneFile = None#'/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/reduced 2/hash/spectra_done.txt'#None
+searchFile = '/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/reduced 2/hash/hash_search.csv'
+searchFileOut = '/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/reduced 2/hash/hash_found.csv'
 
-outFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/add_spectra.sql'
-catalogName = 'SAAO_May2007'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
-setName = 'SAAO_May2007'
-catalogFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'+catalogName+'cat.sql'
-hashpnFile = '/Users/azuri/spectra/saao/saao_may2007/RAW/hash/'+catalogName+'_hashpn.txt'
+outFile = '/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/reduced 2/hash/add_spectra.sql'
+catalogName = 'SAAO_Nov2016'#'FrenchAmateurs_Jan2021'#'MASH_REJSPEC_Jan2021'
+setName = 'SAAO_Nov2016'
+catalogFile = '/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/reduced 2/hash/'+catalogName+'cat.sql'
+hashpnFile = '/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/reduced 2/hash/'+catalogName+'_hashpn.txt'
 
 #pnMain = csvFree.readCSVFile(pnMainFile)
 #fits = csvFree.readCSVFile(fitsFile)
-fitsStartId = 12642
+fitsStartId = 14899
 reference = catalogName#'FrenchAmateurs'#
 instrument = ''#2dF E2V3'#'DBS'#
 telescope = ''#AAO 3.9m'#'AAO 2.3m'#
@@ -71,9 +71,13 @@ def createHASHSearchInput(fibreFile=None):
                             print('fName = <'+fName+'>: RA = ',header['RA'],', DEC = ',header['DEC'])
                             f.write('%s,%s,%s\n' % (fName,header['RA'].strip(),header['DEC'].strip()))
                         except:
-                            print('fName = <'+fName+'>: RA = ',header['MEANRA'],', DEC = ',header['MEANDEC'])
-                            f.write('%s,%s,%s\n' % (fName,header['MEANRA'].strip(),header['MEANDEC'].strip()))
-                        shutil.copyfile(os.path.join(inputSpectraDir,fName),os.path.join(os.path.join(inputSpectraDir,'hash'),fName))
+                            try:
+                                print('fName = <'+fName+'>: RA = ',header['MEANRA'],', DEC = ',header['MEANDEC'])
+                                f.write('%s,%s,%s\n' % (fName,header['MEANRA'].strip(),header['MEANDEC'].strip()))
+                            except:
+                                print('fName = <'+fName+'>: RA = ',header['TARG-RA'],', DEC = ',header['TARG-DEC'])
+                                f.write('%s,%s,%s\n' % (fName,header['TARG-RA'].strip(),header['TARG-DEC'].strip()))
+                        #shutil.copyfile(os.path.join(inputSpectraDir,fName),os.path.join(os.path.join(inputSpectraDir,'hash'),fName))
     else:
         dictOut = []
         lines = None
@@ -103,9 +107,15 @@ def createHASHSearchInput(fibreFile=None):
 def getIDs():
     reader = csv.DictReader(open(searchFileOut))
     outStr = ''
+    names = []
+    ids = []
     for row in reader:
+        names.append(row['id']+' '+row['pndb'])
+        ids.append(row['pndb'])
         outStr += row['pndb']+','
     print(outStr)
+    print([name+'\n' for name in names])
+    return ids
 
 def getIdFromSearchFile(targetName,hashFoundFile):
     targetN = targetName
@@ -452,18 +462,32 @@ def adjustWavelengthRange(dirName,wLenRange):
             setHeaderKeyWord(newFileName,'CRVAL1',wLenNew[0])
             print(newFileName,': CRVAL1 changed to ',getHeaderValue(newFileName,'CRVAL1'),'(',wLenNew[0],')')
 
+def removeIfInFitsFilesAlready():
+    (_, _, filenames) = next(os.walk(inputSpectraDir))
+    for fName in filenames:
+        fitsReader = csv.DictReader(open(fitsFile))
+        ids = []
+        nFound = 1
+        for rowFits in fitsReader:
+#                print("int(rowFits['idFitsFiles']) = ",int(rowFits['idFitsFiles']))
+            if (int(rowFits['idFitsFiles']) < fitsStartId) and (rowFits['fileName'] == fName):
+                print('found ',fName,' if FitsFiles at position ',rowFits['idFitsFiles'])
+    #STOP
+
 
 if __name__ == "__main__":
-    #getHashIDsFromNames()
+#    getHashIDsFromNames()
 #    fixRAandDEC()
 #    fixFileNames()
-#    createHASHSearchInput()
+    removeIfInFitsFilesAlready()
+    createHASHSearchInput()
 #    createHASHSearchInput(os.path.join(inputSpectraDir,fibreFile))
-    #getIDs()
-#    ids = getHashIDsFromNames()
-#    print([int(id) for id in ids])
-#    ids = addSpectraInfo()#'/Users/azuri/spectra/AAO_bulge/hash_found_all_closest_distances_checked.csv')
+    getIDs()
+    STOP
+    ids = getHashIDsFromNames()
+    print([int(id) for id in ids])
+    ids = addSpectraInfo()#'/Users/azuri/spectra/AAO_bulge/hash_found_all_closest_distances_checked.csv')
 #    print(ids)
-#    justMakeCatalog()
-#    print("don't forget to add entry to MainPNData.DataInfo")
-    adjustWavelengthRange('/Users/azuri/spectra/saao/saao_may2007/RAW/hash',[3600.,9000.])
+    justMakeCatalog()
+    print("don't forget to add entry to MainPNData.DataInfo")
+#    adjustWavelengthRange('/Users/azuri/spectra/saao/saao_may2007/RAW/hash',[3600.,9000.])

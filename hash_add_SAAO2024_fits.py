@@ -7,7 +7,7 @@ from myUtils import hmsToDeg,dmsToDeg
 fitsFiles = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_FitsFiles_050624.csv')
 CNames = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/observing/hash_tbCNames_010624.csv')
 
-fitsDir = '/Users/azuri/spectra/SAAO_June2024/020624/hash/'
+fitsDir = '/Users/azuri/spectra/SAAO_June2024/110624/hash/'
 fileListName = os.path.join(fitsDir,'files.list')
 
 sqlFile = os.path.join(fitsDir,'addDataToFitsFiles.sql')
@@ -32,16 +32,24 @@ with open(sqlFile,'w') as f:
         objName = fName[:fName.find('_')]
         if objName == 'Mz3-CS':
             objName = 'Mz3'
+        elif objName == 'DS1-CS':
+            objName = 'DS1'
+        elif objName == 'NGC7094-CS':
+            objName = 'NGC7094'
         elif objName == 'YP0821-4253-right':
             objName = 'YP0821-4253'
-        elif objName == 'YP0821-4253-East':
+        elif 'PHRJ1900-0014' in objName:
+            objName = 'PHRJ1900-0014'
+        elif 'YP0821-4253' in objName:
             objName = 'YP0821-4253b'
-        elif objName == 'YP0821-4253-South':
-            objName = 'YP0821-4253b'
-        elif objName == 'YP0821-4253-Center':
-            objName = 'YP0821-4253b'
-        elif objName == 'YP0821-4253-West':
-            objName = 'YP0821-4253b'
+        elif objName == 'V866ScoA':
+            objName = 'V*V866ScoA'
+        elif 'Sh2-71' in objName:
+            objName = 'Sh2-71'
+        elif 'YP0819-2928' in objName:
+            objName = 'YP0819-2928'
+        elif 'YP1731-3011' in objName:
+            objName = 'YP1731-3011'
 
         idx = np.where(objNames == objName.lower())[0]
         print('objName = ',objName,': idx = ',idx)
@@ -59,5 +67,9 @@ with open(sqlCatFile,'w') as f:
     f.write("idPNMain INT NOT NULL,\n")
     f.write("mapFlag VARCHAR(1) NOT NULL);\n")
     #INSERT INTO `MainPNData`.`DataInfo` (`idDataInfo`, `Name`, `CatName`, `CatTitle`, `TabName`, `TabTitle`, `Mapped`, `MappedTo`, `MapKey`, `Date`, `Link`, `Comments`, `checked`, `Catalogue`, `checkNew`, `full`) VALUES ('287', 'SAAO_June2024', 'SAAO_June2024', 'SAAO_June2024', 'Table 1', 'SAAO_June2024', 'full', 'MainGPN.PNMain', 'ids', '2024-06-02', '-', '-', 'y', 'y', 'y', 'y');
-    for i in range(len(fileList)):
-        f.write("INSERT INTO `MainPNData`.`SAAO_June2024`(`idSAAO_June2024`,`idPNMain`,`mapFlag`) VALUES (%d,%d,'y');\n" % (i+1,int(idPNMains[i])))
+    for i in np.arange(len(idPNMains)-1,-1,-1):
+        if idPNMains[i] in idPNMains[0:i]:
+            del idPNMains[i]
+    for i in range(len(idPNMains)):
+        f.write("INSERT INTO `MainPNData`.`SAAO_June2024`(`idSAAO_June2024`,`idPNMain`,`mapFlag`) VALUES (%d,%d,'y');\n" % (i+49,int(idPNMains[i])))
+print('idPNMains = ',idPNMains)

@@ -323,10 +323,10 @@ if __name__ == '__main__':
     #observatoryLocation = EarthLocation(lat=-31.2749*u.deg, lon=149.0685*u.deg, height=1165*u.m)
     observatoryLocation = EarthLocation(lat=-32.3783*u.deg, lon=20.8105*u.deg, height=1750*u.m)
     utcoffset = 2*u.hour
-    date = '2024-06-02'
+    date = '2024-06-10'
     midnight = Time(date+' 0:00:00')
-    RA = '08:21:56.60'
-    DEC = '-42:53:05.00'
+    RA = '19:37:44'
+    DEC = '-13:51:20'
     targetCoord = SkyCoord(ra=hmsToDeg(RA)*u.deg, dec=dmsToDeg(DEC)*u.deg, frame='icrs')
 
     plot_target(targetCoord, observatoryLocation, utcoffset, date, False)

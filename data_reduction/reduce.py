@@ -20,7 +20,7 @@ import csvFree, csvData
 
 """SPUPNIC grating #7, 16.3 deg grating angle"""
 observatoryLocation = EarthLocation.of_site('SAAO')
-workPaths = ['/Users/azuri/spectra/SAAO_June2024/020624/',]
+workPaths = ['/Users/azuri/spectra/SAAO_June2024/110624/',]
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 
 overscanSection = '[1983:,:]'
@@ -209,22 +209,25 @@ def fixHeadersSAAO():
     with open(os.path.join(workPath,'allFits.list'),'r') as f:
         fNames = f.readlines()
     fNames = [fName.strip() for fName in fNames]
-    obsLogName = os.path.join(workPath,'obslog.txt')
-    obslog = csvFree.readCSVFile(obsLogName)
-    for i in range(obslog.size()):
-        obslog.setData('FRAME',i,str(1000+i+1))
-        if obslog.getData('EXPTYPE',i) == 'ARC':
-            obslog.setData('OBJECT',i,'CuAr')
-    frameIDs = np.array(obslog.getData('FRAME'))
-    print('frameIDs = ',frameIDs)
-    csvFree.writeCSVFile(obslog,obsLogName)
+    #obsLogName = os.path.join(workPath,'obslog.txt')
+    #obslog = csvFree.readCSVFile(obsLogName)
+    #for i in range(obslog.size()):
+    #    obslog.setData('FRAME',i,str(1000+i+1))
+    #    if obslog.getData('EXPTYPE',i) == 'ARC':
+    #        obslog.setData('OBJECT',i,'CuAr')
+    #frameIDs = np.array(obslog.getData('FRAME'))
+    #print('frameIDs = ',frameIDs)
+    #csvFree.writeCSVFile(obslog,obsLogName)
     for fName in fNames:
-        frameID = str(getHeaderValue(fName,'FRAME'))
-        print('fName = ',fName,': frameID = ',type(frameID),' = <'+frameID+'>')
-        idx = np.where(frameIDs == frameID)[0]
-        print('idx = ',idx)
-        setHeaderValue(fName,'OBJECT',obslog.getData('OBJECT',idx))
-        setHeaderValue(fName,'EXPTYPE',obslog.getData('EXPTYPE',idx))
+        #frameID = str(getHeaderValue(fName,'FRAME'))
+        #print('fName = ',fName,': frameID = ',type(frameID),' = <'+frameID+'>')
+        #idx = np.where(frameIDs == frameID)[0]
+        #print('idx = ',idx)
+        if getHeaderValue(fName,'EXPTYPE') == 'ARC':
+            setHeaderValue(fName,'OBJECT','CuAr')
+        if getHeaderValue(fName,'EXPTYPE') == 'HARTMANN':
+            setHeaderValue(fName,'OBJECT','HARTMANN')
+#        setHeaderValue(fName,'EXPTYPE',obslog.getData('EXPTYPE',idx))
 #        command = 'cp %s %s' % (fName,fName[:fName.rfind('/')+1]+getHeaderValue(fName,'EXPTYPE')+'_'+getHeaderValue(fName,'OBJECT')+'_'+fName[fName.rfind('/')+1:])
 #        os.system(command)
 
@@ -272,8 +275,11 @@ if __name__ == '__main__':
             fitsFiles = [f.strip() for f in fitsFiles]
             for f in fitsFiles:
                 imType = getHeaderValue(f,'EXPTYPE')
+                if imType == "HARTMANN":
+                    setHeaderValue(f,'OBJECT','HARTMANN')
                 object = getHeaderValue(f,'OBJECT')
                 print(imType,': ',object)
+#        STOP
         if True:
             exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
             #exptypes = ['ZERO','FLAT','ARC','SCIENCE','FLUXSTDS']
@@ -426,7 +432,7 @@ if __name__ == '__main__':
                     subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
                 subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-        if True:
+        if False:
             # extract and reidentify ARCs
             # arc_otzxfif.list or arc_otzxf.list???
             arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
@@ -460,7 +466,7 @@ if __name__ == '__main__':
                 with open(inputList[i][:inputList[i].rfind('.')]+'_wLenOrig.dat','w') as f:
                     for wLen in wavelengthsOrig[i]:
                         f.write('%.8f\n' % (wLen))
-            #STOP
+        #STOP
         if True:
             extractInputList = os.path.join(workPath,'to_extract.csv')
             areasFileName = os.path.join(workPath,'areas.csv')

@@ -6,7 +6,7 @@ from drUtils import makeSkyFlat, makeMasterFlat, imDivide, extractAndReidentifyA
 from drUtils import readFluxStandardsList,calcResponse,applySensFuncs,extractObjectAndSubtractSky
 from drUtils import scombine,continuum,subtractMedianSky,removeFilesFromListWithAngleNotEqualTo
 from drUtils import getWavelengthArr,getListOfFiles,getHeaderValue,fixDBSHeaders,writeFits1D,invertY
-from drUtils import cleanSpec,setHeaderValue,traceMultiApertureImage
+from drUtils import cleanSpec,setHeaderValue,traceMultiApertureImage,calcProfile
 import numpy as np
 import os
 from drUtils import getImageData, getHeader, getHeaderValue
@@ -90,8 +90,14 @@ outFileName = os.path.join(workPath,'database')
 if not os.path.exists(outFileName):
     command = 'mkdir '+outFileName
     os.system(command)
-outFileName = os.path.join(outFileName,'ap'+im[im.rfind('/')+1:].replace('.fits',''))
-traceMultiApertureImage(im,
-                        outFileName,
-                        redoApertureNumber=70,
-                        startAtApertureNumber=None)
+dbFileName = os.path.join(outFileName,'ap'+im[im.rfind('/')+1:].replace('.fits',''))
+if False:
+    traceMultiApertureImage(im,
+                            dbFileName,
+                            redoApertureNumber=0,
+                            startAtApertureNumber=None)
+
+calcProfile(im,
+            dbFileName,
+            profWidth = 2.5,
+            swathWidth = 300)

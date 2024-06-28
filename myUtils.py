@@ -1284,3 +1284,35 @@ def findClosestObjectTo(raDeg,decDeg,csvData,raDegName,decDegName):
     minDist = np.min(dists)
     #print('minDist = ',minDist)
     return [np.where(dists == minDist)[0],minDist]
+
+
+def fix_UsrComments(usrCommentsFile):
+    with open(usrCommentsFile,'r') as f:
+        lines = f.readlines()
+    newLines = []
+    try:
+        plus = 0
+        for i in range(len(lines)):
+            if (i+plus) < len(lines):
+                if (lines[i+plus].count('"') % 2) == 0:
+                    newLines.append(lines[i+plus])
+                else:
+                    newLine = lines[i+plus].strip('\n')
+                    print('i = ',i,', plus = ',plus,': newLine = <'+newLine+'>: newLine.count(") = ',newLine.count('"'))
+                    while newLine.count('"') % 2 != 0:
+                        plus += 1
+                        newLine += ' '+lines[i+plus]
+                        print('newLine = ',newLine)
+                    newLine = newLine.replace('\n','')
+                    newLine = newLine+'\n'
+                    newLines.append(newLine)
+    except:
+        print('newLines = ',len(newLines),': ',newLines)
+        print('i = ',i,', plus = ',plus,', len(lines) = ',len(lines))
+        print('newLine = <'+newLine+'>')
+        STOP
+    print('len(lines) = ',len(lines))
+    print('newLines = ',len(newLines),': ',newLines)
+    with open(usrCommentsFile,'w') as f:
+        for line in newLines:
+            f.write(line)
