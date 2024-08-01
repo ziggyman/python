@@ -47,7 +47,8 @@ if reesZijlstra:
 
 else:
     #my data:
-    dataFileName = os.path.join(path, 'PN-alignments2_finished.csv')
+#    dataFileName = os.path.join(path, 'PN-alignments2_finished.csv')
+    dataFileName = os.path.join(path, 'PN-orientations_Eugene.csv')
 #    hashFileName = os.path.join(path, 'HASH_bipolar+elliptical_true_PNe.csv')
     if mockSample:
         hashFileName = os.path.join(path, 'mock/HASH_bipolar+elliptical_true_PNe_withPA_Bmean45_sdev10_Emean135_sdev20.csv')
@@ -132,7 +133,7 @@ def findPNeWithPAinHASH(inFileNamePAs, inFileNameHASH, outFileName):
     print('csvHASH.header = ',csvHASH.header)
     print('csvHASH.size() = ',csvHASH.size())
 
-    idsWithPA = csvPAs.getData('HASH ID')
+    idsWithPA = csvPAs.getData('idPNMain')
     allIDs = csvHASH.getData('idPNMain')
 
     csvOut = csvData.CSVData()
@@ -198,8 +199,8 @@ def findPNeWithPAinHASH(inFileNamePAs, inFileNameHASH, outFileName):
                     nPA += 1
                     print(' ')
             if not found:
-                print('ERROR: ID ',idsWithPA[iPA],' not found in HASH data')
-                STOP
+                print('WARNIMG: ID ',idsWithPA[iPA],' not found in HASH data')
+                #STOP
 
     csvFree.writeCSVFile(csvOut,outFileName)
 
@@ -244,7 +245,8 @@ if __name__ == "__main__":
         findPNeWithPAinHASH(dataFileName, hashFileName, newHashFileName)
         hashData = csvFree.readCSVFile(newHashFileName)
         useHashFileName = newHashFileName
-
+    gpaTableData = csvFree.readCSVFile(dataFileName)
+    idsDoneByMe = gpaTableData.getData('HASH ID')
     iSec = 1
 
     noGPA = hashData.find('GPA','')
@@ -366,7 +368,8 @@ if __name__ == "__main__":
                                             if not foundQAP:
                                                 texFile.write('N/A & ')
                                                 texFile.write('N/A & ')
-
+                                            if hashID not in idsDoneByMe:
+                                                color='blue'
                                             texFile.write('\\textcolor{'+color+'}{'+hashData.getData('flag', iLine)+'} & ')
                                             texFile.write('\\textcolor{'+color+'}{'+hashData.getData('GPA', iLine)+'} & ')
                                             texFile.write('\\textcolor{'+color+'}{'+hashData.getData('mainClass', iLine) + hashData.getData('subClass', iLine) + '} & ')

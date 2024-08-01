@@ -45,3 +45,59 @@ plt.xlabel('Frequency (Hz)')
 plt.ylabel('Power')
 plt.title('Power Spectrum')
 plt.show()
+
+
+1. Import the required libraries in your Python script:
+
+<pre style="background-color: rgb(43, 43, 43);margin-right: 15px;"><div class="pre-code-area"><code class="language-javascript" style="white-space: pre-wrap;">python
+import numpy as np
+import matplotlib.pyplot as plt
+from astropy.io import fits
+from scipy.signal import convolve
+</code></div></pre>
+
+2. Open the FITS file, extract the data, create the wavelength array, and perform the FFT, as shown in the previous examples.
+
+3. Create the top-hat function and convolve it with the power spectrum:
+
+<pre style="background-color: rgb(43, 43, 43);margin-right: 15px;"><div class="pre-code-area"><code class="language-javascript" style="white-space: pre-wrap;">python
+# Define the width of the top-hat function
+top_hat_width = 0.5
+
+# Calculate the number of points for the top-hat function
+num_top_hat_points = int(top_hat_width * sampling_rate)
+
+# Create the top-hat function
+top_hat = np.ones(num_top_hat_points) / num_top_hat_points
+
+# Convolve the power spectrum with the top-hat function
+convolved_power_spectrum = convolve(power_spectrum_shifted, top_hat, mode='same')
+</code></div></pre>
+
+4. Perform the inverse FFT on the convolved power spectrum:
+
+<pre style="background-color: rgb(43, 43, 43);margin-right: 15px;"><div class="pre-code-area"><code class="language-javascript" style="white-space: pre-wrap;">python
+# Shift the zero-frequency component back to the edges
+convolved_power_spectrum_unshifted = np.fft.ifftshift(convolved_power_spectrum)
+
+# Perform the inverse FFT
+convolved_spectrum_fft_inv = np.fft.ifft(convolved_power_spectrum_unshifted)
+</code></div></pre>
+
+5. Plot the original spectrum and the convolved spectrum:
+
+<pre style="background-color: rgb(43, 43, 43);margin-right: 15px;"><div class="pre-code-area"><code class="language-javascript" style="white-space: pre-wrap;">python
+# Plot the original spectrum
+plt.figure()
+plt.plot(wavelength, data, label='Original Spectrum')
+plt.xlabel('Wavelength (Angstroms)')
+plt.ylabel('Flux')
+plt.title('Spectrum')
+
+# Plot the convolved spectrum
+plt.plot(wavelength, np.abs(convolved_spectrum_fft_inv), label='Convolved Spectrum')
+plt.legend()
+plt.show()
+</code></div></pre>
+
+This will display the plot of the original spectrum and the convolved spectrum after applying the top-hat function and performing the inverse Fast Fourier Transform. Note that we used the absolute value of the inverse FFT result, as the output may have a small imaginary component due to numerical errors in the FFT computation.

@@ -112,19 +112,19 @@ def setHeaderValue(fitsFileName,keyword,value,hduNum=0):
     hdulist.writeto(fitsFileName,overwrite=True)
     hdulist.close()
 
-def getWavelengthArr(fname, hduNum=0):
+def getWavelengthArr(fname, hduNum=0, dim=1):
     hdulist = pyfits.open(fname)
     header = hdulist[hduNum].header
     hdulist.close()
-    if 'CDELT1' in header.keys():
-        cdelt = header['CDELT1']
-        wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * cdelt + header['CRVAL1']
-    elif 'CD1_1' in header.keys():
-        cdelt = header['CD1_1']
-        wLen = ((np.arange(header['NAXIS1']) + 1.0) - header['CRPIX1']) * cdelt + header['CRVAL1']
+    if 'CDELT%d' % (dim) in header.keys():
+        cdelt = header['CDELT%d' % (dim)]
+        wLen = ((np.arange(header['NAXIS%d' % (dim)]) + 1.0) - header['CRPIX%d' % (dim)]) * cdelt + header['CRVAL%d' % (dim)]
+    elif 'CD1_%d' % (dim) in header.keys():
+        cdelt = header['CD1_%d' % (dim)]
+        wLen = ((np.arange(header['NAXIS%d' % (dim)]) + 1.0) - header['CRPIX%d' % (dim)]) * cdelt + header['CRVAL%d' % (dim)]
     else:
         print('WARNING: neither CDELT1 nor CD1_1 found in header of file <'+fname+'>')
-        wLen = np.arange(header['NAXIS1']) + 1.0
+        wLen = np.arange(header['NAXIS%d' % (dim)]) + 1.0
     return wLen
 
 def readMyPNLineList(fName = '/Users/azuri/entwicklung/python/data_reduction/pnLineList.dat'):
@@ -1306,18 +1306,21 @@ def lambdaCal(oneDImageFileIn, specOutName, func, coeffs):
 
 # @brief: calculate the emission line profile for aperture number 'apNumber'
 #         as provided in database/ap<twoDImageFileIn>
+# NOTE: apertures must be vertical
 # @param twoDImageFileIn: string: name of input fits file (ARC)
 # @param apNumber: int: number of aperture defined in database/ap<twoDImageFileIn>, starting with 0
 # @param halfWidth: int: half width of emission line
+# @param trace: array<double>: ignore @apNumber and use provided trace instead
 # @param dxFit: float: dx for output fitted profile
 # @param plot: bool: plot debugging plots?
 def calcLineProfile(twoDImageFileIn,
                     apNumber,
                     halfWidth,
+                    trace=None,
                     dxFit=0.01,
                     plot=False,
                     apOffsetX = 0.,
-                    markCenter=False):
+                    doMarkCenter=False):
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('calcLineProfile: image.shape = ',image.shape)
 
@@ -1354,12 +1357,15 @@ def calcLineProfile(twoDImageFileIn,
 #                                         high_reject=3.0,
 #                                         grow=0.0)
 
-
-    dbFile = os.path.join(tempFile[:tempFile.rfind('/')],'database')
-    dbFile = os.path.join(dbFile,'ap'+tempFile[tempFile.rfind('/')+1:tempFile.rfind('.')])
-    print('calcLineProfile: dbFile = <'+dbFile+'>')
-    row,center = calcTrace(dbFile, apNum=apNumber, xRange = None, apOffsetX=apOffsetX)
-    if markCenter:
+    if trace is None:
+        dbFile = os.path.join(tempFile[:tempFile.rfind('/')],'database')
+        dbFile = os.path.join(dbFile,'ap'+tempFile[tempFile.rfind('/')+1:tempFile.rfind('.')])
+        print('calcLineProfile: dbFile = <'+dbFile+'>')
+        row,center = calcTrace(dbFile, apNum=apNumber, xRange = None, apOffsetX=apOffsetX)
+    else:
+        row = np.arange(0,image.shape[0],1)
+        center = trace
+    if doMarkCenter:
         markCenter(tempFile, [row, center], tempFile)
     #print('calcLineProfile: row = ',len(row),': ',row)
     #print('calcLineProfile: center = ',len(center),': ',center)
@@ -1384,7 +1390,7 @@ def calcLineProfile(twoDImageFileIn,
     if plot:
         plt.plot(row,center)
         plt.show()
-    if markCenter:
+    if doMarkCenter:
         markCenter(tempFile, [row,center], imFileOut=tempFile[:-5]+'_centerMarked'+str(apNumber)+'.fits')
 
     if plot:
@@ -1561,37 +1567,37 @@ def getYAt(x,y,xAt):
 def xCor(static, moving, display = False):
     xCorChiSquares = []
     dxMoving = moving[0][1]-moving[0][0]
-#    print('xCor: dx = ',dxMoving)
-#    print('xCor: xMoving = ',moving[0])
-#    print('xCor: xStatic = ',static[0])
+    print('xCor: dx = ',dxMoving)
+    print('xCor: xMoving = ',moving[0])
+    print('xCor: xStatic = ',static[0])
     xMovingStart = 0. - moving[0][0]#(moving[0][moving[0].shape[0]-1]-moving[0][0])/2.
-#    print('xCor: xMovingStart = ',xMovingStart)
-#    print('xCor: xMoving at half = ',moving[0][int(moving[0].shape[0]/2)])
+    print('xCor: xMovingStart = ',xMovingStart)
+    print('xCor: xMoving at half = ',moving[0][int(moving[0].shape[0]/2)])
     xMovingEnd = static[0][static[0].shape[0]-1]-moving[0][moving[0].shape[0]-1]
-#    print('xCor: xMovingEnd = ',xMovingEnd)
+    print('xCor: xMovingEnd = ',xMovingEnd)
     xXCor = np.arange(xMovingStart,xMovingEnd,dxMoving)
-#    print('xCor: xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
+    print('xCor: xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
     for iX in np.arange(0,xXCor.shape[0],1):
         xMovingPlot = moving[0]+xXCor[iX]
-#        print('xCor: xMovingPlot = ',len(xMovingPlot),': ',xMovingPlot)
-#        plt.plot(xMovingPlot,moving[1])
+        print('xCor: xMovingPlot = ',len(xMovingPlot),': ',xMovingPlot)
+        plt.plot(xMovingPlot,moving[1])
         xStaticPlot,yStaticPlot = getInsideRange(static[0],static[1], [xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1]])
         yStaticPlot = yStaticPlot - np.amin(yStaticPlot)
-#        print('xCor: xStaticPlot = ',xStaticPlot)
-#        print('xCor: yStaticPlot = ',yStaticPlot)
-#        plt.plot(xStaticPlot,yStaticPlot/simps(yStaticPlot,xStaticPlot))
-#        plt.xlim(xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1])
+        print('xCor: xStaticPlot = ',xStaticPlot)
+        print('xCor: yStaticPlot = ',yStaticPlot)
+        plt.plot(xStaticPlot,yStaticPlot/simps(yStaticPlot,xStaticPlot))
+        plt.xlim(xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1])
         yAt = getYAt(xMovingPlot,moving[1],xStaticPlot)
         yAt = yAt * np.amax(yStaticPlot) / np.amax(yAt)
         #yStaticPlot = yStaticPlot / np.amax(yStaticPlot)
-#        plt.plot(xStaticPlot,yAt)
-#        plt.show()
+        plt.plot(xStaticPlot,yAt)
+        plt.show()
         xCorChiSquares.append(np.sum(np.square(yStaticPlot - yAt)) / yAt.shape[0])
-#    print('xCor: xXCor = ',xXCor.shape,': ',xXCor)
-#    print('xCor: static[0] = ',static[0].shape,': ',static[0])
+    print('xCor: xXCor = ',xXCor.shape,': ',xXCor)
+    print('xCor: static[0] = ',static[0].shape,': ',static[0])
     yAtXCor = getYAt(xXCor,xCorChiSquares,static[0])
 
-#    print('xCor: xCorChiSquares = ',xCorChiSquares)
+    print('xCor: xCorChiSquares = ',xCorChiSquares)
     if display:
         plt.plot(xXCor,xCorChiSquares/np.amax(xCorChiSquares), label='xCor')
         plt.plot(static[0],static[1]/np.amax(static[1]), label='static')
@@ -2681,7 +2687,7 @@ def reidentify(arcFitsName2D,
                 f.write('%.5f\n' % line)
 
     try:
-        gratingAngle = getHeaderValue(arc, 'GR-ANGLE', hduNum=0).strip()
+        gratingAngle = getHeaderValue(arcFitsName2D, 'GR-ANGLE', hduNum=0).strip()
     except:
         gratingAngle = '0.0'
     if '%' in lineListIn:
@@ -4096,10 +4102,23 @@ def fixStdWidth(stdFileName):
                 f.write('%.1f\t %.2f\t %.1f\n' % (wLen[i],flux[i], ((wLen[i]-wLen[i-1]) / 2.) + ((wLen[i+1]-wLen[i]) / 2.) ))
 
 def plotSpec(fitsFileName):
-    wLen = getWavelengthArr(fitsFileName)
-    spec = getImageData(fitsFileName,0)
-    plt.plot(wLen,spec)
-    plt.show()
+    if fitsFileName[0] == '@':
+        fitsFileNames = readFileToArr(fitsFileName[1:])
+        for fName in fitsFileNames:
+            if '/' not in fName:
+                if '/' in fName:
+                    fName = os.path.join(fitsFileName[1:fitsFileName.rfind('/')],fName)
+            print('fName = ',fName)
+            wLen = getWavelengthArr(fName,0)
+            spec = getImageData(fName,0)
+            plt.plot(wLen,spec)
+            plt.title(fName[fName.rfind('/')+1:])
+            plt.show()
+    else:
+        wLen = getWavelengthArr(fitsFileName)
+        spec = getImageData(fitsFileName,0)
+        plt.plot(wLen,spec)
+        plt.show()
 
 def separateByObsDate(fitslist):
     import shutil
@@ -5111,8 +5130,8 @@ def cleanImage(inputImage, outputImage):
 #    spec = getImageData(inputSpec1D,0)
 #    wLen = getWavelengthArr(inputSpec1D,0)
     image = np.array(getImageData(inputImage,0))
-    vmax = np.max([1.5 * np.mean(image), 1.])
-    vmin=np.min([1.5 * np.mean(image), 1.])
+    vmax = np.max(image)#np.max([1.5 * np.mean(image), 1.])
+    vmin = np.min(image)#np.min([1.5 * np.mean(image), 1.])
     im = ax2DRect.imshow(image, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
                                               vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
     ax2DRect.set_title(inputImage[inputImage.rfind('/')+1:inputImage.rfind('.')])
@@ -5542,6 +5561,287 @@ def fitLines(inputSpec1D,outputSpec):
     plt.show()
 #    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
 
+def fitEmissionLines(inputSpec1D,outputSpec):
+    from matplotlib.widgets import RadioButtons, TextBox, Button
+    from matplotlib.patches import Polygon
+
+    global wLen
+    global spec
+    global xRange
+    global continuum_order
+    global continuum_high_reject
+    global continuum_low_reject
+    global spec_bak
+    global wlen_bak
+    global cleanType
+    global newRegion
+    global normRegion
+    global regions
+    spec_bak = None
+    wlen_bak = None
+
+    def submit_continuum_order(text):
+        global continuum_order
+        continuum_order = int(text)
+
+    def submit_continuum_low_reject(text):
+        global continuum_low_reject
+        continuum_low_reject = float(text)
+
+    def submit_continuum_high_reject(text):
+        global continuum_high_reject
+        continuum_high_reject = float(text)
+
+    def normalize(event):
+        global spec
+        global regions
+        xLim = axMain.get_xlim()
+        writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+        fittingFunction = np.polynomial.legendre.legfit
+        evalFunction = np.polynomial.legendre.legval
+        order = continuum_order
+        nIterReject = 2
+        nIterFit = 3
+        lowReject = continuum_low_reject
+        highReject = continuum_high_reject
+        useMean = True
+#        if len(regions) > 0:
+#            wave = []
+#            spectrum = []
+#            for i in range(len(wLen)):
+#                for region in regions:
+#                    if (wLen[i] >= xLim[0]) & (wLen[i] <= xLim[1]):
+#                        if (wLen[i] >= region[0]) & (wLen[i] <= region[1]):
+#                            wave.append(wLen[i])
+#                            spectrum.append(spec[i])
+#        else:
+#            wave = wLen
+#            spectrum = spec
+        normSpec = continuum(outputSpec,
+                            outputSpec,
+                            fittingFunction,
+                            evalFunction,
+                            order,
+                            nIterReject,
+                            nIterFit,
+                            lowReject,
+                            highReject,
+                            xLim = xLim,
+                            regions=regions,
+                            #wLen=np.asarray(wave),
+                            type='ratio',
+                            adjustSigLevels=False,
+                            useMean=useMean,
+                            display=False)
+#        if len(regions) > 0:
+#            for i in range(len(wave)):
+#                idx = np.where(wLen == wave[i])[0]
+#                if idx >= 0:
+#                    print('wave[',i,'] = ',wave[i],': idx=',idx,', wLen[',idx,'] = ',wLen[idx],', spec[',idx,'] = ',spec[idx])
+#                    spec[idx] = normSpec[i]
+#                    print('wave[',i,'] = ',wave[i],': idx=',idx,', wLen[',idx,'] = ',wLen[idx],', spec[',idx,'] set to ',spec[idx])
+#        else:
+        spec = normSpec
+#        spec = getImageData(outputSpec,0)
+        axMain.plot(wLen,spec)
+        fig.canvas.draw_idle()
+
+    def undo(event):
+        global spec_bak
+        global wlen_bak
+        global spec
+        global wLen
+        if spec_bak is not None:
+            spec = spec_bak.copy()
+        if wlen_bak is not None:
+            wLen = wlen_bak.copy()
+        axMain.plot(wLen,spec)
+        fig.canvas.draw_idle()
+
+
+    fig = plt.figure(figsize=(15,9))
+    axMainRect = [0.04,0.26,0.95,0.7]
+    axMain = plt.axes(axMainRect)
+    axTrimClean = plt.axes([0.01,0.01,0.08,0.1])
+    undo_axbox = plt.axes([0.9,0.11,0.1,0.05])
+    normalize_axbox = plt.axes([0.01,0.13,0.1,0.05])
+    axNorm = plt.axes([0.15,0.11,0.1,0.1])
+    continuum_order_axbox = plt.axes([0.44,0.11,0.1,0.05])
+    continuum_high_reject_axbox = plt.axes([0.6,0.11,0.1,0.05])
+    continuum_low_reject_axbox = plt.axes([0.76,0.11,0.1,0.05])
+    min_val=0
+
+    normalize_box = Button(normalize_axbox, 'normalise')
+    normalize_box.on_clicked(normalize)
+
+    undo_box = Button(undo_axbox, "undo")
+    undo_box.on_clicked(undo)
+
+    continuum_order = 3
+    continuum_order_box = TextBox(continuum_order_axbox, 'order', initial=continuum_order)
+    continuum_order_box.on_submit(submit_continuum_order)
+
+    continuum_low_reject = 3.
+    continuum_low_reject_box = TextBox(continuum_low_reject_axbox, 'low reject', initial=continuum_low_reject)
+    continuum_low_reject_box.on_submit(submit_continuum_low_reject)
+
+    continuum_high_reject = 3.
+    continuum_high_reject_box = TextBox(continuum_high_reject_axbox, 'high reject', initial=continuum_high_reject)
+    continuum_high_reject_box.on_submit(submit_continuum_high_reject)
+
+    spec = getImageData(inputSpec1D,0)
+    wLen = getWavelengthArr(inputSpec1D,0)
+    spec_bak = np.array(spec)
+    wlen_bak = np.array(wLen)
+    xRange = []
+    regions = []
+    cleanType = 'fit'
+    normRegion = 'add region'
+    newRegion = []
+
+    norm = RadioButtons(axNorm, ('add region','remove region'), active=0)
+    def setNormRegion(label):
+        global normRegion
+        normRegion = label
+    norm.on_clicked(setNormRegion)
+
+    radio = RadioButtons(axTrimClean, ('fit', 'fit&remove', 'clean', 'normalise', 'integrate'), active=0)
+    def setCleanType(label):
+        global cleanType
+        cleanType = label
+
+    radio.on_clicked(setCleanType)
+
+    def plotRegions():
+        xLim = axMain.get_xlim()
+        yLim = axMain.get_ylim()
+        axMain.plot(wLen,spec,'b-')
+        y = [yLim[0]+(yLim[1]-yLim[0])/30.,yLim[0]+(yLim[1]-yLim[0])/30.]
+        axMain.plot(xLim,y,'w-')
+        for region in regions:
+            x = [region[0],region[1]]
+            print('plotting x=',x,', y=',y)
+            axMain.plot(x,y,'r-')
+        axMain.set_xlim(xLim)
+        axMain.set_ylim(yLim)
+        #axMain.show()
+        fig.canvas.draw_idle()
+
+    def onClick(event):
+        global wLen
+        global spec
+        global xRange
+        global newRegion
+        global normRegion
+        global regions
+
+        print('%s click: button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
+            ('double' if event.dblclick else 'single', event.button,
+            event.x, event.y, event.xdata, event.ydata))
+        if event.inaxes is axMain:
+            print('fig.canvas.toolbar.mode = ',fig.canvas.toolbar.mode)
+            if fig.canvas.toolbar.mode == '':
+                if cleanType == 'normalise':
+                    if normRegion == 'add region':
+                        if len(newRegion) == 1:
+                            print('old newRegion = ',newRegion)
+                            newRegion.append(event.xdata)
+                            newRegion = [newRegion[1],newRegion[0]] if (newRegion[1] < newRegion[0]) else [newRegion[0],newRegion[1]]
+                            regions.append(newRegion)
+                            newRegion = []
+                            plotRegions()
+                        else:
+                            newRegion = [event.xdata]
+                        print('newRegion = ',newRegion)
+                    else:
+                        for iReg in np.arange(len(regions)-1,-1,-1):
+                            print('event.xdata = ',event.xdata,', regions[',iReg,'] = ',regions[iReg])
+                            if (event.xdata >= regions[iReg][0]) & (event.xdata <= regions[iReg][1]):
+                                del regions[iReg]
+                        plotRegions()
+                    print('regions = ',len(regions),': ',regions)
+
+                elif cleanType == 'trim':
+                    if event.xdata < wLen[int(len(wLen)/2.)]:
+                        idx = np.where(wLen > event.xdata)
+                    else:
+                        idx = np.where(wLen < event.xdata)
+                    wLen = wLen[idx]
+                    spec = spec[idx]
+                    axMain.plot(wLen,spec)
+                    fig.canvas.draw_idle()
+                elif cleanType in ['fit','fit&remove']:
+                    if len(xRange) == 1:
+                        xRange.append(event.xdata)
+                        idx = np.where((wLen >= xRange[0]) & (wLen <= xRange[1]))[0]
+                        print('fit: idx = ',idx)
+                        p0 = [np.max(spec[idx])-np.min(spec[idx]),
+                              wLen[idx[0]]+((wLen[idx[-1]]-wLen[idx[0]])/2.),
+                              1.,1.,0.]
+                        for p in p0:
+                            print('type(',p,') = ',type(p))
+                        popt,pcov = curve_fit(gauss_lin,wLen[idx],spec[idx],p0=p0)
+                        print('fit: popt=',popt)
+                        axMain.plot(wLen[idx],gauss_lin(wLen[idx],*popt))
+                        #spec[idx] = spec[idx[0]-1]
+                        axMain.plot(wLen,spec)
+                        fig.canvas.draw_idle()
+                        if cleanType == 'fit&remove':
+                            spec[idx] -= gauss_lin(wLen[idx],popt[0],popt[1],popt[2])#,popt[3])
+                            spec[idx] += popt[3] * popt[4]*wLen[idx]
+                            axMain.plot(wLen,spec)
+                            fig.canvas.draw_idle()
+                    else:
+                        xRange = [event.xdata]
+                elif cleanType == 'clean':
+                    xLim = axMain.get_xlim()
+                    yLim = axMain.get_ylim()
+                    print('dir(event) = ',dir(event))
+                    print('event = ',event)
+#                    if len(xRange) == 1:
+#                        xRange.append(event.xdata)
+                    idx = np.where(np.abs(wLen - event.xdata) < (wLen[1]-wLen[0])/2.)[0]
+                    print('clean: idx = ',idx)
+                    spec[idx] = event.ydata
+                    axMain.plot(wLen,spec)
+                    axMain.set_xlim(xLim)
+                    axMain.set_ylim(yLim)
+                    fig.canvas.draw_idle()
+#                    else:
+#                        xRange = [event.xdata]
+                elif cleanType == 'integrate':
+                    if len(xRange) == 1:
+                        xRange.append(event.xdata)
+                        idx = np.where((wLen >= xRange[0]) & (wLen <= xRange[1]))[0]
+                        p0 = [np.max(spec[idx])-np.min(spec[idx]),
+                              wLen[idx[0]]+((wLen[idx[-1]]-wLen[idx[0]])/2.),
+                              (wLen[idx[-1]]-wLen[idx[0]])/2.]
+                        popt,pcov = curve_fit(gauss,wLen[idx],spec[idx],p0=p0)
+                        gaussFit = gauss(wLen[idx],popt[0],popt[1],popt[2])
+                        ew = 0.
+                        for i in range(len(idx)-1):
+                            ew += (wLen[idx[i+1]] - wLen[idx[i]]) * (gaussFit[i+1]+gaussFit[i])/2.
+                            coordsPoly = [(wLen[idx[i]],0.),(wLen[idx[i]],gaussFit[i]),(wLen[idx[i+1]],gaussFit[i+1]),(wLen[idx[i+1]],0.)]
+                            p=Polygon(coordsPoly,facecolor='g')
+                            axMain.add_patch(p)
+                            fig.canvas.draw_idle()
+                        print('equivalent width = ',ew)
+                        xRange = []
+                    else:
+                        xRange = [event.xdata]
+                else:
+                    print('ERROR: cleanType <'+cleanType+'> not supported')
+
+    cid = fig.canvas.mpl_connect('button_press_event', onClick)
+
+    axMain.plot(wLen,spec)
+#    axMain.plot(wLen,np.ones(len(wLen)))
+    plt.title(inputSpec1D[inputSpec1D.rfind('/')+1:])
+    plt.show()
+#    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+
+
+
 # trace multi aperture images
 # NOTE: traces must be horizontal
 def traceMultiApertureImage(im,
@@ -5557,9 +5857,13 @@ def traceMultiApertureImage(im,
                             nLost = 3,
                             fittingFunction = np.polynomial.legendre.legfit,
                             evalFunction = np.polynomial.legendre.legval,
-                            Display = True):
+                            Display = True,
+                            transpose = False):
     ccdIm = getImageData(im,0)
     print('traceMultiApertureImage: ccdIm.shape = ',ccdIm.shape)
+    if transpose:
+        ccdIm = np.transpose(ccdIm)
+        print('traceMultiApertureImage: ccdIm.shape = ',ccdIm.shape)
 
     """ identify center column to use as x values for finding peaks """
     centerCol = np.sum(ccdIm[:,int(ccdIm.shape[1]/2. - nSum/2.):int(ccdIm.shape[1]/2. + nSum/2.)],1)
@@ -5581,18 +5885,21 @@ def traceMultiApertureImage(im,
         coeffs = [[0]] * len(peaks)
     else:
         nColumns,peaks,coeffs,evalFunction = readApertureDefinitionFile(outFileName)
-        if len(peaks) != nPeaksShould:
-            print('did not find the correct number of peaks in aperture definition file')
-            STOP
+        print(len(peaks),' apertures read')
+        if nPeaksShould is not None:
+            if len(peaks) != nPeaksShould:
+                print('did not find the correct number of peaks in aperture definition file')
+                STOP
     if Display:
         plt.plot(centerCol)
 
         plt.scatter(peaks,centerCol[peaks])
         plt.title('peaks')
         plt.show()
-    if len(peaks) != nPeaksShould:
-        print('Found ',len(peaks),' instead of ',nPeaksShould)
-        STOP
+    if nPeaksShould is not None:
+        if len(peaks) != nPeaksShould:
+            print('Found ',len(peaks),' instead of ',nPeaksShould)
+            STOP
 
     """ for each peak in center column fit a Gaussian and then trace the aperture """
     """ xPositions will be an array containing all the x values of the traces [nPeaks,nFittingPositions per trace] """
@@ -5648,13 +5955,14 @@ def traceMultiApertureImage(im,
 
         xPositionsThisAp = np.array([int(ccdIm.shape[1]/2.)])
         centerPositionsThisAp = np.array([popt[1]])
-        poptsThisAp = np.array
+#        poptsThisAp = np.array(popt)
 
         """ now trace the aperture first from center column towards x=0 then from center column towards x=ccdIm.shape[1], sort by x afterwards """
         """ keep in mind ndarrays shape is [y(row),x(col)] """
         xPos = int(ccdIm.shape[1]/2.)
 
-        xCentersBelow = np.arange(xPos - step, int(step/2), -step)
+        xCentersBelow = np.arange(int(xPos - step), -step/2, -int(step))
+        xCentersBelow = np.array([int(x) for x in xCentersBelow])
         print('xCentersBelow = ',xCentersBelow.shape,': ',xCentersBelow)
 
         xCentersAbove = np.arange(xPos + step, ccdIm.shape[1] - int(step/2), step)
@@ -5751,9 +6059,55 @@ def traceMultiApertureImage(im,
                                 xLim = [0,ccdIm.shape[1]-1],
                                 fittingFunction = fittingFunction,
                                 evalFunction = evalFunction,
+                                order = 9,
+                                nReject = 1,
+                                lowReject = 3.,
+                                highReject = 3.,
                                 )
         print('traceCoeffs = ',traceCoeffs)
         coeffs[i] = traceCoeffs
+        if len(idx) == ccdIm.shape[1]:
+            xFull = np.arange(0,ccdIm.shape[1],1)
+            print('xFull = ',xFull)
+            print('normalized = ',normalizeX(xFull))
+            yFit = evalFunction(normalizeX(xFull),traceCoeffs)
+            xProf,yProf = calcLineProfile(im,
+                                        apNumber=None,
+                                        halfWidth=int(4.5*peakWidth),
+                                        trace=yFit,
+                                        dxFit=0.01,
+                                        plot=True,
+                                        apOffsetX = 0.,
+                                        doMarkCenter=True)
+            print('xProf = ',len(xProf),': ',xProf)
+            print('yProf = ',len(yProf),': ',yProf)
+            plt.plot(xProf,yProf)
+            plt.show()
+            #STOP
+            for iRow in xFull:
+                print('iRow = ',iRow)
+                xSpec = np.arange(int(yFit[iRow] - 5.5*peakWidth),int(yFit[iRow] + 5.5*peakWidth)+1,1)
+                ySpec = ccdIm[xSpec,iRow]
+                xProfCor = np.arange(int(xProf[0]),int(xProf[len(xProf)-1]),1)
+                yProfCor = getYAt(xProf,yProf,xProfCor)
+                print('xSpec = ',len(xSpec),': ',xSpec)
+                print('ySpec = ',len(ySpec),': ',ySpec)
+                print('xProfCor = ',len(xProfCor),': ',xProfCor)
+                print('yProfCor = ',len(yProfCor),': ',yProfCor)
+                xXCor, xCorChiSquares = xCor([xSpec,ySpec],[xProfCor,yProfCor],display=True)
+                peakHeight = np.median(ySpec)
+                print('findGoodLines: np.median(ySpec) = ',peakHeight)
+                linesX = findLines(ySpec,
+                                xXCor,
+                                xCorChiSquares,
+                                3.,
+                                peakHeight=peakHeight,#/ (300000. / 14000.),
+                                peakWidth=2.,#3.,
+                                threshold=0.,
+                                plot=True,
+                                )
+                print('linesX = ',linesX)
+                STOP
     print('traceMultiApertureImage: xPositions = ',xPositions.shape,': ',xPositions)
     print('traceMultiApertureImage: centerPositions = ',centerPositions.shape,': ',centerPositions)
     print('coeffs = ',coeffs)

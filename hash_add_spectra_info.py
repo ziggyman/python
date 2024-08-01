@@ -114,7 +114,8 @@ def getIDs():
         ids.append(row['pndb'])
         outStr += row['pndb']+','
     print(outStr)
-    print([name+'\n' for name in names])
+    for name in names:
+        print(name)
     return ids
 
 def getIdFromSearchFile(targetName,hashFoundFile):

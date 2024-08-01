@@ -46,7 +46,7 @@ def findFirstIdxWithValGT(valueArr, val):
     return idx
 
 def populateSkyArray(imageData, area):
-    sky = np.copy(imageData[:,area[0]:area[1]])
+    sky = np.copy(imageData[:,area[0]:area[1]+1])
     return sky
 
 def populateObjectArray(imageData, areas):
@@ -228,17 +228,19 @@ def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=
     newImageData = np.ndarray(imageData.shape, dtype=dtype)
     skyData = np.ndarray(imageData.shape, dtype=dtype)
     if skyLeftArea is None:
+        print('skyLeftArea is None')
         xSky = np.arange(skyRightArea[0],skyRightArea[1]+1,1.0)
     elif skyRightArea is None:
+        print('skyRightArea is None')
         xSky = np.arange(skyLeftArea[0],skyLeftArea[1]+1,1.0)
     else:
-        xSky = np.concatenate([np.arange(skyLeftArea[0],skyLeftArea[1],1.0),np.arange(skyRightArea[0],skyRightArea[1],1.0)])
+        xSky = np.concatenate([np.arange(skyLeftArea[0],skyLeftArea[1]+1,1.0),np.arange(skyRightArea[0],skyRightArea[1]+1,1.0)])
 #    print 'subtractSky: xSky = ',xSky
     skyParams = None
     if (oneD):
-        skyLeft = imageData[skyLeftArea[0]:skyLeftArea[1]]
+        skyLeft = imageData[skyLeftArea[0]:skyLeftArea[1]+1]
         skyLeftSmoothed = boxCarMedianSmooth(skyLeft, 0, 5)
-        skyRight = imageData[skyRightArea[0]:skyRightArea[1]]
+        skyRight = imageData[skyRightArea[0]:skyRightArea[1]+1]
         skyRightSmoothed = boxCarMedianSmooth(skyRight, 0, 5)
         ySky = np.concatenate([skyLeftSmoothed, skyRightSmoothed])
         ySky = sigmaRej(ySky, sigLow, sigHigh, True)
@@ -247,7 +249,7 @@ def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=
         if skyLeftArea is None:
             skyRight = populateSkyArray(imageData, skyRightArea)
             ySky = boxCarMedianSmooth(skyRight, 0, 9)
-            print('ySky.shape = ',ySky.shape)
+            #print('ySky.shape = ',ySky.shape)
             for i in range(ySky.shape[0]):
                 med = np.median(ySky[i])
 #                print('med = ',med)
@@ -255,7 +257,7 @@ def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=
         elif skyRightArea is None:
             skyLeft = populateSkyArray(imageData, skyLeftArea)
             ySky = boxCarMedianSmooth(skyLeft, 0, 9)
-            print('ySky.shape = ',ySky.shape)
+            #print('ySky.shape = ',ySky.shape)
             for i in range(ySky.shape[0]):
                 med = np.median(ySky[i])
 #                print('med = ',med)
@@ -285,10 +287,15 @@ def subtractSky(imageData,skyLeftArea=None,skyRightArea=None,sigLow=3.0,sigHigh=
     else:
         for iRow in range(imageData.shape[0]):
 #            print 'subtractSky: iRow = ',iRow
-            ySkyRow = sigmaRej(ySky[iRow,:], sigLow, sigHigh, True)
-            skyParams = linReg(xSky,ySkyRow)
-            #print('subtractSky: imageData[',iRow,',:] = ',imageData[iRow,:],', newImageData[',iRow,',:].shape = ',newImageData[iRow,:].shape,', skyParams[',iRow,'] = ',len(skyParams[iRow]),': ',skyParams[iRow])
-            skyData[iRow,:] = (skyParams[0] * xObs) + skyParams[1]
+            if (skyLeftArea is None) or (skyRightArea is None):
+                skyData[iRow,:] = np.mean(ySky[iRow,:])
+            else:
+                #print('xSky.shape = ',xSky.shape,', ySky.shape = ',ySky.shape)
+                ySkyRow = sigmaRej(ySky[iRow,:], sigLow, sigHigh, True)
+                #print('xSky.shape = ',xSky.shape,', ySkyRow.shape = ',ySkyRow.shape)
+                skyParams = linReg(xSky,ySkyRow)
+                #print('subtractSky: imageData[',iRow,',:] = ',imageData[iRow,:],', newImageData[',iRow,',:].shape = ',newImageData[iRow,:].shape,', skyParams[',iRow,'] = ',len(skyParams[iRow]),': ',skyParams[iRow])
+                skyData[iRow,:] = (skyParams[0] * xObs) + skyParams[1]
             #print('subtractSky: skyData[',iRow,',:] = ',skyData[iRow,:])
             newImageData[iRow,:] = imageData[iRow,:] - skyData[iRow,:]
             #print('subtractSky: newImageData[',iRow,',:] = ',newImageData[iRow,:])
@@ -503,6 +510,7 @@ def angularDistancePyAsl(ra1, dec1, ra2, dec2):
 #    print('ra1 = ',ra1,', dec1 = ',dec1,', ra2 = ',ra2,', dec2 = ',dec2)
     return pyasl.getAngDist(ra1, dec1, ra2, dec2)
 
+# returns result in arcsec - NOTE it calls angularDistance NOT angularDistancePyAsl
 def angularDistanceFromXYPyAsl(fitsName, x1, y1, x2, y2):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
     result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])

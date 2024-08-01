@@ -20,17 +20,18 @@ import csvFree, csvData
 
 """SPUPNIC grating #7, 16.3 deg grating angle"""
 observatoryLocation = EarthLocation.of_site('SAAO')
-workPaths = ['/Users/azuri/spectra/SAAO_June2024/110624/',]
+workPaths = ['/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/data/',]
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 
-overscanSection = '[1983:,:]'
-trimSection = '[16:1981,41:100]'
+#trimSection = '[16:1981,41:100]'
+overscanSection = '[2050:,:]'
+trimSection = '[6:2050,38:97]'
 
-refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3_2024_otzf')#refVerticalTrace_spupnic_gr7_16_3')
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')#refProfApDef_spupnic_gr7_16_3_may2020')
-lineList = os.path.join(refPath,'refArc_spupnic_gr7_16_30_otzxfifEcd_lines_identified.dat')#saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
-referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_16_30_otzfsiEc.fits'
+refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_7_Nov2013_otzf')#refVerticalTrace_spupnic_gr7_16_3')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_15_7_Nov2013_transposed')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_7_Nov2013')#refProfApDef_spupnic_gr7_16_3_may2020')
+lineList = os.path.join(refPath,'saao_refspec_gr7_angle15_70_lines_identified_good_aug2018.dat')#saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
+referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
 
 arcListsStartWith = 'arc'#DBS
 objectListsStartWith = 'science'#spupnic
@@ -269,17 +270,6 @@ if __name__ == '__main__':
         if False:
             fixHeadersSAAO()# and rename file
 
-        if False:
-            with open(inList,'r') as f:
-                fitsFiles = f.readlines()
-            fitsFiles = [f.strip() for f in fitsFiles]
-            for f in fitsFiles:
-                imType = getHeaderValue(f,'EXPTYPE')
-                if imType == "HARTMANN":
-                    setHeaderValue(f,'OBJECT','HARTMANN')
-                object = getHeaderValue(f,'OBJECT')
-                print(imType,': ',object)
-#        STOP
         if True:
             exptypes = ['BIAS','FLAT','ARC','SCIENCE','FLUXSTDS']
             #exptypes = ['ZERO','FLAT','ARC','SCIENCE','FLUXSTDS']
@@ -289,13 +279,33 @@ if __name__ == '__main__':
             combinedFlat = os.path.join(workPath,'combinedFlat.fits')
             masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
             smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
+
+        """remove files with HARTMANN or wrong grating/angle"""
         if False:
+            with open(inList,'r') as f:
+                fitsFiles = f.readlines()
+            fitsFiles = [f.strip() for f in fitsFiles]
+            newInList = []
+            for f in fitsFiles:
+                print('f = ',f)
+                print('EXPTYPE = ',getHeaderValue(f,'EXPTYPE'))
+                print('GRATING = ',getHeaderValue(f,'GRATING'))
+                print('GR-ANGLE = ',getHeaderValue(f,'GR-ANGLE'))
+                print('OBJECT = ',getHeaderValue(f,'OBJECT'))
+                if (getHeaderValue(f,'EXPTYPE') != "HARTMANN") & (getHeaderValue(f,'GRATING') == 'gr7') and (getHeaderValue(f,'GR-ANGLE') == '15.70') & (getHeaderValue(f,'OBJECT') not in ['Dark','Dummy']):
+                    newInList.append(f)
+            inListGood = inList[:inList.rfind('.')]+'_good.list'
+            with open(inListGood,'w') as f:
+                for file in newInList:
+                    f.write(file+'\n')
+            inList = inListGood
             #invertY(readFileToArr(inList))#MSSSO only
             #STOP
         #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
         #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
         #    STOP
             separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
+#        STOP
         #STOP
         if False:
             objectFiles = os.path.join(workPath,'science.list')
@@ -436,15 +446,33 @@ if __name__ == '__main__':
             # extract and reidentify ARCs
             # arc_otzxfif.list or arc_otzxf.list???
             arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
+#            for arc in arc_otzxf_list:
+#                try:
+#                    wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs([arc],
             wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs(arc_otzxf_list,
                                                                             refProfApDef,
                                                                             lineList,
                                                                             referenceSpectrum,
                                                                             display=False,
-                                                                            chiSquareLimit=0.45,
+                                                                            chiSquareLimit=1.1,
                                                                             degree=4,
                                                                             minLines=8,
-                                                                            maxRMS=0.6,
+                                                                            maxRMS=0.75,
+                                                                            shiftApDef=False,
+                                                                            #apOffsetX=-155.5,
+                                                                            )
+            if False:
+#                except:
+                wavelengthsOrig, wavelengthsResampled = extractAndReidentifyARCs([arc],
+                                                                            refProfApDef,
+                                                                            lineList,
+                                                                            referenceSpectrum,
+                                                                            display=True,
+                                                                            chiSquareLimit=1.1,
+                                                                            degree=4,
+                                                                            minLines=8,
+                                                                            maxRMS=0.75,
+                                                                            shiftApDef=False,
                                                                             #apOffsetX=-155.5,
                                                                             )
             for i in range(len(arc_otzxf_list)):

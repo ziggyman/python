@@ -7,8 +7,12 @@ from scipy.optimize import curve_fit
 from matplotlib import pyplot as plt
 
 # calculate one Gaussian
-def gauss(x,a,x0,sigma,yBackground=0.):
-    return a*exp(-(x-x0)**2/(2*sigma**2))+yBackground
+# a: float, amplitude
+# x0: float, center position
+# sigma: float, Gauss sigma
+# background: float or None: constant to add to Gaussian. If None no constant will be added to the Gaussian
+def gauss(x,a,x0,sigma,yBackground=None):
+    return a*exp(-(x-x0)**2/(2*sigma**2)) if yBackground is None else a*exp(-(x-x0)**2/(2*sigma**2))+yBackground
 
 #calculate 2 Gaussians
 def gauss2(x,a1,a2,x01,x02,sigma1,sigma2,yBackground=0.):
@@ -40,6 +44,42 @@ def getWavelength(header, axis=2):
     lam = np.arange(crVal, crVal + ((nPix-0.5)*cDelt), cDelt, dtype=np.float32)
 #    print 'getWavelength: lam = ',len(lam),': ',lam
     return lam
+
+def getAreaGauss(x,imageData,a1,x01,sigma1,addOnBothSidesOfX=0.,show=True,save=None):
+    # fit 1 Gaussian
+    try:
+        popt,pcov = curve_fit(gauss,x,imageData,p0=[a1,
+                                                    x01,
+                                                    sigma1,
+                                                   ])
+    except Exception as e:
+        print(e)
+        return [0.,[0.,0.,0.]]
+#    print('popt = ',popt)
+
+    print('amplitude a1 = ',popt[0])
+    print('position x01 = ',popt[1])
+    print('sigma1 = ',popt[2])
+
+    #calculate fitted gaussians and overplot them
+    xFit = x
+    if addOnBothSidesOfX != 0.:
+        xFit = np.arange(x[0]-addOnBothSidesOfX,x[len(x)-1]+addOnBothSidesOfX,x[1]-x[0])
+    yGauss1 = gauss(xFit,popt[0],popt[1],popt[2])
+
+    areaUnderCurve1 = np.trapz(yGauss1,x=xFit)
+    print('areaUnderCurve1 = ',areaUnderCurve1)
+    if show or (save is not None):
+        plt.plot(x,imageData)
+        plt.plot(xFit,yGauss1)
+    if save is not None:
+        plt.savefig(save,bbox_inches='tight')
+    if show:
+        plt.show()
+    if save is not None:
+        plt.close()
+
+    return [areaUnderCurve1,popt]
 
 def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,addOnBothSidesOfX=0.,show=True,save=None):
     # fit 2 Gaussians
@@ -95,42 +135,6 @@ def getAreas2Gauss(x,imageData,a1,a2,x01,x02,sigma1,sigma2,addOnBothSidesOfX=0.,
         plt.close()
     print('plot finished, areaUnderCurve1 = ',areaUnderCurve1,', areaUnderCurve2 = ',areaUnderCurve2)
     return [areaUnderCurve1,areaUnderCurve2,popt]
-
-def getAreaGauss(x,imageData,a1,x01,sigma1,addOnBothSidesOfX=0.,show=True,save=None):
-    # fit 2 Gaussians
-    try:
-        popt,pcov = curve_fit(gauss,x,imageData,p0=[a1,
-                                                    x01,
-                                                    sigma1,
-                                                   ])
-    except Exception as e:
-        print(e)
-        return [0.,[0.,0.,0.]]
-#    print('popt = ',popt)
-
-    print('amplitude a1 = ',popt[0])
-    print('position x01 = ',popt[1])
-    print('sigma1 = ',popt[2])
-
-    #calculate fitted gaussians and overplot them
-    xFit = x
-    if addOnBothSidesOfX != 0.:
-        xFit = np.arange(x[0]-addOnBothSidesOfX,x[len(x)-1]+addOnBothSidesOfX,x[1]-x[0])
-    yGauss1 = gauss(xFit,popt[0],popt[1],popt[2])
-
-    areaUnderCurve1 = np.trapz(yGauss1,x=xFit)
-    print('areaUnderCurve1 = ',areaUnderCurve1)
-    if show or (save is not None):
-        plt.plot(x,imageData)
-        plt.plot(xFit,yGauss1)
-    if save is not None:
-        plt.savefig(save,bbox_inches='tight')
-    if show:
-        plt.show()
-    if save is not None:
-        plt.close()
-
-    return [areaUnderCurve1,popt]
 
 def getAreas3Gauss(x,imageData,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,show=True,save=None):
     # fit 2 Gaussians
