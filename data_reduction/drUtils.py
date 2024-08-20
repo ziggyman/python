@@ -105,6 +105,24 @@ def getHeaderValue(fname, keyword, hduNum=0):
     except:
         return None
 
+def fixImageHeader(fitsFileName,hduNum=0):
+    import astropy.io.fits as pyfits
+    from astropy import wcs
+    try:
+        wcs.WCS(header,naxis=(1,2))
+    except:
+        hdulist = pyfits.open(fitsFileName)
+        header = hdulist[hduNum].header
+        if 'RADECSYS' in header:
+            header['RADESYSa'] = header['RADECSYS']
+            del header['RADECSYS']
+        if 'XPIXELSZ' in header:
+            del header['*PIXELSZ']
+        if 'CNPIX1' in header:
+            del header['CNPIX*']
+        hdulist.writeto(fitsFileName,overwrite=True)
+        hdulist.close()
+
 def setHeaderValue(fitsFileName,keyword,value,hduNum=0):
     hdulist = pyfits.open(fitsFileName)
     header = hdulist[hduNum].header
@@ -1620,6 +1638,9 @@ def gauss(x,a,x0,sigma,yBackground=0.):
 def gauss_lin(x,a,x0,sigma,yBackground=0.,linear=0.):
     return a*exp(-(x-x0)**2/(2*sigma**2))+yBackground+(linear*x)
 
+def gaussNorm(x,a,x0,sigma):
+    return a*exp(-(x-x0)**2/(2*sigma**2))+1.
+
 def xCorFindMinimum(xCorX, xCorY, display = False):
     print('xCorFindMinimum: xCorX = ',xCorX)
     print('xCorFindMinimum: xCorY = ',xCorY)
@@ -1796,8 +1817,11 @@ def findLines(spec,
 
 # NOTE: currently it is required for the x values to be accending
 def normalizeX(x):
+    print('normalize: x = ',x)
     xZero = x - x[0]
-    return 2.0 * xZero / xZero[-1] - 1.0
+    xNorm = 2.0 * xZero / xZero[-1] - 1.0
+    print('normalize: xNorm = ',xNorm)
+    return xNorm
 
 # @brief : fit background and subtract from y
 # @param x : 1D array of x-values
@@ -3029,10 +3053,10 @@ def getClosestInTime(objectTime, arcTimes):
     minTimeDiff = np.min(timeDiffs)
     return [np.where(timeDiffs == minTimeDiff)[0][0],minTimeDiff]
 
-def getClosestArcs(fitsFileName, fitsList):
+def getClosestArcs(fitsFileName, arcList):
     arcTimes = []
-    for iArc in range(len(fitsList)):
-        hdulist = pyfits.open(fitsList[iArc])
+    for iArc in range(len(arcList)):
+        hdulist = pyfits.open(arcList[iArc])
         head = hdulist[0].header
         keyWord = 'HJD-OBS'
         try:
@@ -3260,7 +3284,7 @@ def readFluxStandardFile(fName):
 def calcResponse(fNameList,
 #                 arcList,
 #                wLenOrig,
-                areas,
+                #areas,
                 stdStarNameEndsBefore = '_a',
                 fluxStdandardList = '/Users/azuri/stella/referenceFiles/fluxStandards.txt',
                 airmassExtCor='apoextinct.dat',
@@ -3279,6 +3303,7 @@ def calcResponse(fNameList,
         fNames = f.readlines()
     fNames = [n.rstrip('\n') for n in fNames]
     sensFuncs = []
+    stdsDLam = []
 
     print('calcResponse: fNames = ',fNames)
     for fName in fNames:
@@ -3434,6 +3459,8 @@ def calcResponse(fNameList,
                 # now let's demo the Airmass correction
 
                 sensFuncs.append(sensfunc_lin)
+                stdsDLam.append((stdstar['wave'][len(stdstar['wave'])-1] - stdstar['wave'][0]) / len(stdstar['wave']))
+                print('calcResponse: stdsDLam = ',stdsDLam)
 
                 # Now demo how to apply a sensfuc to a new spectrum (just happens to be the same spectrum here...)
                 #Stest = apply_sensfunc(obj_spectrum, sensfunc_lin)
@@ -3449,16 +3476,19 @@ def calcResponse(fNameList,
 
                 done = True
 
+
             #wavelengths, fluxes = readFluxStandardFile(fluxStandardFileNames[ind])
  #           if (wavelengths[0] < wLenStd[0]) and (wavelengths[len(wavelengths)-1] > wLenStd[len(wLenStd)-1]):
  #               goodFiles.append([fName,fluxStandardFileNames[ind]])
-    return sensFuncs
+    return sensFuncs,stdsDLam
 
-
-
-def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='apoextinct.dat'):
+def applySensFuncs(objectSpectraIn, objectSpectraOut, stdsDLam, sensFuncs, airmassExtCor='apoextinct.dat'):
     print('applySensFuncs: objectSpectraIn = ',len(objectSpectraIn),': ',objectSpectraIn)
     print('applySensFuncs: objectSpectraOut = ',len(objectSpectraOut),': ',objectSpectraOut)
+    if type(sensFuncs) == type('str'):
+        with open(stdsDLam,'r') as f:
+            stdsDLam = f.readlines()
+        stdsDLam = [dl.strip() for dl in stdsDLam]
     for iSpec in range(len(objectSpectraIn)):
         print('applySensFuncs: reading spectrum file <'+objectSpectraIn[iSpec]+'>')
         img = CCDData.read(objectSpectraIn[iSpec], unit=u.adu)
@@ -3484,7 +3514,8 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, sensFuncs, airmassExtCor='
         obj_spectrum = airmass_cor(obj_spectrum, AIRVAL, Xfile)
 #        print('applySensFuncs: obj_spectrum = ',obj_spectrum)
 #        print('applySensFuncs: sensFuncs[0] = ',sensFuncs[0])
-        objectSpectrumFluxCalibrated = apply_sensfunc(obj_spectrum, sensFuncs[0])
+        iBestFluxStd = np.where(np.array(stdsDLam) == np.min(np.array(stdsDLam)))[0]
+        objectSpectrumFluxCalibrated = apply_sensfunc(obj_spectrum, sensFuncs[iBestFluxStd])
 #        print('applySensFuncs: objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
 #        print('applySensFuncs: dir(objectSpectrumFluxCalibrated.data) = ',dir(objectSpectrumFluxCalibrated.data))
 #        print('applySensFuncs: img.header.keys = ',img.header.keys)
@@ -3593,15 +3624,35 @@ if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
 #    extinctionCurve = FluxCal.obs_extinction('kpno')
 #    print('fluxCalibrate:extinctionCurve = ',extinctionCurve)
 
+#@params:
+# spectrumFileNameIn: string (name of fits file to read) / data array
+# spectrumFileNameOut: string
+# fittingFunction: np.polynomial.legendre.legfit - function to fit continuum
+# evalFunction: np.polynomial.legendre.legval - function to evaluate continuum
+# order: fitting function polynomial order
+# nIterReject: number of rejectsion iterations
+# nIterFit: number of fitting iterations (how many times to attempt to reject bad values and fit the continuum)
+# lowReject: reject values < fit - (lowReject * sigma)
+# highReject: reject values > fit + (highReject * sigma)
+# wLen: if set take wavelength vector from this, otherwise from fits header. Set this if spectrumFileNameIn is a data vector
+# xLim: only fit from xLim[0] to xLim[1]
+# regions: ignore values outside the regions (in wavelength)
+# type: "difference" - subtract fitted continuum from spectrum
+#       "ratio"      - divide spectrum by fitted continuum
+#       "fit"        - write fitted continuum to spectrumFileNameOut
+# adjustSigLevels: try to estimate lowReject and highReject parameters based on spectrum
+# useMean: use mean instead of median for sigma rejection
+# display: plot intermediate and final results
+# returnCoeffs: return fitting function coefficients
 def continuum(spectrumFileNameIn,
             spectrumFileNameOut,
-            fittingFunction,
-            evalFunction,
-            order,
-            nIterReject,
-            nIterFit,
-            lowReject,
-            highReject,
+            fittingFunction = np.polynomial.legendre.legfit,
+            evalFunction = np.polynomial.legendre.legval,
+            order = 5,
+            nIterReject = 2,
+            nIterFit = 2,
+            lowReject = 2.,
+            highReject = 3.5,
             wLen = None,
             xLim=None,#limits are both included
             regions=None,
@@ -3637,14 +3688,24 @@ def continuum(spectrumFileNameIn,
     if regions is not None:
         wave = []
         spectrum = []
+        xrange = []
         #print('cotinuum: wLenFit = ',wLenFit)
         #print('cotinuum: wLenFit.shape = ',wLenFit.shape)
+        minX = np.min(np.array([region[0] for region in regions]))
+        maxX = np.max(np.array([region[1] for region in regions]))
+        print('minX = ',minX)
+        print('maxX = ',maxX)
         for i in range(wLenFit.shape[0]):
             for region in regions:
                 if (wLenFit[i] >= xLim[0]) & (wLenFit[i] <= xLim[1]):
                     if (wLenFit[i] >= region[0]) & (wLenFit[i] <= region[1]):
                         wave.append(wLenFit[i])
                         spectrum.append(specFit[i])
+            if (wLenFit[i] >= minX) and (wLenFit[i] <= maxX):
+                xrange.append(i)
+        print('wave = ',wave)
+        print('spectrum = ',spectrum)
+        print('xrange = ',xrange)
     else:
         wave = wLen
         spectrum = specOrig
@@ -3654,15 +3715,16 @@ def continuum(spectrumFileNameIn,
     #print('continuum: wave = ',len(wave),': ',wave)
     #print('continuum: spectrum = ',len(spectrum),': ',spectrum)
 
-    xToNorm = [xLim[0]]
-    for wav in wave:
-        xToNorm.append(wav)
-    xToNorm.append(xLim[1])
+#    xToNorm = [xLim[0]]
+#    for wav in wave:
+#        xToNorm.append(wav)
+#    xToNorm.append(xLim[1])
     #print('continuum: xToNorm = ',len(xToNorm),': ',xToNorm)
-    xNorm = normalizeX(np.array(xToNorm))
-    xNorm = xNorm[1:]
-    xNorm = xNorm[:len(xNorm)-1]
-    #print('continuum: xNorm = ',len(xNorm),': ',xNorm)
+    xNorm = normalizeX(np.array(wave))
+#    xNorm = xNorm[1:]
+#    xNorm = xNorm[:len(xNorm)-1]
+    print('continuum: xNorm = ',len(xNorm),': ',xNorm)
+    print('continuum: spectrum = ',len(spectrum),': ',spectrum)
     #print('continuum: spectrum = ',len(spectrum),': ',spectrum)
     #STOP
     #sfit(x, y, fittingFunction, solveFunction, order, nIterReject, nIterFit, lowReject, highReject, adjustSigLevels=False, useMean=False, display=False)
@@ -3679,7 +3741,8 @@ def continuum(spectrumFileNameIn,
                              useMean=useMean,
                              display=display)
     print('continuum: resultFit = ',resultFit)
-    fittedSpectrum = evalFunction(normalizeX(xrange),coeffs)
+    fittedSpectrum = evalFunction(normalizeX(np.array(xrange)),coeffs)
+    print('fitted continuum = ',fittedSpectrum)
     specDone = specOrig
     if type == 'difference':
         print('xrange = ',xrange)
@@ -4878,7 +4941,7 @@ def createAreas(fName):
     plt.show()
     return([obs,skyBelow,skyAbove,note])
 
-def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
+def cleanSpec(inputSpec1D, inputSpec2D=None, outputSpec=None):
     from matplotlib.widgets import AxesWidget, RadioButtons, Slider, TextBox, Button
     import matplotlib.colors as colors
 
@@ -5013,10 +5076,14 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
     continuum_high_reject_box.on_submit(submit_continuum_high_reject)
 
     spec = getImageData(inputSpec1D,0)
+    print('spec.shape = ',spec.shape)
+    if len(spec.shape) > 1:
+        spec = spec[0]
     wLen = getWavelengthArr(inputSpec1D,0)
+    print('wLen.shape = ',wLen.shape)
     spec_bak = np.array(spec)
     wlen_bak = np.array(wLen)
-    if os.path.exists(inputSpec2D):
+    if (inputSpec2D is not None) and os.path.exists(inputSpec2D):
         image = getImageData(inputSpec2D,0)
         vmax = np.max([2. * np.mean(image), 1.])
     else:
@@ -5104,7 +5171,8 @@ def cleanSpec(inputSpec1D, inputSpec2D, outputSpec):
 
     axMain.plot(wLen,spec)
     plt.show()
-    writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
+    if outputSpec is not None:
+        writeFits1D(spec,outputSpec,wavelength=None,header=getHeader(inputSpec1D,0), CRVAL1=wLen[0], CRPIX1=1, CDELT1=wLen[1]-wLen[0])
 
 
 def cleanImage(inputImage, outputImage):
@@ -5617,6 +5685,7 @@ def fitEmissionLines(inputSpec1D,outputSpec):
 #        else:
 #            wave = wLen
 #            spectrum = spec
+        print('regions = ',regions)
         normSpec = continuum(outputSpec,
                             outputSpec,
                             fittingFunction,
@@ -5662,7 +5731,7 @@ def fitEmissionLines(inputSpec1D,outputSpec):
     fig = plt.figure(figsize=(15,9))
     axMainRect = [0.04,0.26,0.95,0.7]
     axMain = plt.axes(axMainRect)
-    axTrimClean = plt.axes([0.01,0.01,0.08,0.1])
+    axTrimClean = plt.axes([0.01,0.01,0.1,0.1])
     undo_axbox = plt.axes([0.9,0.11,0.1,0.05])
     normalize_axbox = plt.axes([0.01,0.13,0.1,0.05])
     axNorm = plt.axes([0.15,0.11,0.1,0.1])
@@ -5705,7 +5774,7 @@ def fitEmissionLines(inputSpec1D,outputSpec):
         normRegion = label
     norm.on_clicked(setNormRegion)
 
-    radio = RadioButtons(axTrimClean, ('fit', 'fit&remove', 'clean', 'normalise', 'integrate'), active=0)
+    radio = RadioButtons(axTrimClean, ('fit', 'fit&remove', 'clean', 'normalise', 'integrate', 'integrate norm'), active=0)
     def setCleanType(label):
         global cleanType
         cleanType = label
@@ -5822,6 +5891,26 @@ def fitEmissionLines(inputSpec1D,outputSpec):
                         for i in range(len(idx)-1):
                             ew += (wLen[idx[i+1]] - wLen[idx[i]]) * (gaussFit[i+1]+gaussFit[i])/2.
                             coordsPoly = [(wLen[idx[i]],0.),(wLen[idx[i]],gaussFit[i]),(wLen[idx[i+1]],gaussFit[i+1]),(wLen[idx[i+1]],0.)]
+                            p=Polygon(coordsPoly,facecolor='g')
+                            axMain.add_patch(p)
+                            fig.canvas.draw_idle()
+                        print('equivalent width = ',ew)
+                        xRange = []
+                    else:
+                        xRange = [event.xdata]
+                elif cleanType == 'integrate norm':
+                    if len(xRange) == 1:
+                        xRange.append(event.xdata)
+                        idx = np.where((wLen >= xRange[0]) & (wLen <= xRange[1]))[0]
+                        p0 = [np.max(spec[idx])-np.min(spec[idx]),
+                              wLen[idx[0]]+((wLen[idx[-1]]-wLen[idx[0]])/2.),
+                              (wLen[idx[-1]]-wLen[idx[0]])/2.]
+                        popt,pcov = curve_fit(gaussNorm,wLen[idx],spec[idx],p0=p0)
+                        gaussFit = gauss(wLen[idx],popt[0],popt[1],popt[2]) + 1.
+                        ew = 0.
+                        for i in range(len(idx)-1):
+                            ew += (wLen[idx[i+1]] - wLen[idx[i]]) * (gaussFit[i+1]+gaussFit[i])/2.
+                            coordsPoly = [(wLen[idx[i]],1.),(wLen[idx[i]],gaussFit[i]+1),(wLen[idx[i+1]],gaussFit[i+1]+1),(wLen[idx[i+1]],1.)]
                             p=Polygon(coordsPoly,facecolor='g')
                             axMain.add_patch(p)
                             fig.canvas.draw_idle()

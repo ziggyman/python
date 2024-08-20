@@ -7,13 +7,14 @@ from email.mime.multipart import MIMEMultipart
 
 import csvFree,csvData
 
-emailList = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/conferences/SS2Conf/emails - Sheet1.csv')
-path_to_pdf = '/Users/azuri/daten/uni/HKU/conferences/SS2Conf/Space-Sustainability-first-announcement-final.pdf'
+emailList = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/conferences/SS2Conf/emails - Sheet1_new.csv')
+path_to_pdf = '/Users/azuri/daten/uni/HKU/conferences/SS2Conf/Space-Sustainability-2nd-announcement-final.pdf'
 
+n_sent = 0
 for i in range(emailList.size()):
-    firstName = emailList.getData('Name',i)
-    lastName = emailList.getData('Surname',i)
-    to = emailList.getData('email',i)
+    firstName = emailList.getData('Name',i).strip()
+    lastName = emailList.getData('Surname',i).strip()
+    to = emailList.getData('email',i).strip()
 
     print('firstName = <'+firstName+'>')
     print('to = <'+to+'>')
@@ -23,17 +24,19 @@ for i in range(emailList.size()):
     email_text = f"""
 Dear %s %s,
 
-It is with great pleasure that we announce that registration for our International Conference on “Space Sustainability” is now open: https://ssconf.space/
-This  is on behalf of the co-chairs of the Scientific Organising Committee, Prof. Quentin Parker from the Laboratory for Space Research at the University of Hong Kong (HKU) and Prof. Jean-Paul Kneib from the Laboratory of Astrophysics and Ecole Polytechnique Fédérale de Lausanne (EPFL), Switzerland
+Please find enclosed our second announcement for our International Conference on “Space Sustainability”. Please note early-bird registrations (that save you $100USD for standard registrations) are set to close at the end of August.
 
+We encourage early registrations  given the meeting is capped at 120 participants.
 The conference will take place from December 2nd to 4th, 2024 on the main campus of HKU with EPFL as co-host.
-Please find attached detailed information about the conference.
 
-We hope this conference is of interest and that you could attend. We would also greatly appreciate it if you would distribute this announcement within your company or faculty or to anyone you think might be interested.
+Please see our conference website for updated details: https://ssconf.space/
+
+This conference is of significant interest where Hong Kong’s special status as an East-West super connector should lead to interesting opportunities for discussions and interactions across the broad areas of concern around Space Debris.
 
 Thank you very much for your attention, and we hope to see you at the conference!
 
-Best regards,
+This message  is sent on behalf of the co-chairs of the Scientific Organising Committee, Prof. Quentin Parker from the Laboratory for Space Research at the University of Hong Kong (HKU) and Prof. Jean-Paul Kneib from the Laboratory of Astrophysics and Ecole Polytechnique Fédérale de Lausanne (EPFL), Switzerland
+
 
 Laboratory for Space Research
 Faculty of Science
@@ -70,3 +73,5 @@ Website: https://ssconf.space/
     smtp_server.sendmail(msg["From"], msg["To"], msg.as_string())#["From"], recipients + ccs, msg.as_string())
 #    smtp_server.send_message(msg)#["From"], recipients + ccs, msg.as_string())
     smtp_server.quit()
+    n_sent += 1
+print('sent ',n_sent,' emails. emailList.size() = ',emailList.size())

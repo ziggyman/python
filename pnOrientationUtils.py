@@ -8,6 +8,7 @@ from astropy import units as u
 #from astropy.coordinates import SkyCoord
 from astropy.stats import circstats
 import pycircstat
+import seaborn as sns
 import subprocess
 
 from PIL import Image, ImageDraw
@@ -22,11 +23,23 @@ def plotHammerProjection(x,y,GPA,oneFlags,eFlags,bFlags,xRange,yRange,fNameOut=N
     yRangeMax = [-1.4143,1.4143]
     fig = plt.figure(figsize=(25,10))
     plt.axis('off')
-    plt.scatter(x[oneFlags][eFlags],y[oneFlags][eFlags],c=GPA[oneFlags][eFlags],marker='o',s=20,cmap='viridis')
-    plt.scatter(x[oneFlags][bFlags],y[oneFlags][bFlags],c=GPA[oneFlags][bFlags],marker='d',s=20,cmap='viridis')
+    colormap = plt.cm.get_cmap('hsv')
+    if len(GPA[oneFlags][eFlags] > 0):
+        colorsE = colormap((GPA[oneFlags][eFlags] - np.min(np.array(GPA[oneFlags][eFlags]))) / np.max(np.array(GPA[oneFlags][eFlags])))
+        print('GPA[oneFlags][eFlags] = ',GPA[oneFlags][eFlags])
+        print('colorsE = ',colorsE)
+        plt.scatter(x[oneFlags][eFlags],y[oneFlags][eFlags],c=colorsE,marker='o',s=20)
+    if len(GPA[oneFlags][bFlags]) > 0:
+        print('GPA[oneFlags][bFlags] = ',GPA[oneFlags][bFlags])
+        colorsB = colormap((GPA[oneFlags][bFlags] - np.min(np.array(GPA[oneFlags][bFlags]))) / np.max(np.array(GPA[oneFlags][bFlags])))
+        print('colorsB = ',colorsB)
+        plt.scatter(x[oneFlags][bFlags],y[oneFlags][bFlags],c=colorsB,marker='d',s=20)
+#    plt.scatter(x[oneFlags][eFlags],y[oneFlags][eFlags],c=GPA[oneFlags][eFlags],marker='o',s=20,cmap='hsv')
+#    plt.scatter(x[oneFlags][bFlags],y[oneFlags][bFlags],c=GPA[oneFlags][bFlags],marker='d',s=20,cmap='hsv')
+    sm = plt.cm.ScalarMappable(cmap=colormap)
     plotLBMarks(10)
     cbarTicks = np.arange(0.,1.0001,20./180.)
-    cbar = plt.colorbar(ticks=cbarTicks)
+    cbar = plt.colorbar(sm,ticks=cbarTicks)
     cbar.set_label('Galactic Position Angle')
     cbarTicks = cbarTicks*180.
     cbarTicks = np.round(cbarTicks)

@@ -1,4 +1,5 @@
 from astropy.coordinates import EarthLocation
+from astropy.io import ascii
 import astropy.io.fits as pyfits
 from drUtils import addSuffixToFileName, combine, separateFileList, silentRemove,extractSum
 from drUtils import subtractOverscan, subtractBias, cleanCosmic, flatCorrect,interpolateTraceIm
@@ -10,6 +11,7 @@ from drUtils import cleanSpec,setHeaderValue
 import numpy as np
 import os
 from shutil import copyfile
+import matplotlib.pyplot as plt
 
 import csvFree, csvData
 
@@ -19,44 +21,48 @@ import csvFree, csvData
 #trimSection = '[56:2100,75:394]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 
 """SPUPNIC grating #7, 16.3 deg grating angle"""
-observatoryLocation = EarthLocation.of_site('SAAO')
-workPaths = ['/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/data/',]
-refPath = '/Users/azuri/stella/referenceFiles/spupnic'
+#observatoryLocation = EarthLocation.of_site('SAAO')
+#workPaths = ['/Users/azuri/spectra/saao/saao_nov-2016/saao_nov2016/data/',]
+#refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 
 #trimSection = '[16:1981,41:100]'
-overscanSection = '[2050:,:]'
-trimSection = '[6:2050,38:97]'
+#overscanSection = '[2050:,:]'
+#trimSection = '[6:2050,38:97]'
 
-refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_7_Nov2013_otzf')#refVerticalTrace_spupnic_gr7_16_3')
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_15_7_Nov2013_transposed')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_7_Nov2013')#refProfApDef_spupnic_gr7_16_3_may2020')
-lineList = os.path.join(refPath,'saao_refspec_gr7_angle15_70_lines_identified_good_aug2018.dat')#saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
-referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
+#refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_15_7_Nov2013_otzf')#refVerticalTrace_spupnic_gr7_16_3')
+#refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_15_7_Nov2013_transposed')
+#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_15_7_Nov2013')#refProfApDef_spupnic_gr7_16_3_may2020')
+#lineList = os.path.join(refPath,'saao_refspec_gr7_angle15_70_lines_identified_good_aug2018.dat')#saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
+#referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_15_70_otzxfifEc_aug2018.fits'
 
-arcListsStartWith = 'arc'#DBS
-objectListsStartWith = 'science'#spupnic
-fluxstdsListsStartWith = 'fluxstds'#DBS
+#arcListsStartWith = 'arc'#DBS
+#objectListsStartWith = 'science'#spupnic
+#fluxstdsListsStartWith = 'fluxstds'#DBS
+#stdStarNameEndsBefore='_a'
 
 """MSSO May 2008"""
-#observatoryLocation = EarthLocation.of_site('Mt. Stromlo Observatory')
-#workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-08/',]
-#refPath = '/Users/azuri/stella/referenceFiles/dbs'
+observatoryLocation = EarthLocation.of_site('Mt. Stromlo Observatory')
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data/2008-05-06/',]
+refPath = '/Users/azuri/stella/referenceFiles/dbs'
 
-#MSSSOMay2008 overscanSection = '[10:50,1:562]'#'[4:21,1:133]'#'[1983:,:]'
-#MSSSOMay2008 trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
+#MSSSOMay2008
+overscanSection = '[10:50,1:562]'#'[4:21,1:133]'#'[1983:,:]'
+#MSSSOMay2008
+trimSection = '[51:2101,25:367]'#'[26:1774,30:115]'#'[17:1982,38:97]'
 #referenceSpectrum = os.path.join(refPath,'refArc_DBS_May2008_red_otzxfiEc.fits')
-#referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
+referenceSpectrum = os.path.join(refPath,'refARC_DBS_May2008_blue_otzfiEc.fits')
 #lineList = os.path.join(refPath,'dbs_refspec_may2008_red.txt')
-#lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
+lineList = os.path.join(refPath,'dbs_refspec_may2008_blue_CuHe.txt')
 #refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_red_May2008_otzfif')
-#refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_DBS_blue_May2008_otzfif_flipped')
 #refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_DBS_RED_horizontal_otzxf')#aprefHorizontalTrace_spupnic_2007_transposed')
-#refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefApTrace_horizontal_DBS_blue_May2008_otzf_flipped')#aprefHorizontalTrace_spupnic_2007_transposed')
 #refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_red_May2008_otzf')
-#refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
-#arcListsStartWith = 'ARC'#spupnic
-#objectListsStartWith = 'object'#DBS
-#fluxstdsListsStartWith = 'FLUXSTDS'#spupnic
+refVerticalTraceDB = os.path.join(refPath,'database/aprefApTrace_vertical_DBS_blue_May2008_otzf_flipped')
+arcListsStartWith = 'arc'#DBS
+objectListsStartWith = 'science'#DBS
+fluxstdsListsStartWith = 'fluxstds'#DBS
+stdStarNameEndsBefore = '_dbs'
 
 #workPath = '/Volumes/work/azuri/spectra/saao/saao_sep2019/20190904/'
 #workPath = '/Users/azuri/spectra/saao/saao_sep2019/20190907/'
@@ -495,7 +501,7 @@ if __name__ == '__main__':
                     for wLen in wavelengthsOrig[i]:
                         f.write('%.8f\n' % (wLen))
         #STOP
-        if True:
+        if False:
             extractInputList = os.path.join(workPath,'to_extract.csv')
             areasFileName = os.path.join(workPath,'areas.csv')
             print('reduce: areasFileName = '+areasFileName)
@@ -514,7 +520,7 @@ if __name__ == '__main__':
                 extractList = csvFree.readCSVFile(extractInputList)
                 with open(areasFileExists,'w') as fAreas:
                     fAreas.write('fName,object,skyBelow,skyAbove,method,notes\n')
-        if True:
+        if False:
             for i in range(extractList.size()):
                 if extractList.getData('fName',i)[0] != '#':
                     skyAbove = None
@@ -546,7 +552,7 @@ if __name__ == '__main__':
                                                     dispAxis = 'row',
                                                     display = False,
                                                     areasFileOut = areasFileName if not areasFileExists else None)
-        if True:
+        if False:
             inputList = objectListsStartWith
             doHelioCor = True# if inputList == objectListsStartWith else False
             print('doHelioCor = ',doHelioCor)
@@ -608,7 +614,7 @@ if __name__ == '__main__':
                                     CRVAL1=1,
                                     CRPIX1=1,
                                     CDELT1=1)
-        if True:
+        if False:
             inputList = getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfifEc.list'))
             wavelengthsOrig = []
             for i in range(len(inputList)):
@@ -617,7 +623,7 @@ if __name__ == '__main__':
                 wavelengthsOrig.append(np.asarray(wLens))
             print('wavelengthsOrig = ',wavelengthsOrig)
             print('wavelengthsOrig[0] = ',wavelengthsOrig[0])
-        if True:
+        if False:
             print('len(skyFilesEc) = ',len(skyFilesEc))
             if len(skyFilesEc) > 0:
                 dispCor(skyFilesEc,
@@ -660,26 +666,44 @@ if __name__ == '__main__':
         if True:
 
             areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
-            sensFuncs = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),
+            sensFuncs, stdsDLam = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),
                                     #getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                                     #wavelengthsOrig,
-                                    areas,
-                                    stdStarNameEndsBefore='_a',
-                                    display=False)
+                                    #areas,
+                                    stdStarNameEndsBefore=stdStarNameEndsBefore,
+                                    display=True)
             print('sensFuncs = ',sensFuncs)
+            with open(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),'r') as f:
+                fluxstds = f.readlines()
+            print('fluxstds = ',fluxstds)
+            fluxstds = [fl.strip() for fl in fluxstds]
+            print('fluxstds = ',fluxstds)
+            with open(os.path.join(workPath,'stdsDLambda.dat'),'w') as fl:
+                for iStd in range(len(sensFuncs)):
+                    print('type(sensFuncs[iStd]) = ',type(sensFuncs[iStd]))
+                    print('sensFuncs[',iStd,'] = ',sensFuncs[iStd])
+                    sensFuncs[iStd].write(fluxstds[iStd][:fluxstds[iStd].rfind('.')]+'_sens.ecsv',overwrite=True)
+                    #sens = ascii.read(fluxstds[iStd][:fluxstds[iStd].rfind('.')]+'_sens.ecsv')
+                    #print('sens = ',sens)
+                    fl.write('%.3f\n' % (stdsDLam[iStd]))
+                    plt.plot(sensFuncs[iStd]['wave'],sensFuncs[iStd]['S'],label=fluxstds[iStd][fluxstds[iStd].rfind('/')+1:fluxstds[iStd].rfind('.')])
+                plt.legend()
+                plt.show()
             if False:
                 if len(ecdFiles) > 0:
                     applySensFuncs(ecdFiles,
                                 ecdfFiles,
+                                stdsDLam,
                                 sensFuncs)
-        if True:
+        if False:
             if len(secdFiles) > 0:
                 applySensFuncs(secdFiles,
                             secdfFiles,
+                            stdsDLam,
                             sensFuncs)
 
         # clean spectra
-        if True:
+        if False:
             start = False
             if len(ecdfFiles) > 0:
                 for ecdfFile in ecdfFiles:

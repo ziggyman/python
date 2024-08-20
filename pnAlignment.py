@@ -680,10 +680,10 @@ if __name__ == "__main__":
                                             plt.close(fig)
                                         print('after rose_plot: ',plt.get_fignums(),' figures open')
 
-                                        alpha, radius = vectorDiagram(GPA[oneFlags]*2.,os.path.join(imOutPath,'vectorDiagram'+fNameSuffix))
+                                        alpha, radius = vectorDiagram(np.sort(np.array(GPA[oneFlags]*2.)),os.path.join(imOutPath,'vectorDiagram'+fNameSuffix))
                                         print('alpha = ',alpha/2.,', radius = ',radius)
                                         print('after vectorDiagram: ',plt.get_fignums(),' figures open')
-                                        alpha, radius = vectorDiagram(GPA[oneFlags],os.path.join(imOutPath,'vectorDiagramHalf'+fNameSuffix))
+#                                        alpha, radius = vectorDiagram(GPA[oneFlags],os.path.join(imOutPath,'vectorDiagramHalf'+fNameSuffix))
                 #                        alpha, radius = vectorDiagram(np.arange(0,90,1))
                 #                        alpha, radius = vectorDiagram(np.arange(0,180,1))
                 #                        alpha, radius = vectorDiagram(np.arange(0,360,1))

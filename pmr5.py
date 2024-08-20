@@ -9,8 +9,10 @@ import matplotlib
 from astropy.table import Table
 from hammer import Pixel,XY,LonLat,Hammer
 from pnOrientationUtils import calcMoments,calcMean,rose_plot,vectorDiagram,plotHammerProjection,linearOrderDiagram,plotEPA
-from myUtils import plotLBMarks,raDecToLonLat
+from myUtils import plotLBMarks,raDecToLonLat,angularDistancePyAsl
 import subprocess
+from gaia_distance_from_parallax import get_gaia_distance
+import lightkurve as lk
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -76,62 +78,147 @@ def readCDSTable(tableName,ReadMeName):
 all_tables = showGaiaTables()
 gaia_stars = readGaiaMainTable(244.9175, -49.2331, 1./3600., row_limit=1)
 print('gaia = ',gaia_stars)
+print('dir(gaia) = ',dir(gaia_stars))
+print('gaia_stars.colnames = ',gaia_stars.colnames)
 print('v_rad = ',gaia_stars['radial_velocity'])
 print('Teff = ',gaia_stars['teff_val'])
+print('parallax = ',gaia_stars['parallax'])
+dist,fwhm_lo,fwhm_hi,post,quant,accept_rate = get_gaia_distance(gaia_stars,display=True)
+print('dist = ',dist)
+print('fwhm_lo = ',fwhm_lo)
+print('fwhm_hi = ',fwhm_hi)
+print('post = ',post)
+print('quant = ',quant)
+print('accept_rate = ',accept_rate)
+dist = np.array([dist,fwhm_lo,fwhm_hi])
+diam_arcsec = 32.
+diam_deg = diam_arcsec / 3600.
+print('diam_deg = ',diam_deg)
+diam_rad = np.deg2rad(diam_deg)
+print('diam_rad = ',diam_rad)
+diam = 2. * dist * np.sin(diam_rad) * 3.086e+13
+print('diam = ',diam,' km')
+age_in_sec = diam / 169.
+age_in_yrs = age_in_sec / 3600. / 24. / 365.25
+print('age = ',age_in_yrs)
 
 gaia_stars.write('/Users/azuri/daten/uni/HKU/interns_projects/natalie/gaia_PMR5.csv',format='pandas.csv')
 sourceID = gaia_stars['SOURCE_ID']
 
+print('gaia.keys = ',dir(gaia_stars))
+
+import csvFree,csvData
+nov = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/interns_projects/natalie/historicalNovaeTable3.csv')
+novae = pd.read_csv('/Users/azuri/daten/uni/HKU/interns_projects/natalie/historicalNovaeTable3.csv')
+print('novae.to_string()')
+
+RAs = novae[:]['RA']
+RAs = [float(RA) for RA in RAs]
+print('RAs = ',len(RAs),': ',RAs)
+DECs = novae[:]['DE']
+DECs = [float(DEC) for DEC in DECs]
+print('DECs = ',len(DECs),': ',DECs)
+radii = novae[:]['Radius']
+radii = [float(rad) for rad in radii]
+print('radii = ',len(radii),': ',radii)
+
 ham = Hammer()
-xy = ham.lonLatToXY(244.9175,-49.2331)
-#                                    print('xy = ',xy)
-x = xy.x
-y = xy.y
-fig = plt.figure(figsize=(25,10))
-plt.axis('off')
-plt.scatter(x,y,marker='o',s=50)
-#l,b = raDecToLonLat(0.,0.)
-xy = ham.lonLatToXY(0,0)
-plt.scatter(xy.x,xy.y,marker='d',s=20)
-#l,b = raDecToLonLat(180.,0.)
-xy = ham.lonLatToXY(180,0)
-plt.scatter(xy.x,xy.y,marker='o',s=20)
-plotLBMarks(10)
-plt.tick_params(axis='x',          # changes apply to the x-axis
-                which='both',      # both major and minor ticks are affected
-                bottom=False,      # ticks along the bottom edge are off
-                top=False,         # ticks along the top edge are off
-                labelbottom=False) # labels along the bottom edge are off
-plt.tick_params(axis='y',          # changes apply to the y-axis
-                which='both',      # both major and minor ticks are affected
-                left=False,      # ticks along the bottom edge are off
-                right=False,         # ticks along the top edge are off
-                labelleft=False) # labels along the bottom edge are off
-fig.tight_layout()
-fNameOut = '/Users/azuri/daten/uni/HKU/interns_projects/natalie/PMR5_in_Hammer_projection.pdf'
-fNameOutTemp = fNameOut[:-3]+'.tmp.pdf'
-fig.savefig(fNameOutTemp, bbox_inches='tight')
-subprocess.run(["gs","-sDEVICE=pdfwrite","-dCompatibilityLevel=1.4","-dPDFSETTINGS=/ebook","-dNOPAUSE", "-dQUIET", "-dBATCH", "-sOutputFile="+fNameOut, fNameOutTemp])
-subprocess.run(["rm",fNameOutTemp])
-plt.show()
-plt.close(fig)
+Ls = []
+Bs = []
+Xs = []
+Ys = []
+dists = []
+for i in range(len(RAs)):
+    l,b = raDecToLonLat(RAs[i],DECs[i])
+    Ls.append(l)
+    Bs.append(b)
+    xy = ham.lonLatToXY(l,b)
+    Xs.append(xy.x)
+    Ys.append(xy.y)
+    dists.append(angularDistancePyAsl(244.9175,-49.2331, RAs[i], DECs[i]))
+minDistIdx = np.argsort(np.array(dists))[0]
+minDist = dists[minDistIdx]
+year = novae['Year'][minDistIdx]
+print('minDist = ',minDist,', year = ',year)
+
+if False:
+    xy = ham.lonLatToXY(333.9295,0.6863)
+    #                                    print('xy = ',xy)
+    x = xy.x
+    y = xy.y
+    fig = plt.figure(figsize=(25,10))
+    plt.axis('off')
+    plt.scatter(x,y,marker='o',s=10,c='r')
+    #l,b = raDecToLonLat(0.,0.)
+    xy = ham.lonLatToXY(0,0)
+    plt.scatter(xy.x,xy.y,marker='d',s=20)
+    #l,b = raDecToLonLat(180.,0.)
+    xy = ham.lonLatToXY(180,0)
+    plt.scatter(xy.x,xy.y,marker='d',s=20)
+    for i in range(len(Xs)):
+        plt.scatter(Xs[i],Ys[i],marker='o',s=radii[i]*100.,c='b')
+    plotLBMarks(10)
+    plt.tick_params(axis='x',          # changes apply to the x-axis
+                    which='both',      # both major and minor ticks are affected
+                    bottom=False,      # ticks along the bottom edge are off
+                    top=False,         # ticks along the top edge are off
+                    labelbottom=False) # labels along the bottom edge are off
+    plt.tick_params(axis='y',          # changes apply to the y-axis
+                    which='both',      # both major and minor ticks are affected
+                    left=False,      # ticks along the bottom edge are off
+                    right=False,         # ticks along the top edge are off
+                    labelleft=False) # labels along the bottom edge are off
+    fig.tight_layout()
+    fNameOut = '/Users/azuri/daten/uni/HKU/interns_projects/natalie/PMR5_in_Hammer_projection.pdf'
+    fNameOutTemp = fNameOut[:-3]+'.tmp.pdf'
+    fig.savefig(fNameOutTemp, bbox_inches='tight')
+    subprocess.run(["gs","-sDEVICE=pdfwrite","-dCompatibilityLevel=1.4","-dPDFSETTINGS=/ebook","-dNOPAUSE", "-dQUIET", "-dBATCH", "-sOutputFile="+fNameOut, fNameOutTemp])
+    subprocess.run(["rm",fNameOutTemp])
+    plt.show()
+    plt.close(fig)
+
+retrieval_type = 'ALL'          # Options are: 'EPOCH_PHOTOMETRY', 'MCMC_GSPPHOT', 'MCMC_MSC', 'XP_SAMPLED', 'XP_CONTINUOUS', 'RVS', 'ALL'
+data_structure = 'INDIVIDUAL'     # Options are: 'INDIVIDUAL' or 'RAW'
+data_release   = 'Gaia DR3'     # Options are: 'Gaia DR3' (default), 'Gaia DR2'
+print(Gaia.load_data.__code__.co_argcount,': ',Gaia.load_data.__code__.co_varnames)
+datalink = Gaia.load_data(ids=[sourceID],
+                          #data_release=data_release,
+                          retrieval_type=retrieval_type,
+                          #data_structure=data_structure,
+                          verbose=True
+                          )
+
+print('datalink = ',datalink)
+dl_keys  = [inp for inp in datalink.keys()]
+dl_keys.sort()
+print(f'The following Datalink products have been downloaded:')
+for dl_key in dl_keys:
+    print(f' * {dl_key}')
 
 
+search_result = lk.search_lightcurve('16:19:40.19 -49:13:59.00')
+print('search_result = ',search_result)
+STOP
+
+print('dir(all_tables[0]) = ',dir(all_tables[0]))
 for table in all_tables:
-    print('checking table <'+table+'>')
-    query_astro_param = "SELECT * FROM %s WHERE source_id=%d;" % (table,sourceID)#gaiadr3.astrophysical_parameters
-    job=Gaia.launch_job_async(query_astro_param)
-    result = job.get_results()
-    print('result = ',result)
-    if len(result) > 0:
-        result.write('/Users/azuri/daten/uni/HKU/interns_projects/natalie/gaia_%s_PMR5.csv' % (table),format='pandas.csv')
-    if table == 'gaiadr3.astrophysical_parameters':
-        print('teff_gspspec = ',result['teff_gspspec'])
-        print('teff_gspphot = ',result['teff_gspphot'])
-        print('teff_esphs = ',result['teff_esphs'])
-        print('teff_espucd = ',result['teff_espucd'])
-        print('teff_msc1 = ',result['teff_msc1'])
-        print('teff_msc2 = ',result['teff_msc2'])
+    print('checking table <',table.name,'>: ',table.name)
+    try:
+        query_astro_param = "SELECT * FROM %s WHERE source_id=%d;" % (table.name,sourceID)#gaiadr3.astrophysical_parameters//
+        job=Gaia.launch_job_async(query_astro_param)
+        result = job.get_results()
+        print('result = ',len(result),': ',result)
+        if len(result) > 0:
+            result.write('/Users/azuri/daten/uni/HKU/interns_projects/natalie/gaia_%s_PMR5.csv' % (table.name),format='pandas.csv')
+        if table == 'gaiadr3.astrophysical_parameters':
+            print('teff_gspspec = ',result['teff_gspspec'])
+            print('teff_gspphot = ',result['teff_gspphot'])
+            print('teff_esphs = ',result['teff_esphs'])
+            print('teff_espucd = ',result['teff_espucd'])
+            print('teff_msc1 = ',result['teff_msc1'])
+            print('teff_msc2 = ',result['teff_msc2'])
+    except:
+        pass
 STOP
 
 def table_to_dataframe(table):
