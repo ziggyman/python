@@ -134,6 +134,8 @@ def getWavelengthArr(fname, hduNum=0, dim=1):
     hdulist = pyfits.open(fname)
     header = hdulist[hduNum].header
     hdulist.close()
+    if 'CRPIX%d' % (dim) not in header:
+        header['CRPIX%d' % (dim)] = 1
     if 'CDELT%d' % (dim) in header.keys():
         cdelt = header['CDELT%d' % (dim)]
         wLen = ((np.arange(header['NAXIS%d' % (dim)]) + 1.0) - header['CRPIX%d' % (dim)]) * cdelt + header['CRVAL%d' % (dim)]
@@ -1077,15 +1079,18 @@ def calcTrace(dbFile, apNum=0, xRange = None, apOffsetX = 0.):
         y = linearSpline(xRange, order, coeffs) + xCenter
     else:
         print('calcTrace: could not identify function <'+function+'>')
-    #print('y-1 = ',y-1)
+    print('y-1 = ',y-1)
     #STOP
 
     if len(xArr) != imageData.shape[0]:
         print('calcTrace: len(xArr)(=',len(xArr),') != imageData.shape[0](=',imageData.shape[0],': interpolating trace to get full image size')
         xArrFull = np.arange(1,imageData.shape[0]+1,1)
+        print('calcTrace: xArrFull = ',xArrFull)
         f = interp1d(np.array(xArr), np.array(y), bounds_error = False,fill_value='extrapolate')
         y = f(np.array(xArrFull))
+        print('calcTrace: y = ',y)
         xArr = xArrFull
+        #STOP
     return [xArr-1.0,y-1.0]
 
 # mark centers in fits file by setting the int(center) to zero
@@ -1339,6 +1344,7 @@ def calcLineProfile(twoDImageFileIn,
                     plot=False,
                     apOffsetX = 0.,
                     doMarkCenter=False):
+    print('calcLineProfile: trace = ',trace)
     image = np.array(CCDData.read(twoDImageFileIn, unit="adu"))
     print('calcLineProfile: image.shape = ',image.shape)
 
@@ -1385,8 +1391,8 @@ def calcLineProfile(twoDImageFileIn,
         center = trace
     if doMarkCenter:
         markCenter(tempFile, [row, center], tempFile)
-    #print('calcLineProfile: row = ',len(row),': ',row)
-    #print('calcLineProfile: center = ',len(center),': ',center)
+    print('calcLineProfile: row = ',len(row),': ',row)
+    print('calcLineProfile: center = ',center)
 
     colNumber = int(center[int(len(row)/2)])
 
@@ -1585,31 +1591,34 @@ def getYAt(x,y,xAt):
 def xCor(static, moving, display = False):
     xCorChiSquares = []
     dxMoving = moving[0][1]-moving[0][0]
-    print('xCor: dx = ',dxMoving)
-    print('xCor: xMoving = ',moving[0])
-    print('xCor: xStatic = ',static[0])
+    #print('xCor: dx = ',dxMoving)
+    #print('xCor: xMoving = ',moving[0])
+    #print('xCor: xStatic = ',static[0])
     xMovingStart = 0. - moving[0][0]#(moving[0][moving[0].shape[0]-1]-moving[0][0])/2.
-    print('xCor: xMovingStart = ',xMovingStart)
-    print('xCor: xMoving at half = ',moving[0][int(moving[0].shape[0]/2)])
+    #print('xCor: xMovingStart = ',xMovingStart)
+    #print('xCor: xMoving at half = ',moving[0][int(moving[0].shape[0]/2)])
     xMovingEnd = static[0][static[0].shape[0]-1]-moving[0][moving[0].shape[0]-1]
-    print('xCor: xMovingEnd = ',xMovingEnd)
+    #print('xCor: xMovingEnd = ',xMovingEnd)
     xXCor = np.arange(xMovingStart,xMovingEnd,dxMoving)
-    print('xCor: xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
+    #print('xCor: xXCor = [',xXCor[0],',',xXCor[1],',...,',xXCor[xXCor.shape[0]-1],']')
     for iX in np.arange(0,xXCor.shape[0],1):
         xMovingPlot = moving[0]+xXCor[iX]
-        print('xCor: xMovingPlot = ',len(xMovingPlot),': ',xMovingPlot)
-        plt.plot(xMovingPlot,moving[1])
+        #print('xCor: xMovingPlot = ',len(xMovingPlot),': ',xMovingPlot)
+        if display:
+            plt.plot(xMovingPlot,moving[1])
         xStaticPlot,yStaticPlot = getInsideRange(static[0],static[1], [xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1]])
         yStaticPlot = yStaticPlot - np.amin(yStaticPlot)
-        print('xCor: xStaticPlot = ',xStaticPlot)
-        print('xCor: yStaticPlot = ',yStaticPlot)
-        plt.plot(xStaticPlot,yStaticPlot/simps(yStaticPlot,xStaticPlot))
-        plt.xlim(xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1])
+        #print('xCor: xStaticPlot = ',xStaticPlot)
+        #print('xCor: yStaticPlot = ',yStaticPlot)
+        if display:
+            plt.plot(xStaticPlot,yStaticPlot/simps(yStaticPlot,xStaticPlot))
+            plt.xlim(xMovingPlot[0],xMovingPlot[xMovingPlot.shape[0]-1])
         yAt = getYAt(xMovingPlot,moving[1],xStaticPlot)
         yAt = yAt * np.amax(yStaticPlot) / np.amax(yAt)
         #yStaticPlot = yStaticPlot / np.amax(yStaticPlot)
-        plt.plot(xStaticPlot,yAt)
-        plt.show()
+        if display:
+            plt.plot(xStaticPlot,yAt)
+            plt.show()
         xCorChiSquares.append(np.sum(np.square(yStaticPlot - yAt)) / yAt.shape[0])
     print('xCor: xXCor = ',xXCor.shape,': ',xXCor)
     print('xCor: static[0] = ',static[0].shape,': ',static[0])
@@ -2580,10 +2589,19 @@ def getLineProfiles(arcFitsName2D,
     halfWidth = int(getApWidth(tempFile)/2.)
 
     for apNumber in np.arange(0,getNumberOfApertures(tempFile),1):
+        """calcLineProfile(twoDImageFileIn,
+                    apNumber,
+                    halfWidth,
+                    trace=None,
+                    dxFit=0.01,
+                    plot=False,
+                    apOffsetX = 0.,
+                    doMarkCenter=False)"""
         lineProfiles.append(calcLineProfile(arcFitsName2D,
                                             apNumber,
                                             halfWidth,
-                                            dxFit,
+                                            trace=None,
+                                            dxFit = dxFit,
                                             apOffsetX=apOffsetX))
 
         if display:
@@ -2983,8 +3001,10 @@ def extractAndReidentifyARCs(arcListIn,
             tempFile = arcInterp[:arcInterp.rfind('/')+1]+'database/aptmp'+arcInterp[arcInterp.rfind('/')+1:arcInterp.rfind('.')]
             print('extractAndReidentifyARCs: tempFile = <'+tempFile+'>')
             copyfile(refApDefTmp,tempFile)
-            if shiftApDef:
-                shiftApertureDefs(tempFile,tempFile,shift)
+            #if shiftApDef:
+            #    print('shifting apertures by ',shift,' pixels')
+            #    shiftApertureDefs(tempFile,tempFile,shift)
+            #    STOP
             forProfileFile = arcInterp
         else:
             forProfileFile = refApDefTmp[:refApDefTmp.find('database')]+refApDefTmp[refApDefTmp.rfind('/ap')+3:]+'.fits'
@@ -3482,10 +3502,28 @@ def calcResponse(fNameList,
  #               goodFiles.append([fName,fluxStandardFileNames[ind]])
     return sensFuncs,stdsDLam
 
-def applySensFuncs(objectSpectraIn, objectSpectraOut, stdsDLam, sensFuncs, airmassExtCor='apoextinct.dat'):
+#@params:
+# objectSpectrIn: list of input spectra file names
+# objectSpectraOut: list of output spectra file names
+# stdsDLam: either list of deltaLambda in same order as sensFuncs or file name which will be read
+# sensFuncs: list of sensitivity functions (files can be read with sens = astropy.io.ascii.read('<standard star name>_sens.ecsv'))
+# airmassExtCor: file to use for extinction correction depending on air mass
+def applySensFuncs(objectSpectraIn,
+                   objectSpectraOut,
+                   stdsDLam,
+                   sensFuncs,
+                   stdStarNames,
+                   airmassExtCor='apoextinct.dat'):
+    import specreduce
+    print('specreduce using version ',specreduce.__version__)
+#    STOP
     print('applySensFuncs: objectSpectraIn = ',len(objectSpectraIn),': ',objectSpectraIn)
     print('applySensFuncs: objectSpectraOut = ',len(objectSpectraOut),': ',objectSpectraOut)
-    if type(sensFuncs) == type('str'):
+    print('applySensFuncs: stdsDLam = ',stdsDLam)
+    print('applySensFuncs: sensFuncs = ',sensFuncs)
+    print('applySensFuncs: stdStarNames = ',stdStarNames)
+    #STOP
+    if type(stdsDLam) == type('str'):
         with open(stdsDLam,'r') as f:
             stdsDLam = f.readlines()
         stdsDLam = [dl.strip() for dl in stdsDLam]
@@ -3514,7 +3552,14 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, stdsDLam, sensFuncs, airma
         obj_spectrum = airmass_cor(obj_spectrum, AIRVAL, Xfile)
 #        print('applySensFuncs: obj_spectrum = ',obj_spectrum)
 #        print('applySensFuncs: sensFuncs[0] = ',sensFuncs[0])
-        iBestFluxStd = np.where(np.array(stdsDLam) == np.min(np.array(stdsDLam)))[0]
+        iBestFluxStd = np.where(np.array(stdsDLam) == np.min(np.array(stdsDLam)))[0][0]
+        print('iBestFluxStd = ',iBestFluxStd)
+#        print('sensFuncs = ',len(sensFuncs),': ',sensFuncs)
+#        STOP
+        print('sensFuncs[',iBestFluxStd,'] = ',sensFuncs[iBestFluxStd])
+        print('type(sensFuncs[',iBestFluxStd,']) = ',type(sensFuncs[iBestFluxStd]))
+        print('dir(sensFuncs[',iBestFluxStd,']) = ',dir(sensFuncs[iBestFluxStd]))
+        print('sensFuncs[',iBestFluxStd,'][wave] = ',sensFuncs[iBestFluxStd]['wave'])
         objectSpectrumFluxCalibrated = apply_sensfunc(obj_spectrum, sensFuncs[iBestFluxStd])
 #        print('applySensFuncs: objectSpectrumFluxCalibrated.data = ',objectSpectrumFluxCalibrated.data)
 #        print('applySensFuncs: dir(objectSpectrumFluxCalibrated.data) = ',dir(objectSpectrumFluxCalibrated.data))
@@ -3541,6 +3586,7 @@ def applySensFuncs(objectSpectraIn, objectSpectraOut, stdsDLam, sensFuncs, airma
                     CRPIX1=crpix,
                     CDELT1=cdelt.value,
                    )
+        setHeaderValue(objectSpectraOut[iSpec],'STDSTAR',stdStarNames[iBestFluxStd][stdStarNames[iBestFluxStd].rfind('/')+1:],0)
 
 if False:#def fluxCalibrate(obsSpecFName, standardSpecFName):
     spec = getImageData(obsSpecFName,0)
@@ -5267,11 +5313,13 @@ def cleanImage(inputImage, outputImage):
                     xlim = ax2DRect.get_xlim()
                     ylim = ax2DRect.get_ylim()
                     cleanRange.append([int(event.xdata),int(event.ydata)])
+                    print('cleanRange = ',cleanRange)
+                    print('image.shape = ',image.shape)
                     xRange = np.arange(0,image.shape[1],1)
                     yRange = np.arange(0,image.shape[0],1)
-                    idx = np.where((xRange >= cleanRange[0][0]) & (xRange <= cleanRange[1][0]))[0]
+                    idx = np.where((xRange >= np.min([cleanRange[0][0],cleanRange[1][0]])) & (xRange <= np.max([cleanRange[0][0],cleanRange[1][0]])))[0]
 #                    print('clean: idx = ',idx)
-                    idy = np.where((yRange >= cleanRange[0][1]) & (yRange <= cleanRange[1][1]))[0]
+                    idy = np.where((yRange >= np.min([cleanRange[0][1],cleanRange[1][1]])) & (yRange <= np.max([cleanRange[0][1],cleanRange[1][1]])))[0]
 #                    print('clean: idy = ',idy)
                     for x in idx:
                         for y in idy:
@@ -5285,17 +5333,18 @@ def cleanImage(inputImage, outputImage):
                     y = np.arange(0,image.shape[0])
                     image = np.ma.masked_invalid(image)
                     xx, yy = np.meshgrid(x,y)
-#                    print('xx = ',xx.shape,': ',xx)
-#                    print('xx = ',yy.shape,': ',yy)
+                    print('xx = ',xx.shape,': ',xx)
+                    print('yy = ',yy.shape,': ',yy)
                     x1 = xx[~image.mask]
-#                    print('x1 = ',x1)
+                    print('x1 = ',x1)
                     y1 = yy[~image.mask]
-#                    print('y1 = ',y1)
+                    print('y1 = ',y1)
                     newImage = image[~image.mask]
+#                    image = interp2d(y1,x1,newImage)(np.arange(image.shape[0]), np.arange(image.shape[1]))
 #                    print('newImage = ',newImage.shape,': ',newImage)
 #                    ax2DRect.imshow(newImage, origin='lower', norm=colors.SymLogNorm(linthresh=0.5, linscale=1,
 #                                              vmin=vmin, vmax=vmax, base=10))#,vmin=vmin, vmax=vmax)#,cmap='gist_rainbow')
-                    image = interpolate.griddata((x1,y1), newImage.ravel(),(xx,yy),method='linear')
+                    image = interpolate.griddata((y1,x1), newImage.ravel(),(yy,xx),method='linear')
 #                    grid = np.zeros((len(idx)+2,len(idy)+2))
 #                    grid[:,:] = np.nan
 #                    print('len(idx) = ',len(idx),', len(idy) = ',len(idy),': grid.shape = ',grid.shape)

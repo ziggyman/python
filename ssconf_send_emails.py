@@ -7,8 +7,8 @@ from email.mime.multipart import MIMEMultipart
 
 import csvFree,csvData
 
-emailList = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/conferences/SS2Conf/emails - Sheet1_new.csv')
-path_to_pdf = '/Users/azuri/daten/uni/HKU/conferences/SS2Conf/Space-Sustainability-2nd-announcement-final.pdf'
+emailList = csvFree.readCSVFile('/Users/azuri/daten/uni/HKU/conferences/SS2Conf/emails-Sheet1_new2.csv')
+path_to_pdf = '/Users/azuri/daten/uni/HKU/conferences/SS2Conf/Space-Sustainability-3rd-announcement.pdf'
 
 n_sent = 0
 for i in range(emailList.size()):
@@ -21,21 +21,29 @@ for i in range(emailList.size()):
 #    STOP
 #firstName = 'Ziggy'
 
+    if firstName == 'Madam/':
+        firstName = 'potential'
+        lastName = 'delegate'
+
     email_text = f"""
 Dear %s %s,
 
-Please find enclosed our second announcement for our International Conference on “Space Sustainability”. Please note early-bird registrations (that save you $100USD for standard registrations) are set to close at the end of August.
+This is a gentle reminder that Early Bird Registrations (and your chance to save US$100 on the registration fee) will be closing at the end of September.
 
-We encourage early registrations  given the meeting is capped at 120 participants.
-The conference will take place from December 2nd to 4th, 2024 on the main campus of HKU with EPFL as co-host.
 
-Please see our conference website for updated details: https://ssconf.space/
 
-This conference is of significant interest where Hong Kong’s special status as an East-West super connector should lead to interesting opportunities for discussions and interactions across the broad areas of concern around Space Debris.
+The conference will take place from December 2nd to 4th, 2024 on the main campus of HKU with EPFL  and the International Academy of Astronautics as co-hosts.
 
-Thank you very much for your attention, and we hope to see you at the conference!
+Please see our conference website for updated details:
+https://iaaspace.org/event/space-debris-and-sustainability-conference/
+or
+https://ssconf.space/
 
-This message  is sent on behalf of the co-chairs of the Scientific Organising Committee, Prof. Quentin Parker from the Laboratory for Space Research at the University of Hong Kong (HKU) and Prof. Jean-Paul Kneib from the Laboratory of Astrophysics and Ecole Polytechnique Fédérale de Lausanne (EPFL), Switzerland
+This conference is of significant international  interest with UN (via UNOOSA) endorsement and Three Counties Trusted Broker participation. Hong Kong’s special status as an East-West super connector should lead to interesting opportunities for high-level discussions and interactions across the broad areas of concern around Space Debris and Space Situational Awareness.
+
+We hope to see you at the conference!
+
+From co-chairs of the Scientific Organising Committee, Prof. Quentin Parker from the Laboratory for Space Research at the University of Hong Kong (HKU) and Prof. Jean-Paul Kneib from the Laboratory of Astrophysics and Ecole Polytechnique Fédérale de Lausanne (EPFL), Switzerland
 
 
 Laboratory for Space Research

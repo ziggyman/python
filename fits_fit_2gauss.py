@@ -15,15 +15,15 @@ def gauss(x,a,x0,sigma,yBackground=None):
     return a*exp(-(x-x0)**2/(2*sigma**2)) if yBackground is None else a*exp(-(x-x0)**2/(2*sigma**2))+yBackground
 
 #calculate 2 Gaussians
-def gauss2(x,a1,a2,x01,x02,sigma1,sigma2,yBackground=0.):
+def gauss2(x,a1,a2,x01,x02,sigma1,sigma2,yBackground=None):
     return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground)
 
 #calculate 3 Gaussians
-def gauss3(x,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,yBackground=0.):
+def gauss3(x,a1,a2,a3,x01,x02,x03,sigma1,sigma2,sigma3,yBackground=None):
     return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground) + gauss(x,a3,x03,sigma3,yBackground)
 
 #calculate 4 Gaussians
-def gauss4(x,a1,a2,a3,a4,x01,x02,x03,x04,sigma1,sigma2,sigma3,sigma4,yBackground=0.):
+def gauss4(x,a1,a2,a3,a4,x01,x02,x03,x04,sigma1,sigma2,sigma3,sigma4,yBackground=None):
     return gauss(x,a1,x01,sigma1,yBackground) + gauss(x,a2,x02,sigma2,yBackground) + gauss(x,a3,x03,sigma3,yBackground) + gauss(x,a4,x04,sigma4,yBackground)
 
 # read image data from fits file

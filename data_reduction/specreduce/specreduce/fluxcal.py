@@ -39,6 +39,8 @@ class FluxCalibration(SpecreduceOperation):
         self.object_spectrum = object_spectrum
         self.airmass = airmass
         self.zeropoint = zeropoint
+        print('FluxCalibration: zeropoint = ',zeropoint)
+        STOP
 
     def mag2flux(self, spec_in=None):
         """
@@ -65,6 +67,8 @@ class FluxCalibration(SpecreduceOperation):
         lamb = spec_in.spectral_axis
         mag = spec_in.flux
 
+        print('FluxCalibration.mag2flux: self.zeropt = ',self.zeropt)
+        STOP
         flux = (10.0**((mag + self.zeropt) / (-2.5))) * (cc.to('AA/s').value / lamb ** 2.0)
         flux = flux * u.erg / u.s / u.angstrom / (u.cm * u.cm)
 

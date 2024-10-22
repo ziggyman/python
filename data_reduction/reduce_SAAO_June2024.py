@@ -20,17 +20,17 @@ import csvFree, csvData
 
 """SPUPNIC grating #7, 16.3 deg grating angle"""
 observatoryLocation = EarthLocation.of_site('SAAO')
-workPaths = ['/Users/azuri/spectra/SAAO_June2024/110624/',]
+workPaths = ['/Users/azuri/daten/uni/HKU/IC418/SAAO/20240922/',]
 refPath = '/Users/azuri/stella/referenceFiles/spupnic'
 
 overscanSection = '[1983:,:]'
 trimSection = '[16:1981,41:100]'
 
-refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_3_2024_otzf')#refVerticalTrace_spupnic_gr7_16_3')
-refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_gr7_16_3_transposed')
-refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_3')#refProfApDef_spupnic_gr7_16_3_may2020')
-lineList = os.path.join(refPath,'refArc_spupnic_gr7_16_30_otzxfifEcd_lines_identified.dat')#saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
-referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_16_30_otzfsiEc.fits'
+refVerticalTraceDB = os.path.join(refPath,'database/aprefVerticalTrace_spupnic_gr7_16_5_otzxf')#refVerticalTrace_spupnic_gr7_16_3')
+refHorizontalTraceDB = os.path.join(refPath,'database/aprefHorizontalTrace_spupnic_grat7_16_5_otzf_transposed')
+refProfApDef = os.path.join(refPath,'database/aprefProfApDef_spupnic_gr7_16_5_otzxfi')#refProfApDef_spupnic_gr7_16_3_may2020')
+lineList = os.path.join(refPath,'refArc_spupnic_gr7_16_50_otzfiEc_lines_identified.dat')#refArc_spupnic_gr7_16_30_otzxfifEcd_lines_identified.dat')#saao_refspec_gr7_angle16_3_may2020_lines_identified_good.dat')
+referenceSpectrum = '/Users/azuri/stella/referenceFiles/spupnic/refArc_spupnic_gr7_16_50_otzfiEc.fits'#refArc_spupnic_gr7_16_30_otzfsiEc.fits'
 
 arcListsStartWith = 'arc'#DBS
 objectListsStartWith = 'science'#spupnic
@@ -223,10 +223,14 @@ def fixHeadersSAAO():
         #print('fName = ',fName,': frameID = ',type(frameID),' = <'+frameID+'>')
         #idx = np.where(frameIDs == frameID)[0]
         #print('idx = ',idx)
-        if getHeaderValue(fName,'EXPTYPE') == 'ARC':
-            setHeaderValue(fName,'OBJECT','CuAr')
         if getHeaderValue(fName,'EXPTYPE') == 'HARTMANN':
             setHeaderValue(fName,'OBJECT','HARTMANN')
+        if getHeaderValue(fName,'OBJECT') == 'FLAT':
+            setHeaderValue(fName,'OBJECT','DOMEFLAT')
+        if getHeaderValue(fName,'EXPTYPE') == 'ARC':
+            setHeaderValue(fName,'OBJECT','CuAr')
+        if getHeaderValue(fName,'EXPTYPE') == 'BIAS':
+            setHeaderValue(fName,'OBJECT','BIAS')
 #        setHeaderValue(fName,'EXPTYPE',obslog.getData('EXPTYPE',idx))
 #        command = 'cp %s %s' % (fName,fName[:fName.rfind('/')+1]+getHeaderValue(fName,'EXPTYPE')+'_'+getHeaderValue(fName,'OBJECT')+'_'+fName[fName.rfind('/')+1:])
 #        os.system(command)
@@ -289,7 +293,7 @@ if __name__ == '__main__':
             combinedFlat = os.path.join(workPath,'combinedFlat.fits')
             masterFlat = os.path.join(workPath, 'masterDomeFlat.fits')
             smoothedFlat = os.path.join(workPath, 'smoothedDomeFlat.fits')
-        if False:
+        if True:
             #invertY(readFileToArr(inList))#MSSSO only
             #STOP
         #    removeFilesFromListWithAngleNotEqualTo(inList,inList,'15.85')
@@ -297,7 +301,7 @@ if __name__ == '__main__':
         #    STOP
             separateFileList(inList, suffixes, exptypes, objects, True, fluxStandardNames=fluxStandardNames)
         #STOP
-        if False:
+        if True:
             objectFiles = os.path.join(workPath,'science.list')
     #        objectFiles = os.path.join(workPath,'SCIENCE.list')
             # subtract overscan and trim all images
@@ -363,7 +367,7 @@ if __name__ == '__main__':
                             overwrite=True)
             #STOP
             # apply master DomeFlat to ARCs, SkyFlats, and SCIENCE frames
-        if False:
+        if True:
             for inputList in ['arc','science','fluxstds','flatSKYFLAT']:
                 flatCorrect(getListOfFiles(os.path.join(workPath,inputList+'_otz.list')),
                             masterFlat,
@@ -374,7 +378,7 @@ if __name__ == '__main__':
                             masterFlat,
                             norm_value = 1.,
                             fitsFilesOut=getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')))
-        if False:
+        if True:
             # interpolate images to get straight dispersion and spectral features
             for inputList in ['arc', 'science','fluxstds']:
                 interpolateTraceIm(getListOfFiles(os.path.join(workPath,inputList+'_otzxf.list')),
@@ -384,7 +388,7 @@ if __name__ == '__main__':
                                 refVerticalTraceDB,
                                 refHorizontalTraceDB)
 
-        if False:
+        if True:
             # create master SkyFlat
             with open(os.path.join(workPath,'flatSKYFLAT_otzf.list'),'r') as fl:
                 skyFlats = fl.readlines()
@@ -432,7 +436,7 @@ if __name__ == '__main__':
                     subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzfif.list')))
                 subtractMedianSky(getListOfFiles(os.path.join(workPath,inputList+'_otzxfif.list')))
 
-        if False:
+        if True:
             # extract and reidentify ARCs
             # arc_otzxfif.list or arc_otzxf.list???
             arc_otzxf_list = getListOfFiles(os.path.join(workPath,'arc_otzxf.list'))
@@ -440,7 +444,7 @@ if __name__ == '__main__':
                                                                             refProfApDef,
                                                                             lineList,
                                                                             referenceSpectrum,
-                                                                            display=False,
+                                                                            display=True,
                                                                             chiSquareLimit=0.45,
                                                                             degree=4,
                                                                             minLines=8,
@@ -632,12 +636,12 @@ if __name__ == '__main__':
         if True:
 
             areas = csvFree.readCSVFile(os.path.join(workPath,'areas.csv'))
-            sensFuncs = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),
+            sensFuncs, stdsDLam = calcResponse(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list'),
                                     #getListOfFiles(os.path.join(workPath,arcListsStartWith+'_otzxfiEc.list')),
                                     #wavelengthsOrig,
-                                    areas,
+                                    #areas,
                                     stdStarNameEndsBefore='_a',
-                                    display=False)
+                                    display=True)
             print('sensFuncs = ',sensFuncs)
             if False:
                 if len(ecdFiles) > 0:
@@ -646,9 +650,18 @@ if __name__ == '__main__':
                                 sensFuncs)
         if True:
             if len(secdFiles) > 0:
+                with open(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfifEcd.list')) as f:
+                    fluxStds = f.readlines()
+                fluxStds = [fluxStd.strip().replace('Ecd','-skyEcd') for fluxStd in fluxStds]
+                print('fluxStds = ',fluxStds)
+                #dLams = [float(getHeaderValue(f,'CDELT1')) for f in fluxStds]
+                #print('dLams = ',dLams)
                 applySensFuncs(secdFiles,
-                            secdfFiles,
-                            sensFuncs)
+                               secdfFiles,
+                               stdsDLam,
+                               sensFuncs,
+                               fluxStds,
+                              )
 
         # clean spectra
         if True:

@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.optimize import brentq
 import time
+from astroquery.gaia import Gaia
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
 from scipy.stats.mstats import mquantiles
 from scipy.stats import norm
@@ -136,3 +139,30 @@ def get_gaia_distance(k, display=False):
     end = time.time()
     print('This took: ',(end - start),' s')
     return gdist,fwhm_lo,fwhm_hi,post,quant,accept_rate
+
+
+def readGaiaMainTable(ra_deg, dec_deg, rad_deg, row_limit=10000000):
+    Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"  # Reselect Data Release 3, default
+    Gaia.ROW_LIMIT = row_limit  # Ensure the default row limit.
+    coord = SkyCoord(ra=ra_deg, dec=dec_deg, unit=(u.degree, u.degree), frame='icrs')
+    j = Gaia.cone_search_async(coord, radius=u.Quantity(rad_deg, u.deg))
+    r = j.get_results()
+    return r
+
+raDeg = 229.17079404657397# degrees
+decDeg = -58.37389309565462# degrees
+gaia_stars = readGaiaMainTable(raDeg, decDeg, 1./3600., row_limit=1)
+print('gaia = ',gaia_stars)
+print('dir(gaia) = ',dir(gaia_stars))
+print('gaia_stars.colnames = ',gaia_stars.colnames)
+print('v_rad = ',gaia_stars['radial_velocity'])
+print('Teff = ',gaia_stars['teff_val'])
+print('parallax = ',gaia_stars['parallax'])
+dist,fwhm_lo,fwhm_hi,post,quant,accept_rate = get_gaia_distance(gaia_stars,display=True)
+print('dist = ',dist)
+print('fwhm_lo = ',fwhm_lo)
+print('fwhm_hi = ',fwhm_hi)
+print('post = ',post)
+print('quant = ',quant)
+print('accept_rate = ',accept_rate)
+dist = np.array([dist,fwhm_lo,fwhm_hi])

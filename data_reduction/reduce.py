@@ -42,7 +42,7 @@ import csvFree, csvData
 
 """MSSO May 2008"""
 observatoryLocation = EarthLocation.of_site('Mt. Stromlo Observatory')
-workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/R_data/2008-05-06/',]
+workPaths = ['/Users/azuri/spectra/MSO/MSSSO_2m3_DBS_may08/RAW/B_data/2008-05-16/',]
 refPath = '/Users/azuri/stella/referenceFiles/dbs'
 
 #MSSSOMay2008
@@ -552,7 +552,7 @@ if __name__ == '__main__':
                                                     dispAxis = 'row',
                                                     display = False,
                                                     areasFileOut = areasFileName if not areasFileExists else None)
-        if False:
+        if True:
             inputList = objectListsStartWith
             doHelioCor = True# if inputList == objectListsStartWith else False
             print('doHelioCor = ',doHelioCor)
@@ -694,7 +694,8 @@ if __name__ == '__main__':
                     applySensFuncs(ecdFiles,
                                 ecdfFiles,
                                 stdsDLam,
-                                sensFuncs)
+                                sensFuncs,
+                                readFileToArr(os.path.join(workPath,fluxstdsListsStartWith+'_otzxfif.list')))
         if False:
             if len(secdFiles) > 0:
                 applySensFuncs(secdFiles,

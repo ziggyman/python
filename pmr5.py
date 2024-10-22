@@ -12,7 +12,7 @@ from pnOrientationUtils import calcMoments,calcMean,rose_plot,vectorDiagram,plot
 from myUtils import plotLBMarks,raDecToLonLat,angularDistancePyAsl
 import subprocess
 from gaia_distance_from_parallax import get_gaia_distance
-import lightkurve as lk
+#import lightkurve as lk
 
 # string = xx:yy:zz.zzz
 def hmsToDeg(string):
@@ -101,6 +101,7 @@ print('diam = ',diam,' km')
 age_in_sec = diam / 169.
 age_in_yrs = age_in_sec / 3600. / 24. / 365.25
 print('age = ',age_in_yrs)
+STOP
 
 gaia_stars.write('/Users/azuri/daten/uni/HKU/interns_projects/natalie/gaia_PMR5.csv',format='pandas.csv')
 sourceID = gaia_stars['SOURCE_ID']
