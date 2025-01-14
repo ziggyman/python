@@ -420,11 +420,12 @@ def findClosestInTime(time, times):
             idx += 1
     return [timeOut, timeIdx, diffMin]
 
-def getRaDecXY(string):
-    strs = re.sub( '\s+', ' ', string ).strip()
+def getRaDecXY(str):
+    #strs = re.sub( '\s+', ' ', string ).strip()
 #    print('getRaDecXY: strs = ',strs)
+    strs = re.sub('\s{2,}', ' ', str.decode("utf-8"))
     strs = strs.rstrip().split(' ')
-#    print('getRaDecXY: strs = ',strs)
+    #print('getRaDecXY: strs = ',strs)
     return [strs[0], strs[1], float(strs[len(strs)-2]), float(strs[len(strs)-1])]
 
 #@brief convert RA and DEC to Galactic Longitude and Latitude
@@ -571,14 +572,15 @@ def getXYFromRaDec(fitsName, raHMS, decDMS):
 
 def getRaDecFromXY(fitsName, x, y):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x), str(y)])
+    #print('result1 = ',result1)
     raHMS, decHMS, x1, y1 = getRaDecXY(result1)
     return [raHMS, decHMS]
 
 def getArcsecDistance(fitsName, x1, y1, x2, y2):
     result1 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x1), str(y1)])
     result2 = subprocess.check_output(['xy2sky', '-j', fitsName, str(x2), str(y2)])
-    print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
-    print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
+    #print('xy2sky(',str(x1),', ',str(y1),') = ',result1)
+    #print('xy2sky(',str(x2),', ',str(y2),') = ',result2)
     raHMS1, decHMS1, x1, y1 = getRaDecXY(result1)
     raHMS2, decHMS2, x2, y2 = getRaDecXY(result2)
     #print('raHMS1 = ',raHMS1,', decHMS1 = ',decHMS1)

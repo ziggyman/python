@@ -78,17 +78,18 @@ def getHeaderValue(fname, keyword, hduNum=0):
 cs_wave = getWavelengthArr(cs_spectrum_name,hduNum=0,dim='1')
 cs_spec = getImageData(cs_spectrum_name,0)
 cs_spec = cs_spec / np.mean(cs_spec)
-plt.plot(cs_wave,cs_spec)
+plt.plot(cs_wave,cs_spec,label='Abell30 CS')
 
 pa30_wave = getWavelengthArr(pa30_cs_spectrum_name,0,dim='1')
 pa30_spec = getImageData(pa30_cs_spectrum_name,0)
 #idx = np.where((pa30_wave > 3763.) & (pa30_wave < 5235.))[0]
 pa30_spec = pa30_spec / np.mean(pa30_spec)# * np.mean(cs_spec)
-plt.plot(pa30_wave,pa30_spec)
-plt.plot(wave_1964,spec_1964)
-plt.plot(wave_1977,spec_1977)
+plt.plot(pa30_wave,pa30_spec,label='Pa30 CS')
+plt.plot(wave_1964,spec_1964,label='Abell30 1964')
+plt.plot(wave_1977,spec_1977,label='Abell30 1977')
+plt.legend()
 plt.show()
-STOP
+#STOP
 
 hdulist = pyfits.open(fitsName)
 print('len(hdulist) = ',len(hdulist))
@@ -135,7 +136,7 @@ for i in range(data.shape[1]):
 #        print(wLenForContinuum = ',wLenForContinuum)
 #        STOP
 
-plt.show()
+#plt.show()
 
 print('oIII4959 = ',oIII4959)
 print('oIII5007 = ',oIII5007)

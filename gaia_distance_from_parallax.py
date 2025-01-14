@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.optimize import brentq
 import time
-from astroquery.gaia import Gaia
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
@@ -36,9 +35,12 @@ def sampler(lnprob,mu_init=0,o=0,s=0,proposal_width=0.5,nsamples=50,prob=[0.05, 
         acceptance rate (float)
     '''
     # Begin with initial guess
-    mu_current = mu_init
+    mu_current = mu_init[0]
+    print('mu_current = ',type(mu_current),': ',mu_current)
     # Initialize the posterior chain
-    posterior = [mu_current]
+    posterior = []
+    posterior.append(mu_current)
+    print('posterior = ',posterior)
     # Initialize the acceptance rate tracker
     yes_accept = 0
     for i in range(nsamples):
@@ -61,24 +63,27 @@ def sampler(lnprob,mu_init=0,o=0,s=0,proposal_width=0.5,nsamples=50,prob=[0.05, 
             yes_accept = yes_accept+1 #for tracking acceptance rate
         # Add the current value to the posterior chain and repeat.
         posterior.append(mu_current)
-    return posterior,mquantiles(posterior, prob=prob),np.float(yes_accept)/np.float(nsamples)
+    print('sampler: posterior = ',posterior)
+    print('sampler: mquantiles = ',mquantiles(posterior, prob=prob))
+    print('sampler: float(yes_accept)/float(nsamples) = ',float(yes_accept)/float(nsamples))
+    return posterior,mquantiles(posterior, prob=prob),float(yes_accept)/float(nsamples)
 
 """ input parameter k: gaia table """
 """ return distances in pc """
-def get_gaia_distance(k, display=False):
+def get_gaia_distance(k, pkey='parallax', e_pkey='parallax_error', display=False):
     # Set scale length for prior:
     L=1350 #parsecs
 
     start = time.time()
     # convert to arcsec and add in zero-point shift
-    print('dir(k[parallax]) = ',dir(k['parallax']))
-    omega,sigma = (float(k['parallax'])+0.029)/1000,float(k['parallax_error'])/1000
+    print('dir(k[',pkey,']) = ',dir(k[pkey]))
+    omega,sigma = (float(k[pkey])+0.029)/1000,float(k[e_pkey])/1000
     print('omega = ',omega,', sigma = ',sigma)
     gdist = np.array([])
 
     print('Computing distances')
     count=0
-    f = float(k['parallax_error'])/float(k['parallax'])
+    f = float(k[e_pkey])/float(k[pkey])
 
     # Initialize the 95% CI arrays:
     dist_95ci_lo,dist_95ci_hi = np.array([]),np.array([])
@@ -117,6 +122,10 @@ def get_gaia_distance(k, display=False):
         proposal_width=100
     else:
         proposal_width=200
+    print('gdist = ',gdist)
+    print('omega = ',omega)
+    print('sigma = ',sigma)
+    print('proposal_width = ',proposal_width)
     post,quant,accept_rate = sampler(prob,mu_init=gdist,o=omega,s=sigma,nsamples=5000,proposal_width=proposal_width)
     dist_95ci_lo,dist_95ci_hi = np.append(dist_95ci_lo,quant[0]),np.append(dist_95ci_hi,quant[2])
 
@@ -142,6 +151,7 @@ def get_gaia_distance(k, display=False):
 
 
 def readGaiaMainTable(ra_deg, dec_deg, rad_deg, row_limit=10000000):
+    from astroquery.gaia import Gaia
     Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source"  # Reselect Data Release 3, default
     Gaia.ROW_LIMIT = row_limit  # Ensure the default row limit.
     coord = SkyCoord(ra=ra_deg, dec=dec_deg, unit=(u.degree, u.degree), frame='icrs')
@@ -149,20 +159,21 @@ def readGaiaMainTable(ra_deg, dec_deg, rad_deg, row_limit=10000000):
     r = j.get_results()
     return r
 
-raDeg = 229.17079404657397# degrees
-decDeg = -58.37389309565462# degrees
-gaia_stars = readGaiaMainTable(raDeg, decDeg, 1./3600., row_limit=1)
-print('gaia = ',gaia_stars)
-print('dir(gaia) = ',dir(gaia_stars))
-print('gaia_stars.colnames = ',gaia_stars.colnames)
-print('v_rad = ',gaia_stars['radial_velocity'])
-print('Teff = ',gaia_stars['teff_val'])
-print('parallax = ',gaia_stars['parallax'])
-dist,fwhm_lo,fwhm_hi,post,quant,accept_rate = get_gaia_distance(gaia_stars,display=True)
-print('dist = ',dist)
-print('fwhm_lo = ',fwhm_lo)
-print('fwhm_hi = ',fwhm_hi)
-print('post = ',post)
-print('quant = ',quant)
-print('accept_rate = ',accept_rate)
-dist = np.array([dist,fwhm_lo,fwhm_hi])
+if __name__ == '__main__':
+    raDeg = 229.17079404657397# degrees
+    decDeg = -58.37389309565462# degrees
+    gaia_stars = readGaiaMainTable(raDeg, decDeg, 1./3600., row_limit=1)
+    print('gaia = ',gaia_stars)
+    print('dir(gaia) = ',dir(gaia_stars))
+    print('gaia_stars.colnames = ',gaia_stars.colnames)
+    print('v_rad = ',gaia_stars['radial_velocity'])
+    print('Teff = ',gaia_stars['teff_val'])
+    print('parallax = ',gaia_stars['parallax'])
+    dist,fwhm_lo,fwhm_hi,post,quant,accept_rate = get_gaia_distance(gaia_stars,display=True)
+    print('dist = ',dist)
+    print('fwhm_lo = ',fwhm_lo)
+    print('fwhm_hi = ',fwhm_hi)
+    print('post = ',post)
+    print('quant = ',quant)
+    print('accept_rate = ',accept_rate)
+    dist = np.array([dist,fwhm_lo,fwhm_hi])

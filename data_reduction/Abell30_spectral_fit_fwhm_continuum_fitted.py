@@ -21,7 +21,7 @@ print('spectrum_data = ',spectrum_data)
 wLen = np.array([x[0] for x in spectrum_data])
 flux = np.array([x[1] for x in spectrum_data])
 
-STOP
+#STOP
 # Find the peaks in the spectrum
 peaks, _ = find_peaks(flux, prominence=0.1)  # Adjust prominence as needed
 print('peaks = ',len(peaks),': ',peaks)
