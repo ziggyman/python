@@ -4,7 +4,6 @@ from astropy.coordinates import SkyCoord
 import astropy.io.fits as apyfits
 import astropy.units as u
 from datetime import date, datetime
-#import hammer
 import itertools
 import math
 import matplotlib.pyplot as plt
@@ -16,8 +15,6 @@ import re
 import subprocess
 import time
 from time import sleep
-from hammer import Pixel,XY,LonLat,Hammer
-import csvFree,csvData
 
 c0 = 299792.458 #km/s
 
@@ -1135,6 +1132,7 @@ def getPNGName(lon,lat):
 
 # @brief plot l and b every x degrees
 def plotLBMarks(x):
+    from hammer import Pixel,XY,LonLat,Hammer
     ham = Hammer()
     pixels = ham.getPixels()
     lArr = np.arange(0,360.1,0.1)
@@ -1235,6 +1233,7 @@ def toYearFraction(date):
     return date.year + fraction
 
 def readmeToCSV(readmeFileNameIn, dataFileNameIn, csvFileNameOut):
+    import csvFree,csvData
     vars=[]
     iLine = 0
     with open(readmeFileNameIn,'r') as f:

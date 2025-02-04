@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 from drUtils import getImageData,getWavelengthArr,getHeader,getHeaderValue,load_wcs_from_file
 from myUtils import getArcsecDistance,getXYFromRaDec,getRaDecFromXY,angularDistancePyAsl,hmsToDeg,dmsToDeg,applyVRadCorrection
 
-saveFigs = True
+saveFigs = False
 vrad = -120.
 
 specFileBlue = '/Users/azuri/daten/uni/HKU/Kamila/OIII_ratios/Red and blue cube/Blue_final_cube_angstroms.fits'
